@@ -1,17 +1,15 @@
-import { useState, useMemo, useEffect, useCallback, useRef } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import { crmService } from "./services/crmService";
 import { supabase } from "./lib/supabase";
 
-// ─── MOBILE HOOK ──────────────────────────────────────────────────────────────
-function useIsMobile() {
-  const [m, setM] = useState(typeof window !== "undefined" ? window.innerWidth < 768 : false);
-  useEffect(() => {
-    const h = () => setM(window.innerWidth < 768);
-    window.addEventListener("resize", h);
-    return () => window.removeEventListener("resize", h);
-  }, []);
-  return m;
-}
+/*
+  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  EKANTA CRM — v5
+  New in v5:
+  ⑦ Follow-up Activity Log — all roles can log outcomes
+     per follow-up date + optionally set next follow-up
+  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+*/
 
 // ─── FONT ─────────────────────────────────────────────────────────────────────
 function FontLoader() {
@@ -52,41 +50,29 @@ function FontLoader() {
 
 // ─── DESIGN TOKENS ────────────────────────────────────────────────────────────
 const T = {
-  bg:        "#F7F8FA",
-  surface:   "#FFFFFF",
-  surfaceHover: "#FAFAFA",
-  sidebar:   "#FFFFFF",
-  brand:     "#5B3BE8",
-  brandHover:"#4A2CC5",
-  brandSubtle:"#F0EEFF",
-  ink:       "#0F0F10",
-  inkSub:    "#6E6E80",
-  inkMuted:  "#A1A1AA",
-  inkInvert: "#FFFFFF",
-  line:      "rgba(0,0,0,0.07)",
-  lineMid:   "rgba(0,0,0,0.11)",
-  lineStrong:"rgba(0,0,0,0.16)",
-  shadowSm: "0 1px 2px rgba(0,0,0,0.05)",
-  shadowMd: "0 1px 3px rgba(0,0,0,0.07), 0 1px 2px rgba(0,0,0,0.04)",
-  shadowLg: "0 4px 16px rgba(0,0,0,0.07), 0 1px 4px rgba(0,0,0,0.04)",
-  shadowXl: "0 16px 48px rgba(0,0,0,0.12), 0 4px 12px rgba(0,0,0,0.06)",
-  won:     { dot:"#16A34A", bg:"#F0FDF4", text:"#15803D" },
-  pending: { dot:"#D97706", bg:"#FFFBEB", text:"#B45309" },
-  lost:    { dot:"#DC2626", bg:"#FEF2F2", text:"#B91C1C" },
-  drop:    { dot:"#9CA3AF", bg:"#F9FAFB", text:"#6B7280" },
-  new:     { dot:"#3B82F6", bg:"#EFF6FF", text:"#1D4ED8" },
-  high:    { dot:"#7C3AED", bg:"#F5F3FF", text:"#5B21B6" },
-  premium: { dot:"#DB2777", bg:"#FDF2F8", text:"#9D174D" },
-  bulk:    { dot:"#059669", bg:"#ECFDF5", text:"#047857" },
-  r: { sm:"6px", md:"8px", lg:"10px", xl:"12px", "2xl":"16px" },
-  gap: 8,
+  bg:"#F7F8FA", surface:"#FFFFFF", surfaceHover:"#FAFAFA", sidebar:"#FFFFFF",
+  brand:"#5B3BE8", brandHover:"#4A2CC5", brandSubtle:"#F0EEFF",
+  ink:"#0F0F10", inkSub:"#6E6E80", inkMuted:"#A1A1AA", inkInvert:"#FFFFFF",
+  line:"rgba(0,0,0,0.07)", lineMid:"rgba(0,0,0,0.11)", lineStrong:"rgba(0,0,0,0.16)",
+  shadowSm:"0 1px 2px rgba(0,0,0,0.05)",
+  shadowMd:"0 1px 3px rgba(0,0,0,0.07), 0 1px 2px rgba(0,0,0,0.04)",
+  shadowLg:"0 4px 16px rgba(0,0,0,0.07), 0 1px 4px rgba(0,0,0,0.04)",
+  shadowXl:"0 16px 48px rgba(0,0,0,0.12), 0 4px 12px rgba(0,0,0,0.06)",
+  won:    { dot:"#16A34A", bg:"#F0FDF4", text:"#15803D" },
+  pending:{ dot:"#D97706", bg:"#FFFBEB", text:"#B45309" },
+  lost:   { dot:"#DC2626", bg:"#FEF2F2", text:"#B91C1C" },
+  drop:   { dot:"#9CA3AF", bg:"#F9FAFB", text:"#6B7280" },
+  new:    { dot:"#3B82F6", bg:"#EFF6FF", text:"#1D4ED8" },
+  high:   { dot:"#7C3AED", bg:"#F5F3FF", text:"#5B21B6" },
+  premium:{ dot:"#DB2777", bg:"#FDF2F8", text:"#9D174D" },
+  bulk:   { dot:"#059669", bg:"#ECFDF5", text:"#047857" },
+  r:{ sm:"6px", md:"8px", lg:"10px", xl:"12px", "2xl":"16px" },
 };
-
 const F = "'Geist', system-ui, -apple-system, sans-serif";
 
 // ─── RBAC ─────────────────────────────────────────────────────────────────────
-const FULL  = ["CEO","Manager"];
-const can   = (u, a) => FULL.includes(u?.role) || a === "create" || a === "export";
+const FULL = ["CEO","Manager"];
+const can  = (u,a) => FULL.includes(u?.role) || a==="create" || a==="export";
 
 // ─── CONSTANTS ────────────────────────────────────────────────────────────────
 const CATS         = ["Dresses","Sarees","Half Sarees","Kurtis","Lehengas","Mom & Me","999 Deals","kids","Padava Sattai","Mens","Blouses","Others"];
@@ -103,38 +89,29 @@ const stamp = () => {
   return n.toLocaleDateString("en-IN",{month:"short",day:"numeric",year:"numeric"})
     +" "+n.toLocaleTimeString("en-IN",{hour:"2-digit",minute:"2-digit"});
 };
-const inr  = n => n ? "₹"+Number(n).toLocaleString("en-IN") : null;
-const big  = n => {
-  if (!n) return "₹0";
-  if (n>=1e7) return `₹${(n/1e7).toFixed(2)}Cr`;
-  if (n>=1e5) return `₹${(n/1e5).toFixed(1)}L`;
+const inr = n => n ? "₹"+Number(n).toLocaleString("en-IN") : null;
+const big = n => {
+  if(!n) return "₹0";
+  if(n>=1e7) return `₹${(n/1e7).toFixed(2)}Cr`;
+  if(n>=1e5) return `₹${(n/1e5).toFixed(1)}L`;
   return "₹"+Number(n).toLocaleString("en-IN");
 };
 
-// ─── SEED DATA ────────────────────────────────────────────────────────────────
+// ─── SEED ─────────────────────────────────────────────────────────────────────
 const SEED_USERS = [
   {id:1,name:"Admin",      role:"CEO",     username:"admin",     password:"admin123"},
-  {id:2,name:"Vinodhini",  role:"CRE",     username:"vinodhini", password:"pass123" },
-  {id:3,name:"Arjun Kumar",role:"Manager", username:"arjun",     password:"pass123" },
+  {id:2,name:"Vinodhini",  role:"CRE",     username:"vinodhini", password:"pass123"},
+  {id:3,name:"Arjun Kumar",role:"Manager", username:"arjun",     password:"pass123"},
 ];
 
-const SEED_FUNNELS = [];
-
 // ─── EXCEL EXPORT ─────────────────────────────────────────────────────────────
-function xls(data, name) {
-  const e = v => String(v??"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
-  const H = ["#","Name","Lead Source","Phone","Email","Enquiry","Type","Follow-up","Status","City/Region","Delivery Details","Payment Terms","Products","Order Number","Qty","Quote Amt","Remarks","Created","By"];
-  const hRow = `<Row ss:StyleID="h">${H.map(h=>`<Cell><Data ss:Type="String">${e(h)}</Data></Cell>`).join("")}</Row>`;
-  const rows = data.map((f,i)=>{
-    const prod=(f.products||[]).map(p=>`${p.desc}(${p.category},×${p.qty},₹${p.price})`).join("|");
-    return `<Row>${[
-      [i+1,"Number"],[f.name||""],[f.leadSource||""],[f.phone||""],[f.email||""],
-      [f.enquiryType||""],[f.funnelType||""],[f.nextFollowUp||""],[f.status],
-      [f.cityRegion||""],[f.deliveryDetails||""],[f.paymentTerms||""],[prod],
-      [f.orderNumber||""],[f.quoteQty||"",f.quoteQty?"Number":"String"],
-      [f.quoteAmount||"",f.quoteAmount?"Number":"String"],
-      [f.remarks||""],[f.createdAt],[f.createdBy]
-    ].map(([v,t="String"])=>`<Cell><Data ss:Type="${t}">${e(v)}</Data></Cell>`).join("")}</Row>`;
+function xls(data,name){
+  const e=v=>String(v??"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+  const H=["#","Name","Lead Source","Phone","Email","Enquiry","Type","Follow-up","Status","City/Region","Delivery Details","Payment Terms","Products","Order Number","Qty","Quote Amt","Remarks","Created","By"];
+  const hRow=`<Row ss:StyleID="h">${H.map(h=>`<Cell><Data ss:Type="String">${e(h)}</Data></Cell>`).join("")}</Row>`;
+  const rows=data.map((f,i)=>{
+    const prod=(f.products||[]).map(p=>`${p.desc}(${p.category},x${p.qty},Rs${p.price})`).join("|");
+    return `<Row>${[[i+1,"Number"],[f.name||""],[f.leadSource||""],[f.phone||""],[f.email||""],[f.enquiryType||""],[f.funnelType||""],[f.nextFollowUp||""],[f.status],[f.cityRegion||""],[f.deliveryDetails||""],[f.paymentTerms||""],[prod],[f.orderNumber||""],[f.quoteQty||"",f.quoteQty?"Number":"String"],[f.quoteAmount||"",f.quoteAmount?"Number":"String"],[f.remarks||""],[f.createdAt],[f.createdBy]].map(([v,t="String"])=>`<Cell><Data ss:Type="${t}">${e(v)}</Data></Cell>`).join("")}</Row>`;
   }).join("");
   const xml=`<?xml version="1.0" encoding="UTF-8"?><?mso-application progid="Excel.Sheet"?><Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet" xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet"><Styles><Style ss:ID="h"><Font ss:Bold="1" ss:Color="#FFFFFF" ss:Size="11"/><Interior ss:Color="#5B3BE8" ss:Pattern="Solid"/></Style></Styles><Worksheet ss:Name="Funnels"><Table>${hRow}${rows}</Table></Worksheet></Workbook>`;
   const a=document.createElement("a");
@@ -143,19 +120,18 @@ function xls(data, name) {
 }
 
 // ─── TOAST ────────────────────────────────────────────────────────────────────
-function useToast() {
-  const [list,set] = useState([]);
-  const push = useCallback((msg,type="success")=>{
+function useToast(){
+  const [list,set]=useState([]);
+  const push=useCallback((msg,type="success")=>{
     const id=Date.now()+Math.random();
     set(p=>[...p,{id,msg,type}]);
     setTimeout(()=>set(p=>p.filter(x=>x.id!==id)),3000);
   },[]);
   return {list,push};
 }
-
-function Toaster({list}) {
+function Toaster({list}){
   const s={success:"#16A34A",error:"#DC2626",info:T.brand};
-  return (
+  return(
     <div style={{position:"fixed",bottom:20,right:20,zIndex:9999,display:"flex",flexDirection:"column",gap:8,pointerEvents:"none"}}>
       {list.map(t=>(
         <div key={t.id} style={{background:T.surface,border:`1px solid ${T.line}`,borderLeft:`3px solid ${s[t.type]||s.info}`,borderRadius:T.r.md,padding:"10px 16px",fontSize:13,color:T.ink,fontFamily:F,boxShadow:T.shadowLg,animation:"slideRight .2s ease",minWidth:220}}>
@@ -167,90 +143,63 @@ function Toaster({list}) {
 }
 
 // ─── PRIMITIVES ───────────────────────────────────────────────────────────────
-const Dot = ({color,size=6}) => <span style={{width:size,height:size,borderRadius:"50%",background:color,display:"inline-block",flexShrink:0}}/>;
+const Dot=({color,size=6})=><span style={{width:size,height:size,borderRadius:"50%",background:color,display:"inline-block",flexShrink:0}}/>;
 
-function StatusPill({status,sm}) {
-  const map={
-    Won:T.won, Pending:T.pending, Lost:T.lost, Drop:T.drop,
-    "New Lead":T.new, "Qualified":T.pending, "Proposal Sent":T.high,
-    "High Value":T.high, "Premium":T.premium, "Bulk":T.bulk, "Normal":T.drop, "Strategic":T.new,
-  };
+function StatusPill({status,sm}){
+  const map={Won:T.won,Pending:T.pending,Lost:T.lost,Drop:T.drop,"New Lead":T.new,"Qualified":T.pending,"Proposal Sent":T.high,"High Value":T.high,"Premium":T.premium,"Bulk":T.bulk,"Normal":T.drop,"Strategic":T.new};
   const c=map[status]||T.drop;
-  return (
+  return(
     <span style={{display:"inline-flex",alignItems:"center",gap:5,padding:sm?"2px 7px":"3px 8px",borderRadius:20,fontSize:sm?11:12,fontWeight:500,background:c.bg,color:c.text,fontFamily:F,whiteSpace:"nowrap",letterSpacing:"0.01em"}}>
       <Dot color={c.dot} size={5}/>{status}
     </span>
   );
 }
-
-function SourcePill({source}) {
-  if (!source) return null;
-  const icons = {WhatsApp:"💬", Email:"✉", Website:"🌐", Call:"📞", Owner:"👤", Other:"•"};
-  return (
+function SourcePill({source}){
+  if(!source) return null;
+  const icons={WhatsApp:"💬",Email:"✉",Website:"🌐",Call:"📞",Owner:"👤",Other:"•"};
+  return(
     <span style={{display:"inline-flex",alignItems:"center",gap:4,padding:"1px 7px",borderRadius:20,fontSize:10,fontWeight:500,background:"rgba(0,0,0,0.04)",color:T.inkSub,fontFamily:F,whiteSpace:"nowrap",border:`1px solid ${T.line}`}}>
-      <span style={{fontSize:10,lineHeight:1}}>{icons[source]||"•"}</span>
-      {source}
+      <span style={{fontSize:10,lineHeight:1}}>{icons[source]||"•"}</span>{source}
     </span>
   );
 }
-
-function Ic({d,sz=16,color="currentColor",sw=1.5}) {
+function Ic({d,sz=16,color="currentColor",sw=1.5}){
   return <svg width={sz} height={sz} viewBox="0 0 24 24" fill="none" style={{display:"block",flexShrink:0}}><path d={d} stroke={color} strokeWidth={sw} strokeLinecap="round" strokeLinejoin="round"/></svg>;
 }
-
 const P={
-  dash:   "M3 3h7v7H3V3zm11 0h7v7h-7V3zM3 14h7v7H3v-7zm11 0h7v7h-7v-7z",
-  list:   "M3 6h18M3 10h18M3 14h11M3 18h7",
-  users:  "M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2m8-10a4 4 0 100-8 4 4 0 000 8zm12 10v-2a4 4 0 00-3-3.87m-4-12a4 4 0 010 7.75",
-  chart:  "M3 3v18h18M7 16l4-4 4 4 5-5",
-  plus:   "M12 5v14M5 12h14",
-  dl:     "M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3",
-  search: "M21 21l-4.35-4.35M17 11a6 6 0 11-12 0 6 6 0 0112 0z",
-  close:  "M18 6L6 18M6 6l12 12",
-  edit:   "M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7M18.5 2.5a2.12 2.12 0 013 3L12 15l-4 1 1-4 9.5-9.5z",
-  trash:  "M3 6h18M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6m3 0V4a1 1 0 011-1h4a1 1 0 011 1v2",
-  out:    "M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9",
-  layers: "M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5",
-  filter: "M22 3H2l8 9.46V19l4 2v-8.54L22 3z",
-  check:  "M20 6L9 17l-5-5",
-  menu:   "M3 6h18M3 12h18M3 18h18",
-  msg:    "M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z",
-  cal:    "M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z",
-  arrow:  "M5 12h14M12 5l7 7-7 7",
+  dash:  "M3 3h7v7H3V3zm11 0h7v7h-7V3zM3 14h7v7H3v-7zm11 0h7v7h-7v-7z",
+  list:  "M3 6h18M3 10h18M3 14h11M3 18h7",
+  users: "M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2m8-10a4 4 0 100-8 4 4 0 000 8zm12 10v-2a4 4 0 00-3-3.87m-4-12a4 4 0 010 7.75",
+  chart: "M3 3v18h18M7 16l4-4 4 4 5-5",
+  plus:  "M12 5v14M5 12h14",
+  dl:    "M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3",
+  search:"M21 21l-4.35-4.35M17 11a6 6 0 11-12 0 6 6 0 0112 0z",
+  close: "M18 6L6 18M6 6l12 12",
+  edit:  "M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7M18.5 2.5a2.12 2.12 0 013 3L12 15l-4 1 1-4 9.5-9.5z",
+  trash: "M3 6h18M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6m3 0V4a1 1 0 011-1h4a1 1 0 011 1v2",
+  out:   "M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9",
+  layers:"M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5",
+  filter:"M22 3H2l8 9.46V19l4 2v-8.54L22 3z",
+  check: "M20 6L9 17l-5-5",
+  menu:  "M3 6h18M3 12h18M3 18h18",
+  msg:   "M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z",
+  cal:   "M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z",
+  arrow: "M5 12h14M12 5l7 7-7 7",
 };
 
-function Avatar({name,size=32}) {
+function Avatar({name,size=32}){
   const bg=[["#EDE9FE","#5B21B6"],["#D1FAE5","#065F46"],["#FEF3C7","#92400E"],["#FCE7F3","#9D174D"],["#DBEAFE","#1E40AF"]];
-  const[bg2,tx]=bg[(name?.charCodeAt(0)||65)%bg.length];
+  const [bg2,tx]=bg[(name?.charCodeAt(0)||65)%bg.length];
   return <div style={{width:size,height:size,borderRadius:"50%",background:bg2,color:tx,display:"flex",alignItems:"center",justifyContent:"center",fontSize:size*.33,fontWeight:600,flexShrink:0,fontFamily:F,letterSpacing:"-0.02em"}}>{(name||"?").split(" ").map(w=>w[0]).join("").slice(0,2).toUpperCase()}</div>;
 }
 
 // ─── BUTTON ───────────────────────────────────────────────────────────────────
-function Btn({primary,ghost,danger,sm,icon,label,onClick,disabled,full,iconRight}) {
+function Btn({primary,ghost,danger,sm,icon,label,onClick,disabled,full,iconRight}){
   const [hov,setHov]=useState(false);
-  const base={
-    display:"inline-flex",alignItems:"center",justifyContent:"center",gap:6,
-    padding:sm?"6px 12px":"8px 14px",
-    fontSize:sm?12:13,fontWeight:500,fontFamily:F,
-    borderRadius:T.r.md,border:"none",
-    cursor:disabled?"not-allowed":"pointer",
-    opacity:disabled?.5:1,
-    transition:"background .15s,box-shadow .15s,transform .1s",
-    whiteSpace:"nowrap",letterSpacing:"0.01em",
-    ...(full?{width:"100%"}:{}),
-  };
-  const styles={
-    ...(primary?{background:hov?T.brandHover:T.brand,color:"#fff",boxShadow:hov?"0 2px 8px rgba(91,59,232,.3)":T.shadowSm}:{}),
-    ...(ghost?{background:hov?T.surfaceHover:T.surface,color:T.ink,border:`1px solid ${T.line}`,boxShadow:hov?T.shadowSm:"none"}:{}),
-    ...(danger?{background:hov?"#FEF2F2":T.surface,color:"#B91C1C",border:`1px solid ${hov?"#FECACA":T.line}`}:{}),
-    ...(!primary&&!ghost&&!danger?{background:hov?T.surfaceHover:"transparent",color:T.inkSub,border:`1px solid transparent`}:{}),
-  };
-  return (
-    <button onClick={disabled?undefined:onClick} disabled={disabled}
-      style={{...base,...styles}}
-      onMouseEnter={()=>setHov(true)} onMouseLeave={()=>setHov(false)}
-      onMouseDown={e=>!disabled&&(e.currentTarget.style.transform="scale(0.97)")}
-      onMouseUp={e=>e.currentTarget.style.transform="scale(1)"}>
+  const base={display:"inline-flex",alignItems:"center",justifyContent:"center",gap:6,padding:sm?"6px 12px":"8px 14px",fontSize:sm?12:13,fontWeight:500,fontFamily:F,borderRadius:T.r.md,border:"none",cursor:disabled?"not-allowed":"pointer",opacity:disabled?.5:1,transition:"background .15s,box-shadow .15s,transform .1s",whiteSpace:"nowrap",letterSpacing:"0.01em",...(full?{width:"100%"}:{})};
+  const styles={...(primary?{background:hov?T.brandHover:T.brand,color:"#fff",boxShadow:hov?"0 2px 8px rgba(91,59,232,.3)":T.shadowSm}:{}),...(ghost?{background:hov?T.surfaceHover:T.surface,color:T.ink,border:`1px solid ${T.line}`,boxShadow:hov?T.shadowSm:"none"}:{}),...(danger?{background:hov?"#FEF2F2":T.surface,color:"#B91C1C",border:`1px solid ${hov?"#FECACA":T.line}`}:{}),...(!primary&&!ghost&&!danger?{background:hov?T.surfaceHover:"transparent",color:T.inkSub,border:"1px solid transparent"}:{})};
+  return(
+    <button onClick={disabled?undefined:onClick} disabled={disabled} style={{...base,...styles}} onMouseEnter={()=>setHov(true)} onMouseLeave={()=>setHov(false)} onMouseDown={e=>!disabled&&(e.currentTarget.style.transform="scale(0.97)")} onMouseUp={e=>e.currentTarget.style.transform="scale(1)"}>
       {icon&&!iconRight&&<Ic d={icon} sz={13} color={primary?"#fff":"currentColor"}/>}
       {label}
       {icon&&iconRight&&<Ic d={icon} sz={13} color={primary?"#fff":"currentColor"}/>}
@@ -259,37 +208,25 @@ function Btn({primary,ghost,danger,sm,icon,label,onClick,disabled,full,iconRight
 }
 
 // ─── INPUT PRIMITIVES ─────────────────────────────────────────────────────────
-const inputSx = (err) => ({
-  width:"100%",padding:"8px 11px",
-  border:`1px solid ${err?"#FECACA":T.lineMid}`,
-  borderRadius:T.r.md,fontSize:13,fontFamily:F,color:T.ink,
-  background:T.surface,outline:"none",boxSizing:"border-box",
-  transition:"border-color .15s,box-shadow .15s",
-});
+const inputSx=(err)=>({width:"100%",padding:"8px 11px",border:`1px solid ${err?"#FECACA":T.lineMid}`,borderRadius:T.r.md,fontSize:13,fontFamily:F,color:T.ink,background:T.surface,outline:"none",boxSizing:"border-box",transition:"border-color .15s,box-shadow .15s"});
+const onfocus=e=>{e.target.style.borderColor=T.brand;e.target.style.boxShadow="0 0 0 3px rgba(91,59,232,.1)";};
+const onblur =e=>{e.target.style.borderColor=T.lineMid;e.target.style.boxShadow="none";};
+const selectBg=`url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='%236E6E80' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E") no-repeat right 7px center`;
 
-const onfocus = e => { e.target.style.borderColor=T.brand; e.target.style.boxShadow=`0 0 0 3px rgba(91,59,232,.1)`; };
-const onblur  = e => { e.target.style.borderColor=T.lineMid; e.target.style.boxShadow="none"; };
-
-const selectBg = `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='%236E6E80' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E") no-repeat right 7px center`;
-
-function FInput({label,value,onChange,placeholder,type="text",error,required,full=true,style:sx}) {
-  return (
+function FInput({label,value,onChange,placeholder,type="text",error,required,full=true,style:sx}){
+  return(
     <div style={{display:"flex",flexDirection:"column",gap:5,...(full?{}:{flex:1})}}>
       {label&&<label style={{fontSize:12,fontWeight:500,color:T.inkSub,fontFamily:F}}>{label}{required&&<span style={{color:"#DC2626",marginLeft:2}}>*</span>}</label>}
-      <input type={type} value={value} onChange={onChange} placeholder={placeholder}
-        style={{...inputSx(error),...sx}} onFocus={onfocus} onBlur={onblur}/>
+      <input type={type} value={value} onChange={onChange} placeholder={placeholder} style={{...inputSx(error),...sx}} onFocus={onfocus} onBlur={onblur}/>
       {error&&<span style={{fontSize:11,color:"#B91C1C"}}>{error}</span>}
     </div>
   );
 }
-
-function FSelect({label,value,onChange,options,placeholder,full=true,required,error}) {
-  return (
+function FSelect({label,value,onChange,options,placeholder,full=true,required,error}){
+  return(
     <div style={{display:"flex",flexDirection:"column",gap:5,...(full?{}:{flex:1})}}>
       {label&&<label style={{fontSize:12,fontWeight:500,color:T.inkSub,fontFamily:F}}>{label}{required&&<span style={{color:"#DC2626",marginLeft:2}}>*</span>}</label>}
-      <select value={value} onChange={onChange}
-        style={{...inputSx(error),cursor:"pointer",appearance:"none",background:`${T.surface} ${selectBg}`}}
-        onFocus={onfocus} onBlur={e=>{e.target.style.borderColor=error?"#FECACA":T.lineMid;e.target.style.boxShadow="none";}}>
+      <select value={value} onChange={onChange} style={{...inputSx(error),cursor:"pointer",appearance:"none",background:`${T.surface} ${selectBg}`}} onFocus={onfocus} onBlur={e=>{e.target.style.borderColor=error?"#FECACA":T.lineMid;e.target.style.boxShadow="none";}}>
         <option value="">{placeholder||"Select…"}</option>
         {options.map(o=><option key={o}>{o}</option>)}
       </select>
@@ -297,45 +234,31 @@ function FSelect({label,value,onChange,options,placeholder,full=true,required,er
     </div>
   );
 }
-
-const SL = ({children}) => <div style={{fontSize:11,fontWeight:600,color:T.inkMuted,letterSpacing:"0.07em",textTransform:"uppercase",marginBottom:12,fontFamily:F}}>{children}</div>;
+const SL=({children})=><div style={{fontSize:11,fontWeight:600,color:T.inkMuted,letterSpacing:"0.07em",textTransform:"uppercase",marginBottom:12,fontFamily:F}}>{children}</div>;
 
 // ─── LOGIN ────────────────────────────────────────────────────────────────────
-function Login({users,onLogin}) {
+function Login({users,onLogin}){
   const [u,su]=useState(""); const [p,sp]=useState(""); const [err,se]=useState(""); const [load,sl]=useState(false);
-
   const go=()=>{
-    const trimmedU = u.trim().toLowerCase();
-    const trimmedP = p.trim();
-    if(!trimmedU||!trimmedP){se("Please fill in all fields.");return;}
+    const tu=u.trim().toLowerCase(), tp=p.trim();
+    if(!tu||!tp){se("Please fill in all fields.");return;}
     se(""); sl(true);
     setTimeout(()=>{
-      const found=users.find(x=>x.username.toLowerCase()===trimmedU&&x.password===trimmedP);
-      if(found) onLogin(found);
-      else{se("Incorrect username or password.");sl(false);}
+      const found=users.find(x=>x.username.toLowerCase()===tu&&x.password===tp);
+      if(found) onLogin(found); else{se("Incorrect username or password.");sl(false);}
     },600);
   };
-
-  return (
+  return(
     <div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:T.bg,fontFamily:F,padding:24}}>
       <div style={{width:"100%",maxWidth:380,animation:"fadeUp .3s ease"}}>
         <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:32}}>
-          <div style={{width:34,height:34,background:T.brand,borderRadius:9,display:"flex",alignItems:"center",justifyContent:"center"}}>
-            <Ic d={P.layers} sz={16} color="#fff" sw={2}/>
-          </div>
+          <div style={{width:34,height:34,background:T.brand,borderRadius:9,display:"flex",alignItems:"center",justifyContent:"center"}}><Ic d={P.layers} sz={16} color="#fff" sw={2}/></div>
           <span style={{fontSize:15,fontWeight:600,color:T.ink,letterSpacing:"-0.2px"}}>Ekanta Design Studio</span>
         </div>
-
         <div style={{background:T.surface,border:`1px solid ${T.line}`,borderRadius:T.r["2xl"],padding:"32px 28px",boxShadow:T.shadowLg}}>
           <h1 style={{fontSize:20,fontWeight:700,color:T.ink,margin:"0 0 4px",letterSpacing:"-0.4px"}}>Sign in</h1>
           <p style={{fontSize:13,color:T.inkSub,margin:"0 0 24px"}}>Enter your credentials to continue</p>
-
-          {err&&(
-            <div style={{background:"#FEF2F2",border:"1px solid #FECACA",borderRadius:T.r.md,padding:"10px 12px",fontSize:12,color:"#B91C1C",marginBottom:16,fontWeight:500}}>
-              {err}
-            </div>
-          )}
-
+          {err&&<div style={{background:"#FEF2F2",border:"1px solid #FECACA",borderRadius:T.r.md,padding:"10px 12px",fontSize:12,color:"#B91C1C",marginBottom:16,fontWeight:500}}>{err}</div>}
           <div style={{display:"flex",flexDirection:"column",gap:14}}>
             <FInput label="Username" value={u} onChange={e=>su(e.target.value)} placeholder="Enter username"/>
             <div>
@@ -343,29 +266,10 @@ function Login({users,onLogin}) {
                 Password
                 <span style={{color:T.brand,cursor:"pointer",fontSize:12,fontWeight:500}} onClick={()=>se("Contact your administrator to reset your password.")}>Forgot?</span>
               </label>
-              <input
-                type="password"
-                value={p}
-                onChange={e=>sp(e.target.value)}
-                onKeyDown={e=>e.key==="Enter"&&go()}
-                placeholder="Enter password"
-                style={{...inputSx()}}
-                onFocus={onfocus}
-                onBlur={onblur}
-              />
+              <input type="password" value={p} onChange={e=>sp(e.target.value)} onKeyDown={e=>e.key==="Enter"&&go()} placeholder="Enter password" style={{...inputSx()}} onFocus={onfocus} onBlur={onblur}/>
             </div>
-
-            <button onClick={go} disabled={load}
-              style={{width:"100%",padding:"10px",background:load?T.brandHover:T.brand,color:"#fff",border:"none",borderRadius:T.r.md,fontSize:14,fontWeight:600,fontFamily:F,cursor:load?"not-allowed":"pointer",transition:"background .15s",marginTop:4,position:"relative"}}
-              onMouseDown={e=>!load&&(e.currentTarget.style.transform="scale(0.99)")}
-              onMouseUp={e=>e.currentTarget.style.transform="scale(1)"}>
-              {load
-                ? <span style={{display:"flex",alignItems:"center",justifyContent:"center",gap:8}}>
-                    <svg style={{animation:"spin .7s linear infinite"}} width="14" height="14" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="rgba(255,255,255,.3)" strokeWidth="2.5"/><path d="M12 2a10 10 0 0110 10" stroke="#fff" strokeWidth="2.5" strokeLinecap="round"/></svg>
-                    Signing in…
-                  </span>
-                : "Sign in →"
-              }
+            <button onClick={go} disabled={load} style={{width:"100%",padding:"10px",background:load?T.brandHover:T.brand,color:"#fff",border:"none",borderRadius:T.r.md,fontSize:14,fontWeight:600,fontFamily:F,cursor:load?"not-allowed":"pointer",transition:"background .15s",marginTop:4}} onMouseDown={e=>!load&&(e.currentTarget.style.transform="scale(0.99)")} onMouseUp={e=>e.currentTarget.style.transform="scale(1)"}>
+              {load?<span style={{display:"flex",alignItems:"center",justifyContent:"center",gap:8}}><svg style={{animation:"spin .7s linear infinite"}} width="14" height="14" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="rgba(255,255,255,.3)" strokeWidth="2.5"/><path d="M12 2a10 10 0 0110 10" stroke="#fff" strokeWidth="2.5" strokeLinecap="round"/></svg>Signing in…</span>:"Sign in →"}
             </button>
           </div>
         </div>
@@ -375,49 +279,30 @@ function Login({users,onLogin}) {
 }
 
 // ─── SIDEBAR ──────────────────────────────────────────────────────────────────
-function Sidebar({active,set,user,onLogout,open,onClose}) {
-  const nav=[
-    {id:"dashboard",label:"Dashboard",icon:P.dash},
-    {id:"funnels",  label:"Funnels",  icon:P.list},
-    ...(FULL.includes(user.role)?[
-      {id:"analytics",label:"Analytics",icon:P.chart},
-      {id:"team",     label:"Team",     icon:P.users},
-    ]:[]),
-  ];
-
-  return (
+function Sidebar({active,set,user,onLogout,open,onClose}){
+  const nav=[{id:"dashboard",label:"Dashboard",icon:P.dash},{id:"funnels",label:"Funnels",icon:P.list},...(FULL.includes(user.role)?[{id:"analytics",label:"Analytics",icon:P.chart},{id:"team",label:"Team",icon:P.users}]:[])];
+  return(
     <>
-      {open&&<div onClick={onClose} style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.4)",zIndex:199,display:"none"}} className="mobile-overlay"/>}
+      {open&&<div onClick={onClose} style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.4)",zIndex:199}}/>}
       <div className={`ek-sidebar${open?" open":""}`} style={{width:200,minHeight:"100vh",background:T.sidebar,borderRight:`1px solid ${T.line}`,display:"flex",flexDirection:"column",flexShrink:0,position:"relative",zIndex:200}}>
         <div style={{padding:"18px 16px 14px",borderBottom:`1px solid ${T.line}`}}>
           <div style={{display:"flex",alignItems:"center",gap:9}}>
-            <div style={{width:28,height:28,background:T.brand,borderRadius:7,display:"flex",alignItems:"center",justifyContent:"center"}}>
-              <Ic d={P.layers} sz={13} color="#fff" sw={2.2}/>
-            </div>
-            <div>
-              <div style={{fontSize:13,fontWeight:700,color:T.ink,letterSpacing:"-0.2px",lineHeight:1.2}}>Ekanta</div>
-              <div style={{fontSize:10,color:T.inkMuted,lineHeight:1}}>Design Studio</div>
-            </div>
+            <div style={{width:28,height:28,background:T.brand,borderRadius:7,display:"flex",alignItems:"center",justifyContent:"center"}}><Ic d={P.layers} sz={13} color="#fff" sw={2.2}/></div>
+            <div><div style={{fontSize:13,fontWeight:700,color:T.ink,letterSpacing:"-0.2px",lineHeight:1.2}}>Ekanta</div><div style={{fontSize:10,color:T.inkMuted,lineHeight:1}}>Design Studio</div></div>
           </div>
         </div>
-
         <nav style={{flex:1,padding:"8px 8px 0"}}>
           <div style={{fontSize:10,fontWeight:600,color:T.inkMuted,letterSpacing:"0.08em",padding:"10px 8px 4px",textTransform:"uppercase"}}>Navigation</div>
           {nav.map(item=>{
             const a=active===item.id;
-            return (
-              <button key={item.id} onClick={()=>{set(item.id);onClose&&onClose();}}
-                style={{display:"flex",alignItems:"center",gap:8,width:"100%",padding:"7px 8px",borderRadius:T.r.md,border:"none",background:a?"rgba(91,59,232,.06)":"transparent",color:a?T.brand:T.inkSub,fontFamily:F,fontSize:13,fontWeight:a?600:400,cursor:"pointer",marginBottom:1,transition:"all .12s",textAlign:"left",position:"relative"}}
-                onMouseEnter={e=>{if(!a){e.currentTarget.style.background=T.bg;e.currentTarget.style.color=T.ink;}}}
-                onMouseLeave={e=>{if(!a){e.currentTarget.style.background="transparent";e.currentTarget.style.color=T.inkSub;}}}>
+            return(
+              <button key={item.id} onClick={()=>{set(item.id);onClose&&onClose();}} style={{display:"flex",alignItems:"center",gap:8,width:"100%",padding:"7px 8px",borderRadius:T.r.md,border:"none",background:a?"rgba(91,59,232,.06)":"transparent",color:a?T.brand:T.inkSub,fontFamily:F,fontSize:13,fontWeight:a?600:400,cursor:"pointer",marginBottom:1,transition:"all .12s",textAlign:"left",position:"relative"}} onMouseEnter={e=>{if(!a){e.currentTarget.style.background=T.bg;e.currentTarget.style.color=T.ink;}}} onMouseLeave={e=>{if(!a){e.currentTarget.style.background="transparent";e.currentTarget.style.color=T.inkSub;}}}>
                 {a&&<span style={{position:"absolute",left:0,top:"50%",transform:"translateY(-50%)",width:2,height:18,background:T.brand,borderRadius:"0 2px 2px 0"}}/>}
-                <Ic d={item.icon} sz={14} color={a?T.brand:T.inkSub}/>
-                {item.label}
+                <Ic d={item.icon} sz={14} color={a?T.brand:T.inkSub}/>{item.label}
               </button>
             );
           })}
         </nav>
-
         <div style={{padding:"10px 8px 14px",borderTop:`1px solid ${T.line}`}}>
           <div style={{display:"flex",alignItems:"center",gap:9,padding:"7px 8px",borderRadius:T.r.md}}>
             <Avatar name={user.name} size={28}/>
@@ -425,10 +310,7 @@ function Sidebar({active,set,user,onLogout,open,onClose}) {
               <div style={{fontSize:12,fontWeight:600,color:T.ink,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{user.name}</div>
               <div style={{fontSize:10,color:T.inkMuted}}>{user.role}</div>
             </div>
-            <button onClick={onLogout} title="Sign out"
-              style={{background:"none",border:"none",cursor:"pointer",color:T.inkMuted,display:"flex",padding:3,borderRadius:5,transition:"color .15s"}}
-              onMouseEnter={e=>e.currentTarget.style.color=T.ink}
-              onMouseLeave={e=>e.currentTarget.style.color=T.inkMuted}>
+            <button onClick={onLogout} title="Sign out" style={{background:"none",border:"none",cursor:"pointer",color:T.inkMuted,display:"flex",padding:3,borderRadius:5,transition:"color .15s"}} onMouseEnter={e=>e.currentTarget.style.color=T.ink} onMouseLeave={e=>e.currentTarget.style.color=T.inkMuted}>
               <Ic d={P.out} sz={13} color="currentColor"/>
             </button>
           </div>
@@ -439,38 +321,24 @@ function Sidebar({active,set,user,onLogout,open,onClose}) {
 }
 
 // ─── TOPBAR ───────────────────────────────────────────────────────────────────
-function Topbar({title,sub,search,setSearch,user,onAdd,onExportAll,onExportFiltered,fLen,aLen,onMenuToggle}) {
-  return (
+function Topbar({title,search,setSearch,user,onAdd,onExportAll,onExportFiltered,fLen,aLen,onMenuToggle}){
+  return(
     <div style={{background:T.surface,borderBottom:`1px solid ${T.line}`,padding:"0 16px"}}>
       <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",height:56}}>
         <div style={{display:"flex",alignItems:"center",gap:10,flex:1}}>
-          <button onClick={onMenuToggle} className="ek-mobile-menu"
-            style={{background:"none",border:"none",cursor:"pointer",color:T.inkSub,display:"none",padding:4,borderRadius:6}}
-            onMouseEnter={e=>e.currentTarget.style.color=T.ink}
-            onMouseLeave={e=>e.currentTarget.style.color=T.inkSub}>
+          <button onClick={onMenuToggle} style={{background:"none",border:"none",cursor:"pointer",color:T.inkSub,padding:4,borderRadius:6}} onMouseEnter={e=>e.currentTarget.style.color=T.ink} onMouseLeave={e=>e.currentTarget.style.color=T.inkSub}>
             <Ic d={P.menu} sz={18} color="currentColor"/>
           </button>
-          <div>
-            <h1 style={{fontSize:15,fontWeight:600,color:T.ink,letterSpacing:"-0.2px",margin:0,fontFamily:F}}>{title}</h1>
-          </div>
+          <h1 style={{fontSize:15,fontWeight:600,color:T.ink,letterSpacing:"-0.2px",margin:0,fontFamily:F}}>{title}</h1>
           <div className="ek-topbar-search" style={{display:"flex",alignItems:"center",gap:8,background:T.bg,border:`1px solid ${T.line}`,borderRadius:T.r.md,padding:"6px 11px",minWidth:220,maxWidth:320,flex:1}}>
             <Ic d={P.search} sz={13} color={T.inkMuted}/>
-            <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search funnels…"
-              style={{border:"none",background:"transparent",outline:"none",fontSize:13,color:T.ink,fontFamily:F,width:"100%"}}/>
+            <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search funnels…" style={{border:"none",background:"transparent",outline:"none",fontSize:13,color:T.ink,fontFamily:F,width:"100%"}}/>
             {search&&<button onClick={()=>setSearch("")} style={{background:"none",border:"none",cursor:"pointer",color:T.inkMuted,display:"flex",padding:0,lineHeight:1}}><Ic d={P.close} sz={12} color="currentColor"/></button>}
           </div>
         </div>
-
         <div style={{display:"flex",gap:6,alignItems:"center",marginLeft:12,flexWrap:"wrap"}}>
-          {FULL.includes(user.role)&&(
-            <>
-              <Btn ghost sm icon={P.dl} label={`Filtered (${fLen})`} onClick={onExportFiltered}/>
-              <Btn ghost sm icon={P.dl} label={`All (${aLen})`} onClick={onExportAll}/>
-            </>
-          )}
-          {!FULL.includes(user.role)&&can(user,"export")&&(
-            <Btn ghost sm icon={P.dl} label="Export" onClick={onExportFiltered}/>
-          )}
+          {FULL.includes(user.role)&&<><Btn ghost sm icon={P.dl} label={`Filtered (${fLen})`} onClick={onExportFiltered}/><Btn ghost sm icon={P.dl} label={`All (${aLen})`} onClick={onExportAll}/></>}
+          {!FULL.includes(user.role)&&can(user,"export")&&<Btn ghost sm icon={P.dl} label="Export" onClick={onExportFiltered}/>}
           {can(user,"create")&&<Btn primary sm icon={P.plus} label="Add funnel" onClick={onAdd}/>}
         </div>
       </div>
@@ -478,35 +346,19 @@ function Topbar({title,sub,search,setSearch,user,onAdd,onExportAll,onExportFilte
   );
 }
 
-// ─── STATS ROW ────────────────────────────────────────────────────────────────
-function Stats({funnels}) {
-  const won = funnels.filter(f=>f.status==="Won");
-  const s={
-    total:funnels.length,won:won.length,
-    pending:funnels.filter(f=>f.status==="Pending").length,
-    lost:funnels.filter(f=>f.status==="Lost").length,
-    revenue:won.reduce((a,f)=>a+(Number(f.quoteAmount)||0),0),
-  };
+// ─── STATS ────────────────────────────────────────────────────────────────────
+function Stats({funnels}){
+  const won=funnels.filter(f=>f.status==="Won");
+  const s={total:funnels.length,won:won.length,pending:funnels.filter(f=>f.status==="Pending").length,lost:funnels.filter(f=>f.status==="Lost").length,revenue:won.reduce((a,f)=>a+(Number(f.quoteAmount)||0),0)};
   const wr=s.total?Math.round(s.won/s.total*100):0;
-
-  const cards=[
-    {label:"Total leads",   value:s.total,      caption:"All leads",         accent:T.inkMuted},
-    {label:"Won",           value:s.won,         caption:`${wr}% win rate`,   accent:T.won.dot},
-    {label:"Pending",       value:s.pending,     caption:"Need follow-up",    accent:T.pending.dot},
-    {label:"Lost",          value:s.lost,        caption:"Closed lost",       accent:T.lost.dot},
-    {label:"Won Revenue",   value:big(s.revenue),caption:"Based on quotes",   accent:T.won.dot},
-  ];
-
-  return (
+  const cards=[{label:"Total leads",value:s.total,caption:"All leads",accent:T.inkMuted},{label:"Won",value:s.won,caption:`${wr}% win rate`,accent:T.won.dot},{label:"Pending",value:s.pending,caption:"Need follow-up",accent:T.pending.dot},{label:"Lost",value:s.lost,caption:"Closed lost",accent:T.lost.dot},{label:"Won Revenue",value:big(s.revenue),caption:"Based on quotes",accent:T.won.dot}];
+  return(
     <div className="ek-stats-grid" style={{display:"grid",gridTemplateColumns:"repeat(6,1fr)",gap:12,padding:"20px 24px 0"}}>
       {cards.map((c,i)=>(
         <div key={i} style={{background:T.surface,border:`1px solid ${T.line}`,borderRadius:T.r.lg,padding:"16px 18px",boxShadow:T.shadowSm,animation:`fadeUp .25s ease ${i*.04}s both`}}>
           <div style={{fontSize:11,fontWeight:500,color:T.inkMuted,letterSpacing:"0.04em",marginBottom:8,fontFamily:F}}>{c.label}</div>
           <div style={{fontSize:22,fontWeight:700,color:T.ink,fontFamily:F,letterSpacing:"-0.5px",marginBottom:4}}>{c.value}</div>
-          <div style={{display:"flex",alignItems:"center",gap:5}}>
-            <Dot color={c.accent} size={5}/>
-            <span style={{fontSize:11,color:T.inkMuted,fontFamily:F}}>{c.caption}</span>
-          </div>
+          <div style={{display:"flex",alignItems:"center",gap:5}}><Dot color={c.accent} size={5}/><span style={{fontSize:11,color:T.inkMuted,fontFamily:F}}>{c.caption}</span></div>
         </div>
       ))}
     </div>
@@ -514,49 +366,31 @@ function Stats({funnels}) {
 }
 
 // ─── FILTER BAR ───────────────────────────────────────────────────────────────
-function FilterBar({fil,setF,reset}) {
+function FilterBar({fil,setF,reset}){
   const sel=(val,key,opts)=>(
-    <select value={val} onChange={e=>setF(key,e.target.value)}
-      style={{padding:"5px 24px 5px 9px",border:`1px solid ${T.line}`,borderRadius:T.r.md,fontSize:12,fontFamily:F,color:val?T.ink:T.inkSub,background:val?`${T.brandSubtle} ${selectBg}`:`${T.surface} ${selectBg}`,cursor:"pointer",outline:"none",appearance:"none",fontWeight:val?500:400}}>
+    <select value={val} onChange={e=>setF(key,e.target.value)} style={{padding:"5px 24px 5px 9px",border:`1px solid ${T.line}`,borderRadius:T.r.md,fontSize:12,fontFamily:F,color:val?T.ink:T.inkSub,background:val?`${T.brandSubtle} ${selectBg}`:`${T.surface} ${selectBg}`,cursor:"pointer",outline:"none",appearance:"none",fontWeight:val?500:400}}>
       <option value="">{key==="status"?"All status":key==="funnelType"?"All types":key==="leadSource"?"All sources":"All enquiries"}</option>
       {opts.map(o=><option key={o}>{o}</option>)}
     </select>
   );
   const chk=(key,label)=>(
     <label style={{display:"flex",alignItems:"center",gap:5,fontSize:12,color:fil[key]?T.brand:T.inkSub,cursor:"pointer",fontFamily:F,fontWeight:fil[key]?500:400,userSelect:"none",transition:"color .15s"}}>
-      <input type="checkbox" checked={fil[key]} onChange={e=>setF(key,e.target.checked)} style={{accentColor:T.brand,width:13,height:13}}/>
-      {label}
+      <input type="checkbox" checked={fil[key]} onChange={e=>setF(key,e.target.checked)} style={{accentColor:T.brand,width:13,height:13}}/>{label}
     </label>
   );
-
   const any=fil.status||fil.funnelType||fil.enquiryType||fil.leadSource||fil.descFilter||fil.missed||fil.todayF||fil.upcoming;
-
-  return (
+  return(
     <div style={{display:"flex",alignItems:"center",gap:12,padding:"10px 24px",borderBottom:`1px solid ${T.line}`,background:T.surface,flexWrap:"wrap"}}>
-      <div style={{display:"flex",alignItems:"center",gap:6}}>
-        <Ic d={P.filter} sz={12} color={T.inkMuted}/>
-        <span style={{fontSize:12,fontWeight:500,color:T.inkSub,fontFamily:F}}>Filter</span>
-      </div>
+      <div style={{display:"flex",alignItems:"center",gap:6}}><Ic d={P.filter} sz={12} color={T.inkMuted}/><span style={{fontSize:12,fontWeight:500,color:T.inkSub,fontFamily:F}}>Filter</span></div>
       <div style={{width:1,height:14,background:T.line}}/>
       {chk("missed","Missed")} {chk("todayF","Today")} {chk("upcoming","Upcoming")}
       <div style={{width:1,height:14,background:T.line}}/>
-      {sel(fil.status,"status",STATUS)}
-      {sel(fil.funnelType,"funnelType",FTYPES)}
-      {sel(fil.enquiryType,"enquiryType",ENQS)}
-      {sel(fil.leadSource,"leadSource",LEAD_SOURCES)}
+      {sel(fil.status,"status",STATUS)}{sel(fil.funnelType,"funnelType",FTYPES)}{sel(fil.enquiryType,"enquiryType",ENQS)}{sel(fil.leadSource,"leadSource",LEAD_SOURCES)}
       <div style={{width:1,height:14,background:T.line}}/>
       <div style={{display:"flex",alignItems:"center",gap:7,background:T.bg,border:`1px solid ${T.line}`,borderRadius:T.r.md,padding:"4px 10px",minWidth:180}}>
         <Ic d={P.search} sz={12} color={T.inkMuted}/>
-        <input
-          value={fil.descFilter} onChange={e=>setF("descFilter",e.target.value)}
-          placeholder="Search description…"
-          style={{border:"none",background:"transparent",outline:"none",fontSize:12,color:T.ink,fontFamily:F,width:"100%"}}
-        />
-        {fil.descFilter&&(
-          <button onClick={()=>setF("descFilter","")} style={{background:"none",border:"none",cursor:"pointer",color:T.inkMuted,display:"flex",padding:0}}>
-            <Ic d={P.close} sz={11} color="currentColor"/>
-          </button>
-        )}
+        <input value={fil.descFilter} onChange={e=>setF("descFilter",e.target.value)} placeholder="Search description…" style={{border:"none",background:"transparent",outline:"none",fontSize:12,color:T.ink,fontFamily:F,width:"100%"}}/>
+        {fil.descFilter&&<button onClick={()=>setF("descFilter","")} style={{background:"none",border:"none",cursor:"pointer",color:T.inkMuted,display:"flex",padding:0}}><Ic d={P.close} sz={11} color="currentColor"/></button>}
       </div>
       {any&&<button onClick={reset} style={{fontSize:12,color:T.brand,background:"none",border:"none",cursor:"pointer",fontFamily:F,fontWeight:500,padding:"0 4px",textDecoration:"underline",textUnderlineOffset:2}}>Clear</button>}
     </div>
@@ -564,72 +398,43 @@ function FilterBar({fil,setF,reset}) {
 }
 
 // ─── TABLE ────────────────────────────────────────────────────────────────────
-function Table({rows,user,onView,onEdit,onDelete,loading}) {
-  if(loading) return (
+function Table({rows,user,onView,onEdit,onDelete,loading}){
+  if(loading) return(
     <div style={{display:"flex",alignItems:"center",justifyContent:"center",padding:72,flexDirection:"column",gap:16}}>
       <div style={{width:32,height:32,border:"3px solid rgba(91,59,232,.1)",borderTopColor:T.brand,borderRadius:"50%",animation:"spin .8s linear infinite"}}/>
       <div style={{fontSize:13,color:T.inkSub,fontFamily:F}}>Loading funnels...</div>
     </div>
   );
-
-  if(!rows.length) return (
+  if(!rows.length) return(
     <div style={{textAlign:"center",padding:"72px 24px",fontFamily:F}}>
-      <div style={{width:48,height:48,background:T.brandSubtle,borderRadius:14,display:"flex",alignItems:"center",justifyContent:"center",margin:"0 auto 16px"}}>
-        <Ic d={P.list} sz={22} color={T.brand}/>
-      </div>
+      <div style={{width:48,height:48,background:T.brandSubtle,borderRadius:14,display:"flex",alignItems:"center",justifyContent:"center",margin:"0 auto 16px"}}><Ic d={P.list} sz={22} color={T.brand}/></div>
       <p style={{fontSize:15,fontWeight:600,color:T.ink,margin:"0 0 4px"}}>No leads found</p>
       <p style={{fontSize:13,color:T.inkSub,margin:0}}>Adjust your filters or add a new lead.</p>
     </div>
   );
   const todayV=today();
   const TH=({ch})=><th style={{padding:"0 14px",textAlign:"left",fontSize:10,fontWeight:600,color:T.inkMuted,letterSpacing:"0.07em",textTransform:"uppercase",whiteSpace:"nowrap",borderBottom:`1px solid ${T.line}`,height:38,background:T.bg}}>{ch}</th>;
-  return (
+  return(
     <div style={{overflowX:"auto"}}>
       <table style={{width:"100%",borderCollapse:"collapse",fontFamily:F,tableLayout:"fixed"}}>
-        <colgroup>
-          <col style={{width:"3%"}}/><col style={{width:"20%"}}/><col style={{width:"15%"}}/>
-          <col style={{width:"12%"}}/><col style={{width:"12%"}}/><col style={{width:"12%"}}/>
-          <col style={{width:"12%"}}/><col style={{width:"14%"}}/>
-        </colgroup>
-        <thead>
-          <tr>
-            <TH ch="#"/>
-            <TH ch="Name"/>
-            <TH ch="Category"/>
-            <TH ch="Type"/>
-            <TH ch="Follow-up"/>
-            <TH ch="Status"/>
-            <TH ch="Order Number"/>
-            <TH ch="Quote"/>
-            <TH ch=""/>
-          </tr>
-        </thead>
+        <colgroup><col style={{width:"3%"}}/><col style={{width:"20%"}}/><col style={{width:"15%"}}/><col style={{width:"12%"}}/><col style={{width:"12%"}}/><col style={{width:"12%"}}/><col style={{width:"12%"}}/><col style={{width:"14%"}}/></colgroup>
+        <thead><tr><TH ch="#"/><TH ch="Name"/><TH ch="Category"/><TH ch="Type"/><TH ch="Follow-up"/><TH ch="Status"/><TH ch="Order Number"/><TH ch="Quote"/><TH ch=""/></tr></thead>
         <tbody>
           {rows.map((f,i)=>{
             const over=f.nextFollowUp&&f.nextFollowUp<todayV&&f.status==="Pending";
             const tod=f.nextFollowUp===todayV;
             const cats=[...new Set((f.products||[]).map(p=>p.category).filter(Boolean))].join(", ")||"—";
-            return (
-              <tr key={f.id}
-                style={{borderBottom:`1px solid ${T.line}`,transition:"background .1s",cursor:"default"}}
-                onMouseEnter={e=>e.currentTarget.style.background=T.bg}
-                onMouseLeave={e=>e.currentTarget.style.background=T.surface}>
+            return(
+              <tr key={f.id} style={{borderBottom:`1px solid ${T.line}`,transition:"background .1s",cursor:"default"}} onMouseEnter={e=>e.currentTarget.style.background=T.bg} onMouseLeave={e=>e.currentTarget.style.background=T.surface}>
                 <td style={{padding:"0 14px",height:56,fontSize:11,color:T.inkMuted,fontWeight:600,verticalAlign:"middle"}}>{i+1}</td>
                 <td style={{padding:"0 14px",verticalAlign:"middle",overflow:"hidden"}}>
                   <div style={{fontSize:13,fontWeight:600,color:T.ink,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{f.name||"—"}</div>
-                  <div style={{display:"flex",alignItems:"center",gap:5,marginTop:3}}>
-                    <span style={{fontSize:10,color:T.inkMuted}}>{f.createdBy}</span>
-                    {f.leadSource&&<SourcePill source={f.leadSource}/>}
-                  </div>
+                  <div style={{display:"flex",alignItems:"center",gap:5,marginTop:3}}><span style={{fontSize:10,color:T.inkMuted}}>{f.createdBy}</span>{f.leadSource&&<SourcePill source={f.leadSource}/>}</div>
                 </td>
                 <td style={{padding:"0 14px",fontSize:11,color:T.inkSub,verticalAlign:"middle",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{cats}</td>
                 <td style={{padding:"0 14px",verticalAlign:"middle"}}>{f.funnelType?<StatusPill status={f.funnelType} sm/>:<span style={{color:T.inkMuted,fontSize:12}}>—</span>}</td>
                 <td style={{padding:"0 14px",verticalAlign:"middle"}}>
-                  <div style={{display:"flex",alignItems:"center",gap:5}}>
-                    {over&&<Dot color={T.lost.dot} size={5}/>}
-                    {tod&&<Dot color={T.pending.dot} size={5}/>}
-                    <span style={{fontSize:12,color:over?"#B91C1C":tod?T.pending.text:T.inkSub,fontWeight:over||tod?600:400}}>{f.nextFollowUp||"—"}</span>
-                  </div>
+                  <div style={{display:"flex",alignItems:"center",gap:5}}>{over&&<Dot color={T.lost.dot} size={5}/>}{tod&&<Dot color={T.pending.dot} size={5}/>}<span style={{fontSize:12,color:over?"#B91C1C":tod?T.pending.text:T.inkSub,fontWeight:over||tod?600:400}}>{f.nextFollowUp||"—"}</span></div>
                   {over&&<span style={{fontSize:10,color:T.lost.text,fontWeight:500}}>Overdue</span>}
                 </td>
                 <td style={{padding:"0 14px",verticalAlign:"middle"}}><StatusPill status={f.status} sm/></td>
@@ -637,23 +442,9 @@ function Table({rows,user,onView,onEdit,onDelete,loading}) {
                 <td style={{padding:"0 14px",fontSize:12,fontWeight:600,color:T.brand,verticalAlign:"middle",whiteSpace:"nowrap"}}>{inr(f.quoteAmount)||<span style={{color:T.inkMuted,fontWeight:400}}>—</span>}</td>
                 <td style={{padding:"0 10px",verticalAlign:"middle"}}>
                   <div style={{display:"flex",gap:4,justifyContent:"flex-end"}}>
-                    <button onClick={()=>onView(f)} style={{background:"transparent",border:`1px solid ${T.line}`,borderRadius:T.r.sm,padding:"4px 10px",fontSize:11,fontWeight:500,color:T.inkSub,cursor:"pointer",fontFamily:F,transition:"all .12s"}}
-                      onMouseEnter={e=>{e.currentTarget.style.background=T.brandSubtle;e.currentTarget.style.color=T.brand;e.currentTarget.style.borderColor=T.brand;}}
-                      onMouseLeave={e=>{e.currentTarget.style.background="transparent";e.currentTarget.style.color=T.inkSub;e.currentTarget.style.borderColor=T.line;}}>View</button>
-                    {can(user,"edit")&&(
-                      <button onClick={()=>onEdit(f)} style={{background:"transparent",border:`1px solid ${T.line}`,borderRadius:T.r.sm,padding:"4px 6px",cursor:"pointer",display:"flex",transition:"all .12s"}}
-                        onMouseEnter={e=>{e.currentTarget.style.background=T.bg;}}
-                        onMouseLeave={e=>{e.currentTarget.style.background="transparent";}}>
-                        <Ic d={P.edit} sz={12} color={T.inkSub}/>
-                      </button>
-                    )}
-                    {can(user,"delete")&&(
-                      <button onClick={()=>onDelete(f.id)} style={{background:"transparent",border:`1px solid ${T.line}`,borderRadius:T.r.sm,padding:"4px 6px",cursor:"pointer",display:"flex",transition:"all .12s"}}
-                        onMouseEnter={e=>{e.currentTarget.style.background="#FEF2F2";e.currentTarget.style.borderColor="#FECACA";}}
-                        onMouseLeave={e=>{e.currentTarget.style.background="transparent";e.currentTarget.style.borderColor=T.line;}}>
-                        <Ic d={P.trash} sz={12} color="#DC2626"/>
-                      </button>
-                    )}
+                    <button onClick={()=>onView(f)} style={{background:"transparent",border:`1px solid ${T.line}`,borderRadius:T.r.sm,padding:"4px 10px",fontSize:11,fontWeight:500,color:T.inkSub,cursor:"pointer",fontFamily:F,transition:"all .12s"}} onMouseEnter={e=>{e.currentTarget.style.background=T.brandSubtle;e.currentTarget.style.color=T.brand;e.currentTarget.style.borderColor=T.brand;}} onMouseLeave={e=>{e.currentTarget.style.background="transparent";e.currentTarget.style.color=T.inkSub;e.currentTarget.style.borderColor=T.line;}}>View</button>
+                    {can(user,"edit")&&<button onClick={()=>onEdit(f)} style={{background:"transparent",border:`1px solid ${T.line}`,borderRadius:T.r.sm,padding:"4px 6px",cursor:"pointer",display:"flex",transition:"all .12s"}} onMouseEnter={e=>e.currentTarget.style.background=T.bg} onMouseLeave={e=>e.currentTarget.style.background="transparent"}><Ic d={P.edit} sz={12} color={T.inkSub}/></button>}
+                    {can(user,"delete")&&<button onClick={()=>onDelete(f.id)} style={{background:"transparent",border:`1px solid ${T.line}`,borderRadius:T.r.sm,padding:"4px 6px",cursor:"pointer",display:"flex",transition:"all .12s"}} onMouseEnter={e=>{e.currentTarget.style.background="#FEF2F2";e.currentTarget.style.borderColor="#FECACA";}} onMouseLeave={e=>{e.currentTarget.style.background="transparent";e.currentTarget.style.borderColor=T.line;}}><Ic d={P.trash} sz={12} color="#DC2626"/></button>}
                   </div>
                 </td>
               </tr>
@@ -666,127 +457,55 @@ function Table({rows,user,onView,onEdit,onDelete,loading}) {
 }
 
 // ─── ANALYTICS ────────────────────────────────────────────────────────────────
-function Analytics({funnels}) {
+function Analytics({funnels}){
   const won=funnels.filter(f=>f.status==="Won");
   const totalRevenue=won.reduce((a,f)=>a+(Number(f.quoteAmount)||0),0);
   const wr=funnels.length?Math.round(won.length/funnels.length*100):0;
-
   const Row=({label,val,pct,color})=>(
     <div style={{marginBottom:14}}>
-      <div style={{display:"flex",justifyContent:"space-between",marginBottom:5}}>
-        <span style={{fontSize:12,color:T.ink,fontFamily:F}}>{label}</span>
-        <span style={{fontSize:12,fontWeight:600,color:T.ink,fontFamily:F}}>{val} <span style={{color:T.inkMuted,fontWeight:400}}>({pct}%)</span></span>
-      </div>
-      <div style={{height:4,background:T.bg,borderRadius:2,overflow:"hidden"}}>
-        <div style={{width:`${pct}%`,height:"100%",background:color,borderRadius:2}}/>
-      </div>
+      <div style={{display:"flex",justifyContent:"space-between",marginBottom:5}}><span style={{fontSize:12,color:T.ink,fontFamily:F}}>{label}</span><span style={{fontSize:12,fontWeight:600,color:T.ink,fontFamily:F}}>{val} <span style={{color:T.inkMuted,fontWeight:400}}>({pct}%)</span></span></div>
+      <div style={{height:4,background:T.bg,borderRadius:2,overflow:"hidden"}}><div style={{width:`${pct}%`,height:"100%",background:color,borderRadius:2}}/></div>
     </div>
   );
-
   const Card=({title,children})=>(
     <div style={{background:T.surface,border:`1px solid ${T.line}`,borderRadius:T.r.lg,padding:"20px 22px",boxShadow:T.shadowSm}}>
       <div style={{fontSize:11,fontWeight:600,color:T.inkMuted,textTransform:"uppercase",letterSpacing:"0.07em",marginBottom:18,fontFamily:F}}>{title}</div>
       {children}
     </div>
   );
-
   const byCat=CATS.map(c=>({c,n:(funnels.flatMap(f=>f.products||[])).filter(p=>p.category===c).reduce((a,p)=>a+(Number(p.qty)||0),0)})).sort((a,b)=>b.n-a.n);
   const maxCat=Math.max(...byCat.map(x=>x.n),1);
   const bySrc=LEAD_SOURCES.map(s=>({s,n:funnels.filter(f=>f.leadSource===s).length})).filter(x=>x.n>0);
-
-  return (
+  return(
     <div style={{padding:"20px 24px",display:"grid",gap:16}}>
       <div className="ek-analytics-3col" style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:16}}>
-        <Card title="Win rate">
-          <div style={{textAlign:"center",padding:"8px 0"}}>
-            <div style={{fontSize:52,fontWeight:700,color:wr>=50?T.won.dot:T.pending.dot,fontFamily:F,letterSpacing:"-2px",lineHeight:1}}>{wr}%</div>
-            <div style={{fontSize:12,color:T.inkSub,marginTop:10,fontFamily:F}}>{won.length} of {funnels.length} deals won</div>
-            <div style={{height:6,background:T.bg,borderRadius:3,overflow:"hidden",marginTop:16}}>
-              <div style={{width:`${wr}%`,height:"100%",background:wr>=50?T.won.dot:T.pending.dot,borderRadius:3}}/>
-            </div>
-          </div>
-        </Card>
-
-        <Card title="Status breakdown">
-          {STATUS.map(s=>{
-            const n=funnels.filter(f=>f.status===s).length;
-            const pct=funnels.length?Math.round(n/funnels.length*100):0;
-            const c=T[s.toLowerCase()]||T.drop;
-            return <Row key={s} label={s} val={n} pct={pct} color={c.dot}/>;
-          })}
-        </Card>
-
-        <Card title="Revenue">
-          {[["Won Potential",big(totalRevenue),T.won.dot]].map(([l,v,c])=>(
-            <div key={l} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 0",borderBottom:`1px solid ${T.line}`}}>
-              <span style={{fontSize:12,color:T.inkSub,fontFamily:F}}>{l}</span>
-              <span style={{fontSize:15,fontWeight:700,color:c,fontFamily:F,letterSpacing:"-0.3px"}}>{v}</span>
-            </div>
-          ))}
-        </Card>
+        <Card title="Win rate"><div style={{textAlign:"center",padding:"8px 0"}}><div style={{fontSize:52,fontWeight:700,color:wr>=50?T.won.dot:T.pending.dot,fontFamily:F,letterSpacing:"-2px",lineHeight:1}}>{wr}%</div><div style={{fontSize:12,color:T.inkSub,marginTop:10,fontFamily:F}}>{won.length} of {funnels.length} deals won</div><div style={{height:6,background:T.bg,borderRadius:3,overflow:"hidden",marginTop:16}}><div style={{width:`${wr}%`,height:"100%",background:wr>=50?T.won.dot:T.pending.dot,borderRadius:3}}/></div></div></Card>
+        <Card title="Status breakdown">{STATUS.map(s=>{const n=funnels.filter(f=>f.status===s).length;const pct=funnels.length?Math.round(n/funnels.length*100):0;const c=T[s.toLowerCase()]||T.drop;return <Row key={s} label={s} val={n} pct={pct} color={c.dot}/>;})}</Card>
+        <Card title="Revenue">{[["Won Potential",big(totalRevenue),T.won.dot]].map(([l,v,c])=><div key={l} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 0",borderBottom:`1px solid ${T.line}`}}><span style={{fontSize:12,color:T.inkSub,fontFamily:F}}>{l}</span><span style={{fontSize:15,fontWeight:700,color:c,fontFamily:F,letterSpacing:"-0.3px"}}>{v}</span></div>)}</Card>
       </div>
-
       <div className="ek-analytics-3col" style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:16}}>
-        <Card title="Leads by type">
-          <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
-            {FTYPES.map((t,i)=>{
-              const n=funnels.filter(f=>f.funnelType===t).length;
-              const colors=[T.brand,T.won.dot,T.pending.dot,T.premium.dot,T.new.dot];
-              return (
-                <div key={t} style={{flex:1,minWidth:60,textAlign:"center",padding:"12px 8px",background:T.bg,borderRadius:T.r.md,border:`1px solid ${T.line}`}}>
-                  <div style={{fontSize:22,fontWeight:700,color:colors[i]||T.brand,fontFamily:F}}>{n}</div>
-                  <div style={{fontSize:10,color:T.inkMuted,marginTop:4,fontFamily:F,lineHeight:1.3}}>{t}</div>
-                </div>
-              );
-            })}
-          </div>
-        </Card>
-
-        <Card title="Leads by source">
-          {bySrc.length===0
-            ? <div style={{fontSize:12,color:T.inkMuted,fontFamily:F}}>No source data yet.</div>
-            : bySrc.map(({s,n})=>{
-                const pct=funnels.length?Math.round(n/funnels.length*100):0;
-                return <Row key={s} label={s} val={n} pct={pct} color={T.brand}/>;
-              })
-          }
-        </Card>
-
-        <Card title="Units by category">
-          {byCat.map(({c,n})=>(
-            <div key={c} style={{marginBottom:10}}>
-              <div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}>
-                <span style={{fontSize:12,color:T.ink,fontFamily:F}}>{c}</span>
-                <span style={{fontSize:12,fontWeight:600,color:T.ink,fontFamily:F}}>{n}</span>
-              </div>
-              <div style={{height:4,background:T.bg,borderRadius:2,overflow:"hidden"}}>
-                <div style={{width:`${Math.round(n/maxCat*100)}%`,height:"100%",background:T.brand,borderRadius:2,opacity:.7}}/>
-              </div>
-            </div>
-          ))}
-        </Card>
+        <Card title="Leads by type"><div style={{display:"flex",gap:8,flexWrap:"wrap"}}>{FTYPES.map((t,i)=>{const n=funnels.filter(f=>f.funnelType===t).length;const colors=[T.brand,T.won.dot,T.pending.dot,T.premium.dot,T.new.dot];return<div key={t} style={{flex:1,minWidth:60,textAlign:"center",padding:"12px 8px",background:T.bg,borderRadius:T.r.md,border:`1px solid ${T.line}`}}><div style={{fontSize:22,fontWeight:700,color:colors[i]||T.brand,fontFamily:F}}>{n}</div><div style={{fontSize:10,color:T.inkMuted,marginTop:4,fontFamily:F,lineHeight:1.3}}>{t}</div></div>;})}></div></Card>
+        <Card title="Leads by source">{bySrc.length===0?<div style={{fontSize:12,color:T.inkMuted,fontFamily:F}}>No source data yet.</div>:bySrc.map(({s,n})=>{const pct=funnels.length?Math.round(n/funnels.length*100):0;return<Row key={s} label={s} val={n} pct={pct} color={T.brand}/>;})}</Card>
+        <Card title="Units by category">{byCat.map(({c,n})=><div key={c} style={{marginBottom:10}}><div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}><span style={{fontSize:12,color:T.ink,fontFamily:F}}>{c}</span><span style={{fontSize:12,fontWeight:600,color:T.ink,fontFamily:F}}>{n}</span></div><div style={{height:4,background:T.bg,borderRadius:2,overflow:"hidden"}}><div style={{width:`${Math.round(n/maxCat*100)}%`,height:"100%",background:T.brand,borderRadius:2,opacity:.7}}/></div></div>)}</Card>
       </div>
     </div>
   );
 }
 
 // ─── TEAM ─────────────────────────────────────────────────────────────────────
-function Team({users,onSave}) {
+function Team({users,onSave}){
   const [list,setList]=useState(users);
   const [form,setForm]=useState({name:"",username:"",password:"",role:"CRE"});
   const [err,setErr]=useState("");
   useEffect(()=>setList(users),[users]);
-
   const add=()=>{
     if(!form.name||!form.username||!form.password){setErr("All fields required.");return;}
     if(list.find(u=>u.username===form.username)){setErr("Username taken.");return;}
-    const u=[...list,{...form,id:Date.now()}];
-    setList(u);onSave(u);setForm({name:"",username:"",password:"",role:"CRE"});setErr("");
+    const u=[...list,{...form,id:Date.now()}];setList(u);onSave(u);setForm({name:"",username:"",password:"",role:"CRE"});setErr("");
   };
   const rm=id=>{const u=list.filter(x=>x.id!==id);setList(u);onSave(u);};
-
   const rc={"CEO":T.high,"Manager":T.won,"CRE":T.pending};
-  return (
+  return(
     <div className="ek-team-grid" style={{padding:"20px 24px",display:"grid",gridTemplateColumns:"360px 1fr",gap:20}}>
       <div style={{background:T.surface,border:`1px solid ${T.line}`,borderRadius:T.r.lg,padding:22,boxShadow:T.shadowSm}}>
         <div style={{fontSize:14,fontWeight:600,color:T.ink,marginBottom:3,fontFamily:F}}>Add team member</div>
@@ -801,31 +520,18 @@ function Team({users,onSave}) {
           {err&&<div style={{fontSize:12,color:"#B91C1C",background:"#FEF2F2",border:"1px solid #FECACA",padding:"8px 11px",borderRadius:T.r.md}}>{err}</div>}
           <Btn primary full icon={P.plus} label="Add member" onClick={add}/>
         </div>
-        <div style={{marginTop:18,padding:"12px 14px",background:T.brandSubtle,borderRadius:T.r.md,fontSize:12,color:T.brand,lineHeight:1.7,fontFamily:F}}>
-          <strong>CEO & Manager</strong> — full access<br/>
-          <strong>CRE</strong> — create + export only
-        </div>
+        <div style={{marginTop:18,padding:"12px 14px",background:T.brandSubtle,borderRadius:T.r.md,fontSize:12,color:T.brand,lineHeight:1.7,fontFamily:F}}><strong>CEO & Manager</strong> — full access<br/><strong>CRE</strong> — create + export only</div>
       </div>
-
       <div style={{background:T.surface,border:`1px solid ${T.line}`,borderRadius:T.r.lg,padding:22,boxShadow:T.shadowSm}}>
         <div style={{fontSize:14,fontWeight:600,color:T.ink,marginBottom:18,fontFamily:F}}>Team members ({list.length})</div>
         <div style={{display:"flex",flexDirection:"column",gap:8}}>
-          {list.map(u=>{
-            const c=rc[u.role]||T.drop;
-            return (
-              <div key={u.id} style={{display:"flex",alignItems:"center",gap:12,padding:"12px 14px",border:`1px solid ${T.line}`,borderRadius:T.r.md,transition:"background .1s"}}
-                onMouseEnter={e=>e.currentTarget.style.background=T.bg}
-                onMouseLeave={e=>e.currentTarget.style.background=T.surface}>
-                <Avatar name={u.name} size={36}/>
-                <div style={{flex:1}}>
-                  <div style={{fontSize:13,fontWeight:600,color:T.ink,fontFamily:F}}>{u.name}</div>
-                  <div style={{fontSize:11,color:T.inkMuted,fontFamily:F}}>@{u.username}</div>
-                </div>
-                <span style={{fontSize:11,fontWeight:500,padding:"3px 9px",borderRadius:20,background:c.bg,color:c.text,fontFamily:F}}>{u.role}</span>
-                {u.id!==1&&<Btn danger sm label="Remove" onClick={()=>rm(u.id)}/>}
-              </div>
-            );
-          })}
+          {list.map(u=>{const c=rc[u.role]||T.drop;return(
+            <div key={u.id} style={{display:"flex",alignItems:"center",gap:12,padding:"12px 14px",border:`1px solid ${T.line}`,borderRadius:T.r.md,transition:"background .1s"}} onMouseEnter={e=>e.currentTarget.style.background=T.bg} onMouseLeave={e=>e.currentTarget.style.background=T.surface}>
+              <Avatar name={u.name} size={36}/><div style={{flex:1}}><div style={{fontSize:13,fontWeight:600,color:T.ink,fontFamily:F}}>{u.name}</div><div style={{fontSize:11,color:T.inkMuted,fontFamily:F}}>@{u.username}</div></div>
+              <span style={{fontSize:11,fontWeight:500,padding:"3px 9px",borderRadius:20,background:c.bg,color:c.text,fontFamily:F}}>{u.role}</span>
+              {u.id!==1&&<Btn danger sm label="Remove" onClick={()=>rm(u.id)}/>}
+            </div>
+          );})}
         </div>
       </div>
     </div>
@@ -833,67 +539,40 @@ function Team({users,onSave}) {
 }
 
 // ─── FUNNEL FORM ──────────────────────────────────────────────────────────────
-function FunnelForm({onClose,onSave,existing,user}) {
-  const blank={
-    name:"",phone:"",email:"",
-    enquiryType:"",funnelType:"",
-    leadSource:"",
-    cityRegion:"",
-    nextFollowUp:"",
-    products:[{desc:"",category:"",qty:"",price:""}],
-    remarks:"",
-    deliveryDetails:"",
-    paymentTerms:"",
-    orderNumber:"",quoteQty:"",quoteAmount:"",quoteDesc:"",
-    status: "Pending"
-  };
+function FunnelForm({onClose,onSave,existing,user}){
+  const blank={name:"",phone:"",email:"",enquiryType:"",funnelType:"",leadSource:"",cityRegion:"",nextFollowUp:"",products:[{desc:"",category:"",qty:"",price:""}],remarks:"",deliveryDetails:"",paymentTerms:"",orderNumber:"",quoteQty:"",quoteAmount:"",quoteDesc:"",status:"Pending"};
   const [form,setForm]=useState(existing?{...blank,...existing,products:existing.products?.length?existing.products:blank.products}:blank);
   const [errs,setErrs]=useState({});
   const set=(k,v)=>setForm(f=>({...f,[k]:v}));
   const sp=(i,k,v)=>{const p=[...form.products];p[i]={...p[i],[k]:v};set("products",p);};
-
   const val=()=>{
     const e={};
-    if(!form.name)           e.name="Required";
-    if(!form.phone)          e.phone="Required";
-    if(!form.enquiryType)    e.enquiryType="Required";
-    if(!form.funnelType)     e.funnelType="Required";
-    if(!form.leadSource)     e.leadSource="Required";
-    if(!form.nextFollowUp)   e.nfu="Required";
-    if(!form.remarks)        e.remarks="Required";
-    if(!form.deliveryDetails)e.deliveryDetails="Required";
-    if(!form.quoteDesc)      e.quoteDesc="Required";
-    if(!form.quoteQty)       e.quoteQty="Required";
-    if(!form.quoteAmount)    e.quoteAmount="Required";
-    const hasProduct = form.products.some(p => p.desc.trim() !== "");
-    if(!hasProduct) e.products = "At least one product item is required";
+    if(!form.name)            e.name="Required";
+    if(!form.phone)           e.phone="Required";
+    if(!form.enquiryType)     e.enquiryType="Required";
+    if(!form.funnelType)      e.funnelType="Required";
+    if(!form.leadSource)      e.leadSource="Required";
+    if(!form.nextFollowUp)    e.nfu="Required";
+    if(!form.remarks)         e.remarks="Required";
+    if(!form.deliveryDetails) e.deliveryDetails="Required";
+    if(!form.quoteDesc)       e.quoteDesc="Required";
+    if(!form.quoteQty)        e.quoteQty="Required";
+    if(!form.quoteAmount)     e.quoteAmount="Required";
+    if(!form.products.some(p=>p.desc.trim())) e.products="At least one product item is required";
     if(!user?.name) e.auth="You must be logged in";
-    setErrs(e);
-    return !Object.keys(e).length;
+    setErrs(e); return !Object.keys(e).length;
   };
   const submit=()=>{if(val())onSave(form);};
-
   const prodTotal=(form.products||[]).reduce((a,p)=>a+(Number(p.qty)*Number(p.price)||0),0);
-
-  return (
-    <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.35)",zIndex:2000,display:"flex",alignItems:"center",justifyContent:"center",padding:16,backdropFilter:"blur(2px)"}}
-      onClick={onClose}>
-      <div style={{background:T.surface,borderRadius:T.r["2xl"],width:"100%",maxWidth:720,maxHeight:"90vh",overflowY:"auto",boxShadow:T.shadowXl,animation:"fadeUp .2s ease"}}
-        onClick={e=>e.stopPropagation()}>
-
+  return(
+    <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.35)",zIndex:2000,display:"flex",alignItems:"center",justifyContent:"center",padding:16,backdropFilter:"blur(2px)"}} onClick={onClose}>
+      <div style={{background:T.surface,borderRadius:T.r["2xl"],width:"100%",maxWidth:720,maxHeight:"90vh",overflowY:"auto",boxShadow:T.shadowXl,animation:"fadeUp .2s ease"}} onClick={e=>e.stopPropagation()}>
         <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"20px 24px 16px",borderBottom:`1px solid ${T.line}`,position:"sticky",top:0,background:T.surface,zIndex:1,borderRadius:`${T.r["2xl"]} ${T.r["2xl"]} 0 0`}}>
-          <div>
-            <h2 style={{fontSize:16,fontWeight:700,color:T.ink,fontFamily:F,margin:"0 0 2px"}}>{existing?"Edit funnel":"New funnel"}</h2>
-            <p style={{margin:0,fontSize:12,color:T.inkSub,fontFamily:F}}>{existing?`Editing ${existing.company||"funnel"}`:"Add a new sales lead"}</p>
-          </div>
-          <button onClick={onClose} style={{width:30,height:30,border:`1px solid ${T.line}`,borderRadius:T.r.md,background:T.bg,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>
-            <Ic d={P.close} sz={13} color={T.inkSub}/>
-          </button>
+          <div><h2 style={{fontSize:16,fontWeight:700,color:T.ink,fontFamily:F,margin:"0 0 2px"}}>{existing?"Edit funnel":"New funnel"}</h2><p style={{margin:0,fontSize:12,color:T.inkSub,fontFamily:F}}>{existing?"Editing funnel":"Add a new sales lead"}</p></div>
+          <button onClick={onClose} style={{width:30,height:30,border:`1px solid ${T.line}`,borderRadius:T.r.md,background:T.bg,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}><Ic d={P.close} sz={13} color={T.inkSub}/></button>
         </div>
-
         <div style={{padding:"22px 24px",display:"flex",flexDirection:"column",gap:20}}>
-          <section>
-            <SL>Contact details</SL>
+          <section><SL>Contact details</SL>
             <div style={{display:"flex",flexDirection:"column",gap:12}}>
               <div className="ek-form-3col" style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10}}>
                 <FInput label="Name" value={form.name} onChange={e=>set("name",e.target.value)} placeholder="Enter customer name" required error={errs.name}/>
@@ -903,9 +582,7 @@ function FunnelForm({onClose,onSave,existing,user}) {
               <FInput label="City / Region" value={form.cityRegion} onChange={e=>set("cityRegion",e.target.value)} placeholder="e.g. Chennai, Tamil Nadu"/>
             </div>
           </section>
-
-          <section>
-            <SL>Funnel details</SL>
+          <section><SL>Funnel details</SL>
             <div className="ek-form-2col" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:10}}>
               <FSelect label="Enquiry type" value={form.enquiryType} onChange={e=>set("enquiryType",e.target.value)} options={ENQS} required error={errs.enquiryType}/>
               <FSelect label="Funnel type"  value={form.funnelType}  onChange={e=>set("funnelType",e.target.value)}  options={FTYPES} required error={errs.funnelType}/>
@@ -914,91 +591,62 @@ function FunnelForm({onClose,onSave,existing,user}) {
               <FSelect label="Lead source" required value={form.leadSource} onChange={e=>set("leadSource",e.target.value)} options={LEAD_SOURCES} placeholder="Select source…" error={errs.leadSource}/>
               <div style={{display:"flex",flexDirection:"column",gap:5}}>
                 <label style={{fontSize:12,fontWeight:500,color:T.inkSub,fontFamily:F}}>Next follow-up<span style={{color:"#DC2626",marginLeft:2}}>*</span></label>
-                <input type="date" value={form.nextFollowUp} onChange={e=>set("nextFollowUp",e.target.value)}
-                  style={{...inputSx(errs.nfu)}} onFocus={onfocus} onBlur={onblur}/>
+                <input type="date" value={form.nextFollowUp} onChange={e=>set("nextFollowUp",e.target.value)} style={{...inputSx(errs.nfu)}} onFocus={onfocus} onBlur={onblur}/>
                 {errs.nfu&&<span style={{fontSize:11,color:"#B91C1C"}}>{errs.nfu}</span>}
               </div>
             </div>
           </section>
-
-          <section>
-            <SL>Customer requirements</SL>
+          <section><SL>Customer requirements</SL>
             <div style={{border:`1px solid ${errs.products?T.lost.dot:T.line}`,borderRadius:T.r.lg,overflow:"hidden"}}>
               <div style={{display:"grid",gridTemplateColumns:"2.5fr 1.4fr .8fr 1fr .35fr",padding:"8px 14px",background:T.bg,gap:8}}>
-                {["Product / item *","Category","Qty","Unit price (₹)",""].map(h=><div key={h} style={{fontSize:10,fontWeight:600,color:T.inkMuted,letterSpacing:"0.06em",fontFamily:F}}>{h}</div>)}
+                {["Product / item *","Category","Qty","Unit price (Rs)",""].map(h=><div key={h} style={{fontSize:10,fontWeight:600,color:T.inkMuted,letterSpacing:"0.06em",fontFamily:F}}>{h}</div>)}
               </div>
               {form.products.map((pr,i)=>(
                 <div key={i} style={{display:"grid",gridTemplateColumns:"2.5fr 1.4fr .8fr 1fr .35fr",padding:"9px 14px",borderTop:`1px solid ${T.line}`,gap:8,alignItems:"center"}}>
-                  <input value={pr.desc} onChange={e=>sp(i,"desc",e.target.value)} placeholder="e.g. Bridal Lehenga"
-                    style={{...inputSx(),padding:"6px 9px",fontSize:12}} onFocus={onfocus} onBlur={onblur}/>
-                  <select value={pr.category} onChange={e=>sp(i,"category",e.target.value)}
-                    style={{...inputSx(),padding:"6px 24px 6px 9px",fontSize:12,cursor:"pointer",appearance:"none",background:`${T.surface} ${selectBg}`}}
-                    onFocus={onfocus} onBlur={onblur}>
-                    <option value="">Category</option>{CATS.map(c=><option key={c}>{c}</option>)}
-                  </select>
-                  {[["qty","0"],["price","0"]].map(([k,ph])=>(
-                    <input key={k} type="number" value={pr[k]} onChange={e=>sp(i,k,e.target.value)} placeholder={ph}
-                      style={{...inputSx(),padding:"6px 9px",fontSize:12}} onFocus={onfocus} onBlur={onblur}/>
-                  ))}
-                  <button onClick={()=>set("products",form.products.filter((_,x)=>x!==i))} disabled={form.products.length===1}
-                    style={{background:"none",border:"none",cursor:form.products.length===1?"not-allowed":"pointer",color:T.inkMuted,fontSize:16,opacity:form.products.length===1?.2:1,display:"flex",alignItems:"center",justifyContent:"center"}}>×</button>
+                  <input value={pr.desc} onChange={e=>sp(i,"desc",e.target.value)} placeholder="e.g. Bridal Lehenga" style={{...inputSx(),padding:"6px 9px",fontSize:12}} onFocus={onfocus} onBlur={onblur}/>
+                  <select value={pr.category} onChange={e=>sp(i,"category",e.target.value)} style={{...inputSx(),padding:"6px 24px 6px 9px",fontSize:12,cursor:"pointer",appearance:"none",background:`${T.surface} ${selectBg}`}} onFocus={onfocus} onBlur={onblur}><option value="">Category</option>{CATS.map(c=><option key={c}>{c}</option>)}</select>
+                  {[["qty","0"],["price","0"]].map(([k,ph])=><input key={k} type="number" value={pr[k]} onChange={e=>sp(i,k,e.target.value)} placeholder={ph} style={{...inputSx(),padding:"6px 9px",fontSize:12}} onFocus={onfocus} onBlur={onblur}/>)}
+                  <button onClick={()=>set("products",form.products.filter((_,x)=>x!==i))} disabled={form.products.length===1} style={{background:"none",border:"none",cursor:form.products.length===1?"not-allowed":"pointer",color:T.inkMuted,fontSize:16,opacity:form.products.length===1?.2:1,display:"flex",alignItems:"center",justifyContent:"center"}}>x</button>
                 </div>
               ))}
               <div style={{padding:"9px 14px",borderTop:`1px solid ${T.line}`,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-                <button onClick={()=>set("products",[...form.products,{desc:"",category:"",qty:"",price:""}])}
-                  style={{background:"none",border:`1px dashed ${T.brand}`,borderRadius:T.r.sm,padding:"4px 12px",color:T.brand,fontSize:12,fontWeight:500,cursor:"pointer",fontFamily:F,display:"inline-flex",alignItems:"center",gap:5}}>
-                  <Ic d={P.plus} sz={11} color={T.brand}/> Add item
-                </button>
-                <div style={{display:"flex",alignItems:"center",gap:12}}>
-                  {errs.products&&<span style={{fontSize:11,color:"#B91C1C",fontWeight:500}}>{errs.products}</span>}
-                  {prodTotal>0&&<span style={{fontSize:12,fontWeight:600,color:T.ink,fontFamily:F}}>Total: {inr(prodTotal)}</span>}
-                </div>
+                <button onClick={()=>set("products",[...form.products,{desc:"",category:"",qty:"",price:""}])} style={{background:"none",border:`1px dashed ${T.brand}`,borderRadius:T.r.sm,padding:"4px 12px",color:T.brand,fontSize:12,fontWeight:500,cursor:"pointer",fontFamily:F,display:"inline-flex",alignItems:"center",gap:5}}><Ic d={P.plus} sz={11} color={T.brand}/> Add item</button>
+                <div style={{display:"flex",alignItems:"center",gap:12}}>{errs.products&&<span style={{fontSize:11,color:"#B91C1C",fontWeight:500}}>{errs.products}</span>}{prodTotal>0&&<span style={{fontSize:12,fontWeight:600,color:T.ink,fontFamily:F}}>Total: {inr(prodTotal)}</span>}</div>
               </div>
             </div>
           </section>
-
-          <section>
-            <SL>Remarks <span style={{color:"#DC2626"}}>*</span></SL>
-            <textarea value={form.remarks} onChange={e=>set("remarks",e.target.value)} placeholder="Additional notes…" rows={2}
-              style={{...inputSx(errs.remarks),padding:"9px 11px",resize:"vertical",lineHeight:1.5}} onFocus={onfocus} onBlur={onblur}/>
+          <section><SL>Remarks <span style={{color:"#DC2626"}}>*</span></SL>
+            <textarea value={form.remarks} onChange={e=>set("remarks",e.target.value)} placeholder="Additional notes…" rows={2} style={{...inputSx(errs.remarks),padding:"9px 11px",resize:"vertical",lineHeight:1.5}} onFocus={onfocus} onBlur={onblur}/>
             {errs.remarks&&<div style={{fontSize:11,color:"#B91C1C",marginTop:4}}>{errs.remarks}</div>}
           </section>
-
-          <section>
-            <SL>Delivery & Payment</SL>
+          <section><SL>Delivery & Payment</SL>
             <div className="ek-form-2col" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
               <div style={{display:"flex",flexDirection:"column",gap:5}}>
                 <label style={{fontSize:12,fontWeight:500,color:T.inkSub,fontFamily:F}}>Delivery details <span style={{color:"#DC2626"}}>*</span></label>
-                <textarea value={form.deliveryDetails} onChange={e=>set("deliveryDetails",e.target.value)} placeholder="e.g. Delivery by Apr 20, doorstep…" rows={2}
-                  style={{...inputSx(errs.deliveryDetails),padding:"9px 11px",resize:"vertical",lineHeight:1.5}} onFocus={onfocus} onBlur={onblur}/>
+                <textarea value={form.deliveryDetails} onChange={e=>set("deliveryDetails",e.target.value)} placeholder="e.g. Delivery by Apr 20, doorstep…" rows={2} style={{...inputSx(errs.deliveryDetails),padding:"9px 11px",resize:"vertical",lineHeight:1.5}} onFocus={onfocus} onBlur={onblur}/>
                 {errs.deliveryDetails&&<div style={{fontSize:11,color:"#B91C1C",marginTop:4}}>{errs.deliveryDetails}</div>}
               </div>
               <div style={{display:"flex",flexDirection:"column",gap:5}}>
                 <label style={{fontSize:12,fontWeight:500,color:T.inkSub,fontFamily:F}}>Payment terms</label>
-                <textarea value={form.paymentTerms} onChange={e=>set("paymentTerms",e.target.value)} placeholder="e.g. 50% advance, balance on delivery…" rows={2}
-                  style={{...inputSx(),padding:"9px 11px",resize:"vertical",lineHeight:1.5}} onFocus={onfocus} onBlur={onblur}/>
+                <textarea value={form.paymentTerms} onChange={e=>set("paymentTerms",e.target.value)} placeholder="e.g. 50% advance, balance on delivery…" rows={2} style={{...inputSx(),padding:"9px 11px",resize:"vertical",lineHeight:1.5}} onFocus={onfocus} onBlur={onblur}/>
               </div>
             </div>
           </section>
-
-          <section>
-            <SL>Initial quotation</SL>
+          <section><SL>Initial quotation</SL>
             <div style={{display:"flex",flexDirection:"column",gap:12}}>
               <div className="ek-form-3col" style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10}}>
                 <FInput label="Order Number" value={form.orderNumber} onChange={e=>set("orderNumber",e.target.value)} placeholder="Enter order number"/>
                 <FInput label="Quantity" type="number" value={form.quoteQty} onChange={e=>set("quoteQty",e.target.value)} placeholder="0" required error={errs.quoteQty}/>
-                <FInput label="Amount (₹)" type="number" value={form.quoteAmount} onChange={e=>set("quoteAmount",e.target.value)} placeholder="0" required error={errs.quoteAmount}/>
+                <FInput label="Amount (Rs)" type="number" value={form.quoteAmount} onChange={e=>set("quoteAmount",e.target.value)} placeholder="0" required error={errs.quoteAmount}/>
               </div>
               <div>
                 <label style={{fontSize:12,fontWeight:500,color:T.inkSub,marginBottom:5,display:"block",fontFamily:F}}>Description <span style={{color:"#DC2626"}}>*</span></label>
-                <textarea value={form.quoteDesc} onChange={e=>set("quoteDesc",e.target.value)} placeholder="Quote notes…" rows={2}
-                  style={{...inputSx(errs.quoteDesc),padding:"9px 11px",resize:"vertical",lineHeight:1.5,width:"100%",boxSizing:"border-box"}} onFocus={onfocus} onBlur={onblur}/>
+                <textarea value={form.quoteDesc} onChange={e=>set("quoteDesc",e.target.value)} placeholder="Quote notes…" rows={2} style={{...inputSx(errs.quoteDesc),padding:"9px 11px",resize:"vertical",lineHeight:1.5,width:"100%",boxSizing:"border-box"}} onFocus={onfocus} onBlur={onblur}/>
                 {errs.quoteDesc&&<div style={{fontSize:11,color:"#B91C1C",marginTop:4}}>{errs.quoteDesc}</div>}
               </div>
             </div>
           </section>
         </div>
-
         <div style={{display:"flex",justifyContent:"flex-end",gap:10,padding:"14px 24px 22px",borderTop:`1px solid ${T.line}`,position:"sticky",bottom:0,background:T.surface,borderRadius:`0 0 ${T.r["2xl"]} ${T.r["2xl"]}`}}>
           <Btn ghost label="Cancel" onClick={onClose}/>
           <Btn primary icon={existing?P.check:P.plus} label={existing?"Save changes":"Add funnel"} onClick={submit}/>
@@ -1008,37 +656,20 @@ function FunnelForm({onClose,onSave,existing,user}) {
   );
 }
 
-// ─── VIEW DRAWER ──────────────────────────────────────────────────────────────
-function ViewDrawer({funnel,onClose,onEdit,onStatusChange,user,comments,onAddComment,logs,onAddLog,onUpdateFunnelFollowUp}) {
-  const [status,setStatus]=useState(funnel.status);
-  const tot=(funnel.products||[]).reduce((a,p)=>a+(Number(p.qty)*Number(p.price)||0),0);
-  const sc=T[status.toLowerCase()]||T.drop;
-  const doStatus=s=>{setStatus(s);onStatusChange(funnel.id,s);};
-
-  // ── Audit comment state (CEO/Manager only) ────────────────────────────────
-  const [commentText,setCommentText]=useState("");
-  const canComment=FULL.includes(user.role);
-  const submitComment=()=>{
-    if(!commentText.trim()) return;
-    onAddComment(funnel.id,{text:commentText.trim(),author:user.name,role:user.role,time:stamp()});
-    setCommentText("");
-  };
-
-  // ── Follow-up Log state (ALL roles) ──────────────────────────────────────
-  const [logForm,setLogForm]=useState({
-    followUpDate: funnel.nextFollowUp || today(),
-    description:  "",
-    nextFollowUp: "",
-  });
+// ─── FOLLOW-UP LOG SECTION ────────────────────────────────────────────────────
+// Standalone component — always renders, no conditional gates, no prop crashes
+function FollowUpLogSection({funnelId,funnelNextFollowUp,user,logs,onAddLog,onUpdateFunnelFollowUp}){
+  const safeDate = funnelNextFollowUp && funnelNextFollowUp.match(/^\d{4}-\d{2}-\d{2}$/) ? funnelNextFollowUp : today();
+  const [logForm,setLogForm]=useState({followUpDate:safeDate, description:"", nextFollowUp:""});
   const [logErr,setLogErr]=useState("");
-  const [logSaving,setLogSaving]=useState(false);
+  const [saving,setSaving]=useState(false);
+  const roleColor={"CEO":T.high,"Manager":T.won,"CRE":T.pending};
 
   const submitLog=async()=>{
-    if(!logForm.description.trim()){setLogErr("Outcome description is required.");return;}
-    setLogErr("");
-    setLogSaving(true);
-    try {
-      await onAddLog(funnel.id, {
+    if(!logForm.description.trim()){setLogErr("Please write what happened on this follow-up.");return;}
+    setLogErr(""); setSaving(true);
+    try{
+      await onAddLog(funnelId,{
         followUpDate: logForm.followUpDate,
         description:  logForm.description.trim(),
         nextFollowUp: logForm.nextFollowUp||null,
@@ -1046,20 +677,102 @@ function ViewDrawer({funnel,onClose,onEdit,onStatusChange,user,comments,onAddCom
         role:         user.role,
         time:         stamp(),
       });
-      // If a new follow-up date was set, update funnel
-      if(logForm.nextFollowUp) {
-        onUpdateFunnelFollowUp(funnel.id, logForm.nextFollowUp);
-      }
+      if(logForm.nextFollowUp) onUpdateFunnelFollowUp(funnelId,logForm.nextFollowUp);
       setLogForm({followUpDate:logForm.nextFollowUp||today(), description:"", nextFollowUp:""});
-    } catch(e) {
-      setLogErr("Failed to save log entry.");
-    } finally {
-      setLogSaving(false);
-    }
+    }catch(e){
+      setLogErr("Could not save. Please try again.");
+    }finally{setSaving(false);}
   };
 
-  const roleColor={"CEO":T.high,"Manager":T.won,"CRE":T.pending};
+  return(
+    <div style={{borderTop:`2px solid ${T.line}`,paddingTop:20,marginTop:24}}>
+      {/* Header */}
+      <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:16}}>
+        <div style={{width:28,height:28,borderRadius:T.r.md,background:"#F0FDF4",display:"flex",alignItems:"center",justifyContent:"center"}}>
+          <Ic d={P.cal} sz={14} color={T.won.dot}/>
+        </div>
+        <span style={{fontSize:13,fontWeight:700,color:T.ink,fontFamily:F}}>Follow-up Activity</span>
+        {logs.length>0&&<span style={{fontSize:11,fontWeight:600,background:T.won.bg,color:T.won.text,padding:"2px 9px",borderRadius:20,fontFamily:F}}>{logs.length}</span>}
+        <span style={{marginLeft:"auto",fontSize:11,color:T.inkMuted,fontFamily:F}}>All roles can log</span>
+      </div>
 
+      {/* Input card */}
+      <div style={{background:"#FAFFFE",border:"1px solid rgba(22,163,74,0.18)",borderRadius:T.r.lg,padding:16,marginBottom:16}}>
+        <div style={{fontSize:11,fontWeight:600,color:T.won.text,textTransform:"uppercase",letterSpacing:"0.07em",marginBottom:12,fontFamily:F}}>Log outcome</div>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:10}}>
+          <div style={{display:"flex",flexDirection:"column",gap:5}}>
+            <label style={{fontSize:11,fontWeight:500,color:T.inkSub,fontFamily:F}}>Follow-up date covered</label>
+            <input type="date" value={logForm.followUpDate} onChange={e=>setLogForm(f=>({...f,followUpDate:e.target.value}))} style={{...inputSx(),fontSize:12,padding:"7px 9px"}} onFocus={onfocus} onBlur={onblur}/>
+          </div>
+          <div style={{display:"flex",flexDirection:"column",gap:5}}>
+            <label style={{fontSize:11,fontWeight:500,color:T.inkSub,fontFamily:F}}>Next follow-up <span style={{color:T.inkMuted,fontWeight:400}}>(optional)</span></label>
+            <input type="date" value={logForm.nextFollowUp} onChange={e=>setLogForm(f=>({...f,nextFollowUp:e.target.value}))} style={{...inputSx(),fontSize:12,padding:"7px 9px"}} onFocus={onfocus} onBlur={onblur}/>
+          </div>
+        </div>
+        <div style={{display:"flex",flexDirection:"column",gap:6}}>
+          <label style={{fontSize:11,fontWeight:500,color:T.inkSub,fontFamily:F}}>What happened / outcome <span style={{color:"#DC2626"}}>*</span></label>
+          <textarea value={logForm.description} onChange={e=>{setLogForm(f=>({...f,description:e.target.value}));setLogErr("");}} placeholder="e.g. Called customer — interested but asking for 10% discount…" rows={3} style={{...inputSx(!!logErr),padding:"9px 11px",resize:"vertical",lineHeight:1.6,fontSize:12,fontFamily:F}} onFocus={onfocus} onBlur={onblur}/>
+          {logErr&&<span style={{fontSize:11,color:"#B91C1C",fontFamily:F}}>{logErr}</span>}
+        </div>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginTop:12}}>
+          <div style={{display:"flex",alignItems:"center",gap:6,fontSize:11,color:T.inkMuted,fontFamily:F}}>
+            <Avatar name={user.name} size={18}/>
+            <span>Logging as <strong style={{color:T.ink}}>{user.name}</strong></span>
+          </div>
+          <Btn primary sm icon={P.check} label={saving?"Saving…":"+ Log Activity"} onClick={submitLog} disabled={!logForm.description.trim()||saving}/>
+        </div>
+      </div>
+
+      {/* Log list */}
+      {logs.length===0
+        ? <div style={{textAlign:"center",padding:"20px 0",fontSize:12,color:T.inkMuted,fontFamily:F,background:T.bg,borderRadius:T.r.lg,border:`1px dashed ${T.line}`}}>No activity logged yet. Log your first outcome above.</div>
+        : <div style={{display:"flex",flexDirection:"column",gap:10}}>
+            {logs.map((lg,i)=>{
+              const rc=roleColor[lg.role]||T.drop;
+              return(
+                <div key={i} style={{background:T.surface,border:`1px solid ${T.line}`,borderRadius:T.r.lg,padding:"13px 15px",boxShadow:T.shadowSm}}>
+                  <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:8}}>
+                    <Avatar name={lg.author} size={26}/>
+                    <div style={{flex:1}}>
+                      <span style={{fontSize:12,fontWeight:600,color:T.ink,fontFamily:F}}>{lg.author}</span>
+                      <span style={{marginLeft:6,fontSize:10,fontWeight:500,padding:"1px 7px",borderRadius:10,background:rc.bg,color:rc.text,fontFamily:F}}>{lg.role}</span>
+                    </div>
+                    <span style={{fontSize:10,color:T.inkMuted,fontFamily:F,whiteSpace:"nowrap"}}>{lg.time}</span>
+                  </div>
+                  <div style={{display:"inline-flex",alignItems:"center",gap:4,background:T.bg,border:`1px solid ${T.line}`,borderRadius:20,padding:"2px 9px",marginBottom:8}}>
+                    <Ic d={P.cal} sz={10} color={T.inkMuted}/>
+                    <span style={{fontSize:10,color:T.inkSub,fontFamily:F}}>Follow-up for:</span>
+                    <span style={{fontSize:11,fontWeight:600,color:T.ink,fontFamily:F,marginLeft:3}}>{lg.followUpDate}</span>
+                  </div>
+                  <p style={{margin:0,fontSize:13,color:T.ink,fontFamily:F,lineHeight:1.65}}>{lg.description}</p>
+                  {lg.nextFollowUp&&(
+                    <div style={{marginTop:10,display:"flex",alignItems:"center",gap:6,padding:"6px 10px",background:T.brandSubtle,borderRadius:T.r.md}}>
+                      <Ic d={P.arrow} sz={12} color={T.brand}/>
+                      <span style={{fontSize:12,color:T.brand,fontFamily:F,fontWeight:500}}>Next follow-up set to <strong>{lg.nextFollowUp}</strong></span>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+      }
+    </div>
+  );
+}
+
+// ─── VIEW DRAWER ──────────────────────────────────────────────────────────────
+function ViewDrawer({funnel,onClose,onEdit,onStatusChange,user,comments,onAddComment,logs,onAddLog,onUpdateFunnelFollowUp}){
+  const [status,setStatus]=useState(funnel.status);
+  const tot=(funnel.products||[]).reduce((a,p)=>a+(Number(p.qty)*Number(p.price)||0),0);
+  const doStatus=s=>{setStatus(s);onStatusChange(funnel.id,s);};
+  const [commentText,setCommentText]=useState("");
+  const canComment=FULL.includes(user.role);
+  const submitComment=()=>{
+    if(!commentText.trim()) return;
+    onAddComment(funnel.id,{text:commentText.trim(),author:user.name,role:user.role,time:stamp()});
+    setCommentText("");
+  };
+  const roleColor={"CEO":T.high,"Manager":T.won,"CRE":T.pending};
   const Row=({l,v,mono})=>(
     <div style={{display:"grid",gridTemplateColumns:"140px 1fr",gap:8,padding:"8px 0",borderBottom:`1px solid ${T.line}`}}>
       <dt style={{fontSize:11,fontWeight:500,color:T.inkMuted,fontFamily:F}}>{l}</dt>
@@ -1068,61 +781,43 @@ function ViewDrawer({funnel,onClose,onEdit,onStatusChange,user,comments,onAddCom
   );
   const Sec=({t})=><div style={{fontSize:10,fontWeight:600,color:T.inkMuted,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:10,marginTop:4,fontFamily:F}}>{t}</div>;
 
-  return (
-    <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.3)",zIndex:2000,display:"flex",justifyContent:"flex-end",backdropFilter:"blur(1px)"}}
-      onClick={onClose}>
-      <div style={{background:T.surface,width:"100%",maxWidth:540,height:"100%",overflowY:"auto",boxShadow:"-8px 0 40px rgba(0,0,0,.12)",animation:"slideRight .22s ease",display:"flex",flexDirection:"column"}}
-        onClick={e=>e.stopPropagation()}>
+  // Always guarantee arrays — this is the main fix
+  const safeLogs     = Array.isArray(logs)     ? logs     : [];
+  const safeComments = Array.isArray(comments) ? comments : [];
+
+  return(
+    <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.3)",zIndex:2000,display:"flex",justifyContent:"flex-end",backdropFilter:"blur(1px)"}} onClick={onClose}>
+      <div style={{background:T.surface,width:"100%",maxWidth:540,height:"100%",overflowY:"auto",boxShadow:"-8px 0 40px rgba(0,0,0,.12)",animation:"slideRight .22s ease",display:"flex",flexDirection:"column"}} onClick={e=>e.stopPropagation()}>
 
         {/* Header */}
         <div style={{padding:"20px 22px 16px",borderBottom:`1px solid ${T.line}`,position:"sticky",top:0,background:T.surface,zIndex:1}}>
           <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",marginBottom:12}}>
             <div style={{flex:1,marginRight:12}}>
               <h2 style={{fontSize:17,fontWeight:700,color:T.ink,fontFamily:F,margin:"0 0 3px",letterSpacing:"-0.3px"}}>{funnel.name||"(No name)"}</h2>
-              <div style={{display:"flex",alignItems:"center",gap:8}}>
-                <p style={{margin:0,fontSize:11,color:T.inkMuted,fontFamily:F}}>{funnel.createdAt} · {funnel.createdBy}</p>
-                {funnel.leadSource&&<SourcePill source={funnel.leadSource}/>}
-              </div>
+              <div style={{display:"flex",alignItems:"center",gap:8}}><p style={{margin:0,fontSize:11,color:T.inkMuted,fontFamily:F}}>{funnel.createdAt} · {funnel.createdBy}</p>{funnel.leadSource&&<SourcePill source={funnel.leadSource}/>}</div>
             </div>
             <div style={{display:"flex",gap:8,alignItems:"center"}}>
               {can(user,"edit")&&<Btn ghost sm icon={P.edit} label="Edit" onClick={()=>{onClose();onEdit(funnel);}}/>}
-              <button onClick={onClose} style={{width:28,height:28,border:`1px solid ${T.line}`,borderRadius:T.r.md,background:T.bg,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>
-                <Ic d={P.close} sz={12} color={T.inkSub}/>
-              </button>
+              <button onClick={onClose} style={{width:28,height:28,border:`1px solid ${T.line}`,borderRadius:T.r.md,background:T.bg,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}><Ic d={P.close} sz={12} color={T.inkSub}/></button>
             </div>
           </div>
           <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
-            {STATUS.map(s=>{
-              const c=T[s.toLowerCase()]||T.drop;
-              const a=status===s;
-              return (
-                <button key={s} onClick={()=>doStatus(s)}
-                  style={{padding:"5px 12px",borderRadius:20,border:`1px solid ${a?c.dot:T.line}`,background:a?c.bg:"transparent",color:a?c.text:T.inkSub,fontSize:12,fontWeight:a?600:400,cursor:"pointer",fontFamily:F,transition:"all .15s",display:"flex",alignItems:"center",gap:5}}>
-                  <Dot color={a?c.dot:T.inkMuted} size={5}/>{s}
-                </button>
-              );
-            })}
+            {STATUS.map(s=>{const c=T[s.toLowerCase()]||T.drop;const a=status===s;return(
+              <button key={s} onClick={()=>doStatus(s)} style={{padding:"5px 12px",borderRadius:20,border:`1px solid ${a?c.dot:T.line}`,background:a?c.bg:"transparent",color:a?c.text:T.inkSub,fontSize:12,fontWeight:a?600:400,cursor:"pointer",fontFamily:F,transition:"all .15s",display:"flex",alignItems:"center",gap:5}}>
+                <Dot color={a?c.dot:T.inkMuted} size={5}/>{s}
+              </button>
+            );})}
           </div>
         </div>
 
         {/* Body */}
         <div style={{padding:"18px 22px",flex:1}}>
           <Sec t="Contact"/>
-          <dl>
-            <Row l="Name" v={funnel.name}/>
-            <Row l="Phone" v={funnel.phone}/>
-            <Row l="Email" v={funnel.email}/>
-            {funnel.cityRegion&&<Row l="City / Region" v={funnel.cityRegion}/>}
-          </dl>
+          <dl><Row l="Name" v={funnel.name}/><Row l="Phone" v={funnel.phone}/><Row l="Email" v={funnel.email}/>{funnel.cityRegion&&<Row l="City / Region" v={funnel.cityRegion}/>}</dl>
           <div style={{height:18}}/>
 
           <Sec t="Funnel"/>
-          <dl>
-            <Row l="Enquiry type"   v={funnel.enquiryType}/>
-            <Row l="Funnel type"    v={funnel.funnelType}/>
-            <Row l="Lead source"    v={funnel.leadSource}/>
-            <Row l="Next follow-up" v={funnel.nextFollowUp}/>
-          </dl>
+          <dl><Row l="Enquiry type" v={funnel.enquiryType}/><Row l="Funnel type" v={funnel.funnelType}/><Row l="Lead source" v={funnel.leadSource}/><Row l="Next follow-up" v={funnel.nextFollowUp}/></dl>
           <div style={{height:18}}/>
 
           <Sec t="Products"/>
@@ -1143,166 +838,45 @@ function ViewDrawer({funnel,onClose,onEdit,onStatusChange,user,comments,onAddCom
           </div>
 
           {funnel.remarks&&<><Sec t="Remarks"/><div style={{background:T.bg,padding:"10px 14px",borderRadius:T.r.md,fontSize:13,color:T.ink,fontFamily:F,lineHeight:1.6,marginBottom:18}}>{funnel.remarks}</div></>}
-
-          {(funnel.deliveryDetails||funnel.paymentTerms)&&(
-            <>
-              <Sec t="Delivery & Payment"/>
-              <dl>
-                {funnel.deliveryDetails&&<Row l="Delivery details" v={funnel.deliveryDetails}/>}
-                {funnel.paymentTerms&&<Row l="Payment terms" v={funnel.paymentTerms}/>}
-              </dl>
-              <div style={{height:18}}/>
-            </>
-          )}
+          {(funnel.deliveryDetails||funnel.paymentTerms)&&<><Sec t="Delivery & Payment"/><dl>{funnel.deliveryDetails&&<Row l="Delivery details" v={funnel.deliveryDetails}/>}{funnel.paymentTerms&&<Row l="Payment terms" v={funnel.paymentTerms}/>}</dl><div style={{height:18}}/></>}
 
           <Sec t="Quotation"/>
-          <dl>
-            <Row l="Order Number" v={funnel.orderNumber} mono/>
-            <Row l="Quantity"  v={funnel.quoteQty}/>
-            <Row l="Amount"    v={inr(funnel.quoteAmount)}/>
-            {funnel.quoteDesc&&<Row l="Description" v={funnel.quoteDesc}/>}
-          </dl>
+          <dl><Row l="Order Number" v={funnel.orderNumber} mono/><Row l="Quantity" v={funnel.quoteQty}/><Row l="Amount" v={inr(funnel.quoteAmount)}/>{funnel.quoteDesc&&<Row l="Description" v={funnel.quoteDesc}/>}</dl>
 
-          {/* ════════════════════════════════════════════════════
-              FOLLOW-UP ACTIVITY LOG  (all roles can write)
-          ════════════════════════════════════════════════════ */}
-          <div style={{height:24}}/>
-          <div style={{borderTop:`2px solid ${T.line}`,paddingTop:20}}>
+          {/* ── FOLLOW-UP ACTIVITY LOG — always rendered, no conditions ── */}
+          <FollowUpLogSection
+            funnelId={funnel.id}
+            funnelNextFollowUp={funnel.nextFollowUp}
+            user={user}
+            logs={safeLogs}
+            onAddLog={onAddLog}
+            onUpdateFunnelFollowUp={onUpdateFunnelFollowUp}
+          />
+
+          {/* ── AUDIT COMMENTS ── */}
+          <div style={{borderTop:`2px solid ${T.line}`,paddingTop:20,marginTop:24}}>
             <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:16}}>
-              <Ic d={P.cal} sz={14} color={T.won.dot}/>
-              <span style={{fontSize:13,fontWeight:600,color:T.ink,fontFamily:F}}>Follow-up Activity</span>
-              {logs.length>0&&(
-                <span style={{fontSize:11,fontWeight:500,background:T.won.bg,color:T.won.text,padding:"1px 8px",borderRadius:10,fontFamily:F}}>{logs.length}</span>
-              )}
+              <div style={{width:28,height:28,borderRadius:T.r.md,background:T.brandSubtle,display:"flex",alignItems:"center",justifyContent:"center"}}><Ic d={P.msg} sz={14} color={T.brand}/></div>
+              <span style={{fontSize:13,fontWeight:700,color:T.ink,fontFamily:F}}>Audit Comments</span>
+              {safeComments.length>0&&<span style={{fontSize:11,fontWeight:600,background:T.brandSubtle,color:T.brand,padding:"2px 9px",borderRadius:20,fontFamily:F}}>{safeComments.length}</span>}
+              {!canComment&&<span style={{marginLeft:"auto",fontSize:11,color:T.inkMuted,fontFamily:F}}>CEO / Manager only</span>}
             </div>
-
-            {/* Log input form — all roles */}
-            <div style={{background:T.bg,border:`1px solid ${T.line}`,borderRadius:T.r.lg,padding:"14px 16px",marginBottom:16}}>
-              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:10}}>
-                <div style={{display:"flex",flexDirection:"column",gap:5}}>
-                  <label style={{fontSize:11,fontWeight:500,color:T.inkSub,fontFamily:F}}>Follow-up date covered</label>
-                  <input
-                    type="date"
-                    value={logForm.followUpDate}
-                    onChange={e=>setLogForm(f=>({...f,followUpDate:e.target.value}))}
-                    style={{...inputSx(),fontSize:12,padding:"6px 9px"}}
-                    onFocus={onfocus} onBlur={onblur}
-                  />
-                </div>
-                <div style={{display:"flex",flexDirection:"column",gap:5}}>
-                  <label style={{fontSize:11,fontWeight:500,color:T.inkSub,fontFamily:F}}>Set next follow-up <span style={{color:T.inkMuted}}>(optional)</span></label>
-                  <input
-                    type="date"
-                    value={logForm.nextFollowUp}
-                    onChange={e=>setLogForm(f=>({...f,nextFollowUp:e.target.value}))}
-                    style={{...inputSx(),fontSize:12,padding:"6px 9px"}}
-                    onFocus={onfocus} onBlur={onblur}
-                  />
-                </div>
-              </div>
-              <div style={{display:"flex",flexDirection:"column",gap:6}}>
-                <label style={{fontSize:11,fontWeight:500,color:T.inkSub,fontFamily:F}}>
-                  What happened / outcome <span style={{color:"#DC2626"}}>*</span>
-                </label>
-                <textarea
-                  value={logForm.description}
-                  onChange={e=>{setLogForm(f=>({...f,description:e.target.value}));setLogErr("");}}
-                  placeholder="e.g. Called customer, they are interested but asked for a 10% discount…"
-                  rows={3}
-                  style={{...inputSx(logErr),padding:"9px 11px",resize:"vertical",lineHeight:1.6,fontSize:13}}
-                  onFocus={onfocus} onBlur={onblur}
-                />
-                {logErr&&<span style={{fontSize:11,color:"#B91C1C"}}>{logErr}</span>}
-              </div>
-              <div style={{display:"flex",justifyContent:"flex-end",marginTop:10}}>
-                <Btn
-                  primary sm
-                  icon={P.check}
-                  label={logSaving?"Saving…":"+ Log Activity"}
-                  onClick={submitLog}
-                  disabled={!logForm.description.trim()||logSaving}
-                />
-              </div>
-            </div>
-
-            {/* Log entries list — chronological oldest → newest */}
-            {logs.length===0
-              ? <div style={{textAlign:"center",padding:"16px 0",fontSize:12,color:T.inkMuted,fontFamily:F}}>No activity logged yet.</div>
-              : <div style={{display:"flex",flexDirection:"column",gap:10}}>
-                  {logs.map((lg,i)=>{
-                    const rc=roleColor[lg.role]||T.drop;
-                    return (
-                      <div key={i} style={{background:T.bg,border:`1px solid ${T.line}`,borderRadius:T.r.lg,padding:"12px 14px"}}>
-                        {/* Header row */}
-                        <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:8}}>
-                          <Avatar name={lg.author} size={24}/>
-                          <div style={{flex:1}}>
-                            <span style={{fontSize:12,fontWeight:600,color:T.ink,fontFamily:F}}>{lg.author}</span>
-                            <span style={{marginLeft:6,fontSize:10,fontWeight:500,padding:"1px 7px",borderRadius:10,background:rc.bg,color:rc.text,fontFamily:F}}>{lg.role}</span>
-                          </div>
-                          <span style={{fontSize:10,color:T.inkMuted,fontFamily:F,whiteSpace:"nowrap"}}>{lg.time}</span>
-                        </div>
-                        {/* Follow-up date covered */}
-                        <div style={{fontSize:11,color:T.inkSub,fontFamily:F,marginBottom:6,display:"flex",alignItems:"center",gap:5}}>
-                          <Ic d={P.cal} sz={11} color={T.inkMuted}/>
-                          Follow-up for: <strong style={{color:T.ink,marginLeft:3}}>{lg.followUpDate}</strong>
-                        </div>
-                        {/* Description */}
-                        <p style={{margin:0,fontSize:13,color:T.ink,fontFamily:F,lineHeight:1.6}}>{lg.description}</p>
-                        {/* Next follow-up if set */}
-                        {lg.nextFollowUp&&(
-                          <div style={{marginTop:8,display:"flex",alignItems:"center",gap:5,fontSize:12,color:T.brand,fontFamily:F,fontWeight:500}}>
-                            <Ic d={P.arrow} sz={12} color={T.brand}/>
-                            Next follow-up set: {lg.nextFollowUp}
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-            }
-          </div>
-
-          {/* ════════════════════════════════════════════════════
-              AUDIT COMMENTS  (CEO / Manager only)
-          ════════════════════════════════════════════════════ */}
-          <div style={{height:24}}/>
-          <div style={{borderTop:`2px solid ${T.line}`,paddingTop:20}}>
-            <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:16}}>
-              <Ic d={P.msg} sz={14} color={T.brand}/>
-              <span style={{fontSize:13,fontWeight:600,color:T.ink,fontFamily:F}}>Audit Comments</span>
-              {comments.length>0&&<span style={{fontSize:11,fontWeight:500,background:T.brandSubtle,color:T.brand,padding:"1px 8px",borderRadius:10,fontFamily:F}}>{comments.length}</span>}
-            </div>
-
             {canComment&&(
               <div style={{marginBottom:16}}>
-                <textarea
-                  value={commentText}
-                  onChange={e=>setCommentText(e.target.value)}
-                  placeholder="Write your audit comment…"
-                  rows={3}
-                  style={{...inputSx(),padding:"10px 12px",resize:"vertical",lineHeight:1.6,width:"100%",boxSizing:"border-box"}}
-                  onFocus={onfocus} onBlur={onblur}
-                />
-                <div style={{display:"flex",justifyContent:"flex-end",marginTop:8}}>
-                  <Btn primary sm icon={P.check} label="Save comment" onClick={submitComment} disabled={!commentText.trim()}/>
-                </div>
+                <textarea value={commentText} onChange={e=>setCommentText(e.target.value)} placeholder="Write your audit comment…" rows={3} style={{...inputSx(),padding:"10px 12px",resize:"vertical",lineHeight:1.6,width:"100%",boxSizing:"border-box"}} onFocus={onfocus} onBlur={onblur}/>
+                <div style={{display:"flex",justifyContent:"flex-end",marginTop:8}}><Btn primary sm icon={P.check} label="Save comment" onClick={submitComment} disabled={!commentText.trim()}/></div>
               </div>
             )}
-
-            {comments.length===0
+            {safeComments.length===0
               ? <div style={{textAlign:"center",padding:"20px 0",fontSize:12,color:T.inkMuted,fontFamily:F}}>No audit comments yet.</div>
               : <div style={{display:"flex",flexDirection:"column",gap:10}}>
-                  {[...comments].reverse().map((c,i)=>{
+                  {[...safeComments].reverse().map((c,i)=>{
                     const rc=roleColor[c.role]||T.drop;
-                    return (
+                    return(
                       <div key={i} style={{background:T.bg,border:`1px solid ${T.line}`,borderRadius:T.r.lg,padding:"12px 14px"}}>
                         <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:8}}>
                           <Avatar name={c.author} size={24}/>
-                          <div style={{flex:1}}>
-                            <span style={{fontSize:12,fontWeight:600,color:T.ink,fontFamily:F}}>{c.author}</span>
-                            <span style={{marginLeft:6,fontSize:10,fontWeight:500,padding:"1px 7px",borderRadius:10,background:rc.bg,color:rc.text,fontFamily:F}}>{c.role}</span>
-                          </div>
+                          <div style={{flex:1}}><span style={{fontSize:12,fontWeight:600,color:T.ink,fontFamily:F}}>{c.author}</span><span style={{marginLeft:6,fontSize:10,fontWeight:500,padding:"1px 7px",borderRadius:10,background:rc.bg,color:rc.text,fontFamily:F}}>{c.role}</span></div>
                           <span style={{fontSize:10,color:T.inkMuted,fontFamily:F,whiteSpace:"nowrap"}}>{c.time}</span>
                         </div>
                         <p style={{margin:0,fontSize:13,color:T.ink,fontFamily:F,lineHeight:1.6}}>{c.text}</p>
@@ -1319,91 +893,83 @@ function ViewDrawer({funnel,onClose,onEdit,onStatusChange,user,comments,onAddCom
 }
 
 // ─── MAIN SHELL ───────────────────────────────────────────────────────────────
-function Shell({user,users,onLogout,onUsersChange}) {
+function Shell({user,users,onLogout,onUsersChange}){
   const [funnels,setFunnels]=useState([]);
   const [loading,setLoading]=useState(true);
   const [view,setView]=useState("dashboard");
   const [search,setSearch]=useState("");
   const [sidebarOpen,setSidebarOpen]=useState(false);
-
-  useEffect(()=>{
-    const fetchFunnels=async()=>{
-      try{const data=await crmService.getAllFunnels();setFunnels(data);}
-      catch(err){console.error("Failed to fetch funnels:",err);}
-      finally{setLoading(false);}
-    };
-    fetchFunnels();
-  },[]);
-
-  useEffect(()=>{
-    const channel=supabase.channel('funnels_changes')
-      .on('postgres_changes',{event:'*',schema:'public',table:'funnels'},(payload)=>{
-        if(payload.eventType==='INSERT'){
-          const f=crmService.mapFromDb(payload.new);
-          setFunnels(prev=>prev.find(x=>x.id===f.id)?prev:[f,...prev]);
-        } else if(payload.eventType==='UPDATE'){
-          const f=crmService.mapFromDb(payload.new);
-          setFunnels(prev=>prev.map(x=>x.id===f.id?f:x));
-        } else if(payload.eventType==='DELETE'){
-          setFunnels(prev=>prev.filter(x=>x.id!==payload.old.id));
-        }
-      }).subscribe();
-    return()=>supabase.removeChannel(channel);
-  },[]);
-
-  // ── Audit comments ────────────────────────────────────────────────────────
-  const [funnelComments,setFunnelComments]=useState({});
   const [viewT,setViewT]=useState(null);
+  const [editT,setEditT]=useState(null);
+  const [addOpen,setAddOpen]=useState(false);
+  const {list:toasts,push}=useToast();
+  const TODAY=today();
+
+  // Funnels fetch
+  useEffect(()=>{
+    crmService.getAllFunnels()
+      .then(data=>setFunnels(data))
+      .catch(err=>console.error("Fetch funnels:",err))
+      .finally(()=>setLoading(false));
+  },[]);
+
+  // Funnels realtime
+  useEffect(()=>{
+    const ch=supabase.channel('funnels_changes')
+      .on('postgres_changes',{event:'*',schema:'public',table:'funnels'},(payload)=>{
+        if(payload.eventType==='INSERT'){const f=crmService.mapFromDb(payload.new);setFunnels(prev=>prev.find(x=>x.id===f.id)?prev:[f,...prev]);}
+        else if(payload.eventType==='UPDATE'){const f=crmService.mapFromDb(payload.new);setFunnels(prev=>prev.map(x=>x.id===f.id?f:x));}
+        else if(payload.eventType==='DELETE'){setFunnels(prev=>prev.filter(x=>x.id!==payload.old.id));}
+      }).subscribe();
+    return()=>supabase.removeChannel(ch);
+  },[]);
+
+  // Audit comments
+  const [funnelComments,setFunnelComments]=useState({});
+  useEffect(()=>{
+    if(!viewT) return;
+    crmService.getComments(viewT.id)
+      .then(c=>setFunnelComments(prev=>({...prev,[viewT.id]:c})))
+      .catch(()=>setFunnelComments(prev=>({...prev,[viewT.id]:[]})));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  },[viewT?.id]);
 
   useEffect(()=>{
-    if(viewT&&!funnelComments[viewT.id]){
-      const fetch=async()=>{
-        try{
-          const c=await crmService.getComments(viewT.id);
-          setFunnelComments(prev=>({...prev,[viewT.id]:c}));
-        }catch(err){console.error("Failed to fetch comments:",err);}
-      };
-      fetch();
-    }
-  },[viewT,funnelComments]);
-
-  useEffect(()=>{
-    const channel=supabase.channel('comments_changes')
-      .on('postgres_changes',{event:'INSERT',schema:'public',table:'audit_comments'},async(payload)=>{
+    const ch=supabase.channel('comments_changes')
+      .on('postgres_changes',{event:'INSERT',schema:'public',table:'audit_comments'},(payload)=>{
         const fid=payload.new.funnel_id;
-        const nc={
-          text:payload.new.text,author:payload.new.author,role:payload.new.role,
-          time:new Date(payload.new.created_at).toLocaleString('en-IN',{month:'short',day:'numeric',year:'numeric',hour:'2-digit',minute:'2-digit'})
-        };
+        const nc={text:payload.new.text,author:payload.new.author,role:payload.new.role,time:new Date(payload.new.created_at).toLocaleString('en-IN',{month:'short',day:'numeric',year:'numeric',hour:'2-digit',minute:'2-digit'})};
         setFunnelComments(prev=>({...prev,[fid]:[...(prev[fid]||[]),nc]}));
       }).subscribe();
-    return()=>supabase.removeChannel(channel);
+    return()=>supabase.removeChannel(ch);
   },[]);
 
   const addComment=async(funnelId,comment)=>{
     try{await crmService.addComment(funnelId,comment);}
-    catch(err){console.error("Failed to add comment:",err);}
+    catch(err){console.error("addComment:",err);}
   };
 
-  // ── Follow-up Logs ────────────────────────────────────────────────────────
+  // ── Follow-up logs ─────────────────────────────────────────────────────────
   const [funnelLogs,setFunnelLogs]=useState({});
 
-  // Fetch logs when a funnel is opened
+  // Re-fetch every time a different funnel is opened (viewT?.id as dep)
   useEffect(()=>{
-    if(viewT&&!funnelLogs[viewT.id]){
-      const fetch=async()=>{
-        try{
-          const logs=await crmService.getFollowUpLogs(viewT.id);
-          setFunnelLogs(prev=>({...prev,[viewT.id]:logs}));
-        }catch(err){console.error("Failed to fetch follow-up logs:",err);}
-      };
-      fetch();
-    }
-  },[viewT,funnelLogs]);
+    if(!viewT) return;
+    const id=viewT.id;
+    crmService.getFollowUpLogs(id)
+      .then(logs=>{
+        setFunnelLogs(prev=>({...prev,[id]:Array.isArray(logs)?logs:[]}));
+      })
+      .catch(err=>{
+        console.error("getFollowUpLogs failed:",err);
+        setFunnelLogs(prev=>({...prev,[id]:[]})); // always set to [] so section renders
+      });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  },[viewT?.id]);
 
-  // Real-time subscription for follow_up_logs
+  // Realtime for follow_up_logs inserts
   useEffect(()=>{
-    const channel=supabase.channel('followup_logs_changes')
+    const ch=supabase.channel('followup_logs_rt')
       .on('postgres_changes',{event:'INSERT',schema:'public',table:'follow_up_logs'},(payload)=>{
         const fid=payload.new.funnel_id;
         const nl={
@@ -1416,114 +982,85 @@ function Shell({user,users,onLogout,onUsersChange}) {
         };
         setFunnelLogs(prev=>({...prev,[fid]:[...(prev[fid]||[]),nl]}));
       }).subscribe();
-    return()=>supabase.removeChannel(channel);
+    return()=>supabase.removeChannel(ch);
   },[]);
 
   const addFollowUpLog=async(funnelId,log)=>{
-    try{await crmService.addFollowUpLog(funnelId,log);}
-    catch(err){console.error("Failed to add follow-up log:",err);throw err;}
+    await crmService.addFollowUpLog(funnelId,log); // errors bubble to FollowUpLogSection
   };
 
-  // Update funnel's next follow-up date in local state + DB
   const updateFunnelFollowUp=async(funnelId,newDate)=>{
+    // Update local state immediately (non-blocking)
+    setFunnels(prev=>prev.map(f=>f.id===funnelId?{...f,nextFollowUp:newDate}:f));
+    setViewT(prev=>prev&&prev.id===funnelId?{...prev,nextFollowUp:newDate}:prev);
+    push(`Follow-up updated to ${newDate}`);
+    // Try DB update (non-fatal if fails)
     try{
-      await crmService.updateStatus(funnelId,null,newDate); // pass date; adjust crmService if needed
-      setFunnels(prev=>prev.map(f=>f.id===funnelId?{...f,nextFollowUp:newDate}:f));
-      // Also patch viewT so header shows updated date
-      setViewT(prev=>prev&&prev.id===funnelId?{...prev,nextFollowUp:newDate}:prev);
-      push(`Follow-up updated → ${newDate}`);
-    }catch(err){
-      // Non-fatal: log saved, date update failed — update locally anyway
-      setFunnels(prev=>prev.map(f=>f.id===funnelId?{...f,nextFollowUp:newDate}:f));
-      setViewT(prev=>prev&&prev.id===funnelId?{...prev,nextFollowUp:newDate}:prev);
-    }
+      if(crmService.updateFollowUpDate) await crmService.updateFollowUpDate(funnelId,newDate);
+    }catch(err){console.error("updateFollowUpDate (non-fatal):",err);}
   };
 
-  // ── Filters ───────────────────────────────────────────────────────────────
+  // Filters
   const [fil,setFil]=useState({status:"",funnelType:"",enquiryType:"",leadSource:"",descFilter:"",missed:false,todayF:false,upcoming:false});
-  const [addOpen,setAddOpen]=useState(false);
-  const [editT,setEditT]=useState(null);
-  const {list:toasts,push}=useToast();
-  const TODAY=today();
-
   const sf=(k,v)=>setFil(f=>({...f,[k]:v}));
   const rf=()=>setFil({status:"",funnelType:"",enquiryType:"",leadSource:"",descFilter:"",missed:false,todayF:false,upcoming:false});
 
   const scoped=useMemo(()=>FULL.includes(user.role)?funnels:funnels.filter(f=>f.createdBy===user.name),[funnels,user]);
-
   const filtered=useMemo(()=>scoped.filter(f=>{
-    if(search){
-      const q=search.toLowerCase();
-      if(!(f.name||"").toLowerCase().includes(q)&&!(f.email||"").toLowerCase().includes(q)&&!(f.phone||"").toLowerCase().includes(q)&&!(f.orderNumber||"").toLowerCase().includes(q)) return false;
-    }
+    if(search){const q=search.toLowerCase();if(!(f.name||"").toLowerCase().includes(q)&&!(f.email||"").toLowerCase().includes(q)&&!(f.phone||"").toLowerCase().includes(q)&&!(f.orderNumber||"").toLowerCase().includes(q)) return false;}
     if(fil.status      && f.status     !==fil.status)      return false;
     if(fil.funnelType  && f.funnelType !==fil.funnelType)  return false;
     if(fil.enquiryType && f.enquiryType!==fil.enquiryType) return false;
     if(fil.leadSource  && f.leadSource !==fil.leadSource)  return false;
-    if(fil.descFilter){
-      const q=fil.descFilter.toLowerCase();
-      if(!(f.remarks||"").toLowerCase().includes(q)&&!(f.quoteDesc||"").toLowerCase().includes(q)) return false;
-    }
+    if(fil.descFilter){const q=fil.descFilter.toLowerCase();if(!(f.remarks||"").toLowerCase().includes(q)&&!(f.quoteDesc||"").toLowerCase().includes(q)) return false;}
     if(fil.missed   && (!f.nextFollowUp||f.nextFollowUp>=TODAY)) return false;
     if(fil.todayF   && f.nextFollowUp!==TODAY)                   return false;
     if(fil.upcoming && f.nextFollowUp<=TODAY)                    return false;
     return true;
   }),[scoped,search,fil,TODAY]);
 
+  // CRUD
   const save=async(form)=>{
     try{
       const cleaned={...form,products:(form.products||[]).filter(p=>p.desc||p.category||p.qty||p.price)};
       const saved=await crmService.saveFunnel(cleaned,user);
       if(editT){setFunnels(p=>p.map(f=>f.id===saved.id?saved:f));setEditT(null);push("Funnel updated");}
       else{setFunnels(p=>[saved,...p]);setAddOpen(false);push("Funnel added");}
-    }catch(err){
-      console.error("Failed to save funnel:",err);
-      push(`Error: ${err.message||"Could not save lead"}`,"error");
-    }
+    }catch(err){console.error("save:",err);push(`Error: ${err.message||"Could not save"}`,"error");}
   };
-
   const del=async(id)=>{
-    if(!window.confirm("Are you sure you want to delete this lead?")) return;
+    if(!window.confirm("Delete this lead?")) return;
     try{await crmService.deleteFunnel(id);setFunnels(p=>p.filter(f=>f.id!==id));push("Deleted","info");}
-    catch(err){console.error("Failed to delete funnel:",err);push("Error deleting funnel","error");}
+    catch(err){push("Error deleting","error");}
   };
-
   const upStatus=async(id,s)=>{
-    try{await crmService.updateStatus(id,s);setFunnels(p=>p.map(f=>f.id===id?{...f,status:s}:f));push(`Status → ${s}`);}
-    catch(err){console.error("Failed to update status:",err);push("Error updating status","error");}
+    try{await crmService.updateStatus(id,s);setFunnels(p=>p.map(f=>f.id===id?{...f,status:s}:f));push(`Status -> ${s}`);}
+    catch(err){push("Error updating status","error");}
   };
 
   const titles={dashboard:"Dashboard",funnels:"Funnels",analytics:"Analytics",team:"Team"};
   const showFilters=view==="dashboard"||view==="funnels";
   const showStats  =view==="dashboard";
 
-  return (
+  return(
     <div style={{display:"flex",minHeight:"100vh",background:T.bg,fontFamily:F}}>
       <Sidebar active={view} set={setView} user={user} onLogout={onLogout} open={sidebarOpen} onClose={()=>setSidebarOpen(false)}/>
       <div style={{flex:1,display:"flex",flexDirection:"column",minWidth:0,minHeight:"100vh"}}>
-        <Topbar
-          title={titles[view]}
-          search={search} setSearch={setSearch}
-          user={user} onAdd={()=>setAddOpen(true)}
+        <Topbar title={titles[view]} search={search} setSearch={setSearch} user={user} onAdd={()=>setAddOpen(true)}
           onExportAll={()=>{xls(scoped,`Ekanta_All_${TODAY}.xls`);push(`Exported ${scoped.length} funnels`,"info");}}
           onExportFiltered={()=>{xls(filtered,`Ekanta_Filtered_${TODAY}.xls`);push(`Exported ${filtered.length} funnels`,"info");}}
-          fLen={filtered.length} aLen={scoped.length}
-          onMenuToggle={()=>setSidebarOpen(x=>!x)}
-        />
-
+          fLen={filtered.length} aLen={scoped.length} onMenuToggle={()=>setSidebarOpen(x=>!x)}/>
         {showStats&&<Stats funnels={scoped}/>}
         {showFilters&&<div style={{marginTop:16}}><FilterBar fil={fil} setF={sf} reset={rf}/></div>}
-
         <div style={{flex:1,background:showFilters?T.surface:"transparent",borderTop:showFilters?`1px solid ${T.line}`:"none"}}>
-          {(view==="dashboard"||view==="funnels")&&(
-            <Table rows={filtered} user={user} onView={setViewT} onEdit={f=>setEditT(f)} onDelete={del} loading={loading}/>
-          )}
+          {(view==="dashboard"||view==="funnels")&&<Table rows={filtered} user={user} onView={setViewT} onEdit={f=>setEditT(f)} onDelete={del} loading={loading}/>}
           {view==="analytics"&&FULL.includes(user.role)&&<Analytics funnels={funnels}/>}
           {view==="team"&&FULL.includes(user.role)&&<Team users={users} onSave={onUsersChange}/>}
         </div>
       </div>
 
       {(addOpen||editT)&&<FunnelForm onClose={()=>{setAddOpen(false);setEditT(null);}} onSave={save} existing={editT} user={user}/>}
+
       {viewT&&(
         <ViewDrawer
           funnel={viewT}
@@ -1531,9 +1068,9 @@ function Shell({user,users,onLogout,onUsersChange}) {
           onEdit={f=>setEditT(f)}
           onStatusChange={upStatus}
           user={user}
-          comments={funnelComments[viewT.id]||[]}
+          comments={Array.isArray(funnelComments[viewT.id])?funnelComments[viewT.id]:[]}
           onAddComment={addComment}
-          logs={funnelLogs[viewT.id]||[]}
+          logs={Array.isArray(funnelLogs[viewT.id])?funnelLogs[viewT.id]:[]}
           onAddLog={addFollowUpLog}
           onUpdateFunnelFollowUp={updateFunnelFollowUp}
         />
@@ -1544,22 +1081,16 @@ function Shell({user,users,onLogout,onUsersChange}) {
 }
 
 // ─── ROOT ─────────────────────────────────────────────────────────────────────
-export default function App() {
+export default function App(){
   const [user,setUser]=useState(null);
   const [users,setUsers]=useState([]);
   const [loading,setLoading]=useState(true);
 
   useEffect(()=>{
-    const fetchUsers=async()=>{
-      try{
-        const data=await crmService.getUsers();
-        setUsers(data&&data.length>0?data:SEED_USERS);
-      }catch(err){
-        console.error("Failed to fetch users:",err);
-        setUsers(SEED_USERS);
-      }finally{setLoading(false);}
-    };
-    fetchUsers();
+    crmService.getUsers()
+      .then(data=>setUsers(data&&data.length>0?data:SEED_USERS))
+      .catch(()=>setUsers(SEED_USERS))
+      .finally(()=>setLoading(false));
   },[]);
 
   const handleUsersChange=async(newUsers)=>{
@@ -1569,18 +1100,11 @@ export default function App() {
       await crmService.saveUsers(newUsers);
       const data=await crmService.getUsers();
       setUsers(data);
-    }catch(err){console.error("Failed to update users:",err);}
+    }catch(err){console.error("handleUsersChange:",err);}
   };
 
   if(loading) return <div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:T.bg,fontFamily:F}}>Loading CRM...</div>;
-
-  return (
-    <>
-      <FontLoader/>
-      {!user
-        ?<Login users={users} onLogin={setUser}/>
-        :<Shell user={user} users={users} onLogout={()=>setUser(null)} onUsersChange={handleUsersChange}/>
-      }
-    </>
+  return(
+    <><FontLoader/>{!user?<Login users={users} onLogin={setUser}/>:<Shell user={user} users={users} onLogout={()=>setUser(null)} onUsersChange={handleUsersChange}/>}</>
   );
 }
