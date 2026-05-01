@@ -270,36 +270,3 @@ export const crmService = {
     };
   }
 };
-async getFollowUpLogs(funnelId) {
-  const { data, error } = await supabase
-    .from('follow_up_logs')
-    .select('*')
-    .eq('funnel_id', funnelId)
-    .order('created_at', { ascending: true });
-  if (error) throw error;
-  return data.map(r => ({
-    followUpDate: r.follow_up_date,
-    description:  r.description,
-    nextFollowUp: r.next_follow_up,
-    author:       r.author,
-    role:         r.role,
-    time:         new Date(r.created_at).toLocaleString('en-IN', {
-      month:'short', day:'numeric', year:'numeric',
-      hour:'2-digit', minute:'2-digit'
-    })
-  }));
-},
-
-async addFollowUpLog(funnelId, log) {
-  const { error } = await supabase
-    .from('follow_up_logs')
-    .insert({
-      funnel_id:      funnelId,
-      follow_up_date: log.followUpDate,
-      description:    log.description,
-      next_follow_up: log.nextFollowUp || null,
-      author:         log.author,
-      role:           log.role,
-    });
-  if (error) throw error;
-},
