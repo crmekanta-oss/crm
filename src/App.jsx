@@ -2,19 +2,6 @@ import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import { crmService } from "./services/crmService";
 import { supabase } from "./lib/supabase";
 
-/*
-  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  EKANTA CRM — v4
-  Changes on top of v3:
-  ① Company name → optional (not required)
-  ② Quote Link field removed everywhere
-  ③ New fields: City/Region, Delivery Details, Payment Terms
-  ④ Audit Comments in ViewDrawer (Owner/Manager write, CRE/Sales read)
-  ⑤ Login: removed show/hide password toggle & hint text
-  ⑥ Mobile responsive (desktop first)
-  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-*/
-
 // ─── MOBILE HOOK ──────────────────────────────────────────────────────────────
 function useIsMobile() {
   const [m, setM] = useState(typeof window !== "undefined" ? window.innerWidth < 768 : false);
@@ -126,12 +113,11 @@ const big  = n => {
 
 // ─── SEED DATA ────────────────────────────────────────────────────────────────
 const SEED_USERS = [
-  {id:1,name:"Admin",      role:"CEO",              username:"admin",      password:"admin123"},
-  {id:2,name:"Vinodhini",  role:"CRE",              username:"vinodhini",  password:"pass123" },
-  {id:3,name:"Arjun Kumar",role:"Manager",          username:"arjun",      password:"pass123" },
+  {id:1,name:"Admin",      role:"CEO",     username:"admin",     password:"admin123"},
+  {id:2,name:"Vinodhini",  role:"CRE",     username:"vinodhini", password:"pass123" },
+  {id:3,name:"Arjun Kumar",role:"Manager", username:"arjun",     password:"pass123" },
 ];
 
-// ② quoteLink removed, ③ cityRegion/deliveryDetails/paymentTerms added
 const SEED_FUNNELS = [];
 
 // ─── EXCEL EXPORT ─────────────────────────────────────────────────────────────
@@ -229,6 +215,8 @@ const P={
   check:  "M20 6L9 17l-5-5",
   menu:   "M3 6h18M3 12h18M3 18h18",
   msg:    "M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z",
+  cal:    "M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z",
+  arrow:  "M5 12h14M12 5l7 7-7 7",
 };
 
 function Avatar({name,size=32}) {
@@ -313,7 +301,6 @@ function FSelect({label,value,onChange,options,placeholder,full=true,required,er
 const SL = ({children}) => <div style={{fontSize:11,fontWeight:600,color:T.inkMuted,letterSpacing:"0.07em",textTransform:"uppercase",marginBottom:12,fontFamily:F}}>{children}</div>;
 
 // ─── LOGIN ────────────────────────────────────────────────────────────────────
-// ⑤ Removed show/hide password toggle and hint text
 function Login({users,onLogin}) {
   const [u,su]=useState(""); const [p,sp]=useState(""); const [err,se]=useState(""); const [load,sl]=useState(false);
 
@@ -356,7 +343,6 @@ function Login({users,onLogin}) {
                 Password
                 <span style={{color:T.brand,cursor:"pointer",fontSize:12,fontWeight:500}} onClick={()=>se("Contact your administrator to reset your password.")}>Forgot?</span>
               </label>
-              {/* ⑤ password type fixed, no toggle button */}
               <input
                 type="password"
                 value={p}
@@ -401,7 +387,6 @@ function Sidebar({active,set,user,onLogout,open,onClose}) {
 
   return (
     <>
-      {/* Mobile overlay */}
       {open&&<div onClick={onClose} style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.4)",zIndex:199,display:"none"}} className="mobile-overlay"/>}
       <div className={`ek-sidebar${open?" open":""}`} style={{width:200,minHeight:"100vh",background:T.sidebar,borderRight:`1px solid ${T.line}`,display:"flex",flexDirection:"column",flexShrink:0,position:"relative",zIndex:200}}>
         <div style={{padding:"18px 16px 14px",borderBottom:`1px solid ${T.line}`}}>
@@ -459,7 +444,6 @@ function Topbar({title,sub,search,setSearch,user,onAdd,onExportAll,onExportFilte
     <div style={{background:T.surface,borderBottom:`1px solid ${T.line}`,padding:"0 16px"}}>
       <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",height:56}}>
         <div style={{display:"flex",alignItems:"center",gap:10,flex:1}}>
-          {/* ⑥ Mobile hamburger */}
           <button onClick={onMenuToggle} className="ek-mobile-menu"
             style={{background:"none",border:"none",cursor:"pointer",color:T.inkSub,display:"none",padding:4,borderRadius:6}}
             onMouseEnter={e=>e.currentTarget.style.color=T.ink}
@@ -849,7 +833,6 @@ function Team({users,onSave}) {
 }
 
 // ─── FUNNEL FORM ──────────────────────────────────────────────────────────────
-// ① company optional, ② quoteLink removed, ③ new fields added
 function FunnelForm({onClose,onSave,existing,user}) {
   const blank={
     name:"",phone:"",email:"",
@@ -882,16 +865,10 @@ function FunnelForm({onClose,onSave,existing,user}) {
     if(!form.quoteDesc)      e.quoteDesc="Required";
     if(!form.quoteQty)       e.quoteQty="Required";
     if(!form.quoteAmount)    e.quoteAmount="Required";
-    
-    // Check products: at least one item must have a description
     const hasProduct = form.products.some(p => p.desc.trim() !== "");
     if(!hasProduct) e.products = "At least one product item is required";
-
     if(!user?.name) e.auth="You must be logged in";
     setErrs(e);
-    if(Object.keys(e).length > 0) {
-      console.warn('Form validation failed:', e);
-    }
     return !Object.keys(e).length;
   };
   const submit=()=>{if(val())onSave(form);};
@@ -904,7 +881,6 @@ function FunnelForm({onClose,onSave,existing,user}) {
       <div style={{background:T.surface,borderRadius:T.r["2xl"],width:"100%",maxWidth:720,maxHeight:"90vh",overflowY:"auto",boxShadow:T.shadowXl,animation:"fadeUp .2s ease"}}
         onClick={e=>e.stopPropagation()}>
 
-        {/* Header */}
         <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"20px 24px 16px",borderBottom:`1px solid ${T.line}`,position:"sticky",top:0,background:T.surface,zIndex:1,borderRadius:`${T.r["2xl"]} ${T.r["2xl"]} 0 0`}}>
           <div>
             <h2 style={{fontSize:16,fontWeight:700,color:T.ink,fontFamily:F,margin:"0 0 2px"}}>{existing?"Edit funnel":"New funnel"}</h2>
@@ -916,8 +892,6 @@ function FunnelForm({onClose,onSave,existing,user}) {
         </div>
 
         <div style={{padding:"22px 24px",display:"flex",flexDirection:"column",gap:20}}>
-
-          {/* Contact */}
           <section>
             <SL>Contact details</SL>
             <div style={{display:"flex",flexDirection:"column",gap:12}}>
@@ -930,7 +904,6 @@ function FunnelForm({onClose,onSave,existing,user}) {
             </div>
           </section>
 
-          {/* Funnel details */}
           <section>
             <SL>Funnel details</SL>
             <div className="ek-form-2col" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:10}}>
@@ -938,15 +911,7 @@ function FunnelForm({onClose,onSave,existing,user}) {
               <FSelect label="Funnel type"  value={form.funnelType}  onChange={e=>set("funnelType",e.target.value)}  options={FTYPES} required error={errs.funnelType}/>
             </div>
             <div className="ek-form-2col" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
-              <FSelect
-                label="Lead source"
-                required
-                value={form.leadSource}
-                onChange={e=>set("leadSource",e.target.value)}
-                options={LEAD_SOURCES}
-                placeholder="Select source…"
-                error={errs.leadSource}
-              />
+              <FSelect label="Lead source" required value={form.leadSource} onChange={e=>set("leadSource",e.target.value)} options={LEAD_SOURCES} placeholder="Select source…" error={errs.leadSource}/>
               <div style={{display:"flex",flexDirection:"column",gap:5}}>
                 <label style={{fontSize:12,fontWeight:500,color:T.inkSub,fontFamily:F}}>Next follow-up<span style={{color:"#DC2626",marginLeft:2}}>*</span></label>
                 <input type="date" value={form.nextFollowUp} onChange={e=>set("nextFollowUp",e.target.value)}
@@ -956,7 +921,6 @@ function FunnelForm({onClose,onSave,existing,user}) {
             </div>
           </section>
 
-          {/* Products */}
           <section>
             <SL>Customer requirements</SL>
             <div style={{border:`1px solid ${errs.products?T.lost.dot:T.line}`,borderRadius:T.r.lg,overflow:"hidden"}}>
@@ -993,7 +957,6 @@ function FunnelForm({onClose,onSave,existing,user}) {
             </div>
           </section>
 
-          {/* Remarks */}
           <section>
             <SL>Remarks <span style={{color:"#DC2626"}}>*</span></SL>
             <textarea value={form.remarks} onChange={e=>set("remarks",e.target.value)} placeholder="Additional notes…" rows={2}
@@ -1001,7 +964,6 @@ function FunnelForm({onClose,onSave,existing,user}) {
             {errs.remarks&&<div style={{fontSize:11,color:"#B91C1C",marginTop:4}}>{errs.remarks}</div>}
           </section>
 
-          {/* ③ Delivery & Payment */}
           <section>
             <SL>Delivery & Payment</SL>
             <div className="ek-form-2col" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
@@ -1019,7 +981,6 @@ function FunnelForm({onClose,onSave,existing,user}) {
             </div>
           </section>
 
-          {/* Quotation — ② quoteLink removed */}
           <section>
             <SL>Initial quotation</SL>
             <div style={{display:"flex",flexDirection:"column",gap:12}}>
@@ -1038,7 +999,6 @@ function FunnelForm({onClose,onSave,existing,user}) {
           </section>
         </div>
 
-        {/* Footer */}
         <div style={{display:"flex",justifyContent:"flex-end",gap:10,padding:"14px 24px 22px",borderTop:`1px solid ${T.line}`,position:"sticky",bottom:0,background:T.surface,borderRadius:`0 0 ${T.r["2xl"]} ${T.r["2xl"]}`}}>
           <Btn ghost label="Cancel" onClick={onClose}/>
           <Btn primary icon={existing?P.check:P.plus} label={existing?"Save changes":"Add funnel"} onClick={submit}/>
@@ -1049,27 +1009,56 @@ function FunnelForm({onClose,onSave,existing,user}) {
 }
 
 // ─── VIEW DRAWER ──────────────────────────────────────────────────────────────
-// ② quoteLink removed, ③ new fields added, ④ Audit Comments added
-function ViewDrawer({funnel,onClose,onEdit,onStatusChange,user,comments,onAddComment}) {
+function ViewDrawer({funnel,onClose,onEdit,onStatusChange,user,comments,onAddComment,logs,onAddLog,onUpdateFunnelFollowUp}) {
   const [status,setStatus]=useState(funnel.status);
   const tot=(funnel.products||[]).reduce((a,p)=>a+(Number(p.qty)*Number(p.price)||0),0);
   const sc=T[status.toLowerCase()]||T.drop;
   const doStatus=s=>{setStatus(s);onStatusChange(funnel.id,s);};
 
-  // ④ Audit comment state
+  // ── Audit comment state (CEO/Manager only) ────────────────────────────────
   const [commentText,setCommentText]=useState("");
   const canComment=FULL.includes(user.role);
-
   const submitComment=()=>{
     if(!commentText.trim()) return;
-    onAddComment(funnel.id,{
-      text:commentText.trim(),
-      author:user.name,
-      role:user.role,
-      time:stamp(),
-    });
+    onAddComment(funnel.id,{text:commentText.trim(),author:user.name,role:user.role,time:stamp()});
     setCommentText("");
   };
+
+  // ── Follow-up Log state (ALL roles) ──────────────────────────────────────
+  const [logForm,setLogForm]=useState({
+    followUpDate: funnel.nextFollowUp || today(),
+    description:  "",
+    nextFollowUp: "",
+  });
+  const [logErr,setLogErr]=useState("");
+  const [logSaving,setLogSaving]=useState(false);
+
+  const submitLog=async()=>{
+    if(!logForm.description.trim()){setLogErr("Outcome description is required.");return;}
+    setLogErr("");
+    setLogSaving(true);
+    try {
+      await onAddLog(funnel.id, {
+        followUpDate: logForm.followUpDate,
+        description:  logForm.description.trim(),
+        nextFollowUp: logForm.nextFollowUp||null,
+        author:       user.name,
+        role:         user.role,
+        time:         stamp(),
+      });
+      // If a new follow-up date was set, update funnel
+      if(logForm.nextFollowUp) {
+        onUpdateFunnelFollowUp(funnel.id, logForm.nextFollowUp);
+      }
+      setLogForm({followUpDate:logForm.nextFollowUp||today(), description:"", nextFollowUp:""});
+    } catch(e) {
+      setLogErr("Failed to save log entry.");
+    } finally {
+      setLogSaving(false);
+    }
+  };
+
+  const roleColor={"CEO":T.high,"Manager":T.won,"CRE":T.pending};
 
   const Row=({l,v,mono})=>(
     <div style={{display:"grid",gridTemplateColumns:"140px 1fr",gap:8,padding:"8px 0",borderBottom:`1px solid ${T.line}`}}>
@@ -1078,8 +1067,6 @@ function ViewDrawer({funnel,onClose,onEdit,onStatusChange,user,comments,onAddCom
     </div>
   );
   const Sec=({t})=><div style={{fontSize:10,fontWeight:600,color:T.inkMuted,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:10,marginTop:4,fontFamily:F}}>{t}</div>;
-
-  const roleColor={"CEO":T.high,"Manager":T.won,"CRE":T.pending};
 
   return (
     <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.3)",zIndex:2000,display:"flex",justifyContent:"flex-end",backdropFilter:"blur(1px)"}}
@@ -1157,7 +1144,6 @@ function ViewDrawer({funnel,onClose,onEdit,onStatusChange,user,comments,onAddCom
 
           {funnel.remarks&&<><Sec t="Remarks"/><div style={{background:T.bg,padding:"10px 14px",borderRadius:T.r.md,fontSize:13,color:T.ink,fontFamily:F,lineHeight:1.6,marginBottom:18}}>{funnel.remarks}</div></>}
 
-          {/* ③ Delivery & Payment */}
           {(funnel.deliveryDetails||funnel.paymentTerms)&&(
             <>
               <Sec t="Delivery & Payment"/>
@@ -1177,7 +1163,109 @@ function ViewDrawer({funnel,onClose,onEdit,onStatusChange,user,comments,onAddCom
             {funnel.quoteDesc&&<Row l="Description" v={funnel.quoteDesc}/>}
           </dl>
 
-          {/* ④ AUDIT COMMENTS */}
+          {/* ════════════════════════════════════════════════════
+              FOLLOW-UP ACTIVITY LOG  (all roles can write)
+          ════════════════════════════════════════════════════ */}
+          <div style={{height:24}}/>
+          <div style={{borderTop:`2px solid ${T.line}`,paddingTop:20}}>
+            <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:16}}>
+              <Ic d={P.cal} sz={14} color={T.won.dot}/>
+              <span style={{fontSize:13,fontWeight:600,color:T.ink,fontFamily:F}}>Follow-up Activity</span>
+              {logs.length>0&&(
+                <span style={{fontSize:11,fontWeight:500,background:T.won.bg,color:T.won.text,padding:"1px 8px",borderRadius:10,fontFamily:F}}>{logs.length}</span>
+              )}
+            </div>
+
+            {/* Log input form — all roles */}
+            <div style={{background:T.bg,border:`1px solid ${T.line}`,borderRadius:T.r.lg,padding:"14px 16px",marginBottom:16}}>
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:10}}>
+                <div style={{display:"flex",flexDirection:"column",gap:5}}>
+                  <label style={{fontSize:11,fontWeight:500,color:T.inkSub,fontFamily:F}}>Follow-up date covered</label>
+                  <input
+                    type="date"
+                    value={logForm.followUpDate}
+                    onChange={e=>setLogForm(f=>({...f,followUpDate:e.target.value}))}
+                    style={{...inputSx(),fontSize:12,padding:"6px 9px"}}
+                    onFocus={onfocus} onBlur={onblur}
+                  />
+                </div>
+                <div style={{display:"flex",flexDirection:"column",gap:5}}>
+                  <label style={{fontSize:11,fontWeight:500,color:T.inkSub,fontFamily:F}}>Set next follow-up <span style={{color:T.inkMuted}}>(optional)</span></label>
+                  <input
+                    type="date"
+                    value={logForm.nextFollowUp}
+                    onChange={e=>setLogForm(f=>({...f,nextFollowUp:e.target.value}))}
+                    style={{...inputSx(),fontSize:12,padding:"6px 9px"}}
+                    onFocus={onfocus} onBlur={onblur}
+                  />
+                </div>
+              </div>
+              <div style={{display:"flex",flexDirection:"column",gap:6}}>
+                <label style={{fontSize:11,fontWeight:500,color:T.inkSub,fontFamily:F}}>
+                  What happened / outcome <span style={{color:"#DC2626"}}>*</span>
+                </label>
+                <textarea
+                  value={logForm.description}
+                  onChange={e=>{setLogForm(f=>({...f,description:e.target.value}));setLogErr("");}}
+                  placeholder="e.g. Called customer, they are interested but asked for a 10% discount…"
+                  rows={3}
+                  style={{...inputSx(logErr),padding:"9px 11px",resize:"vertical",lineHeight:1.6,fontSize:13}}
+                  onFocus={onfocus} onBlur={onblur}
+                />
+                {logErr&&<span style={{fontSize:11,color:"#B91C1C"}}>{logErr}</span>}
+              </div>
+              <div style={{display:"flex",justifyContent:"flex-end",marginTop:10}}>
+                <Btn
+                  primary sm
+                  icon={P.check}
+                  label={logSaving?"Saving…":"+ Log Activity"}
+                  onClick={submitLog}
+                  disabled={!logForm.description.trim()||logSaving}
+                />
+              </div>
+            </div>
+
+            {/* Log entries list — chronological oldest → newest */}
+            {logs.length===0
+              ? <div style={{textAlign:"center",padding:"16px 0",fontSize:12,color:T.inkMuted,fontFamily:F}}>No activity logged yet.</div>
+              : <div style={{display:"flex",flexDirection:"column",gap:10}}>
+                  {logs.map((lg,i)=>{
+                    const rc=roleColor[lg.role]||T.drop;
+                    return (
+                      <div key={i} style={{background:T.bg,border:`1px solid ${T.line}`,borderRadius:T.r.lg,padding:"12px 14px"}}>
+                        {/* Header row */}
+                        <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:8}}>
+                          <Avatar name={lg.author} size={24}/>
+                          <div style={{flex:1}}>
+                            <span style={{fontSize:12,fontWeight:600,color:T.ink,fontFamily:F}}>{lg.author}</span>
+                            <span style={{marginLeft:6,fontSize:10,fontWeight:500,padding:"1px 7px",borderRadius:10,background:rc.bg,color:rc.text,fontFamily:F}}>{lg.role}</span>
+                          </div>
+                          <span style={{fontSize:10,color:T.inkMuted,fontFamily:F,whiteSpace:"nowrap"}}>{lg.time}</span>
+                        </div>
+                        {/* Follow-up date covered */}
+                        <div style={{fontSize:11,color:T.inkSub,fontFamily:F,marginBottom:6,display:"flex",alignItems:"center",gap:5}}>
+                          <Ic d={P.cal} sz={11} color={T.inkMuted}/>
+                          Follow-up for: <strong style={{color:T.ink,marginLeft:3}}>{lg.followUpDate}</strong>
+                        </div>
+                        {/* Description */}
+                        <p style={{margin:0,fontSize:13,color:T.ink,fontFamily:F,lineHeight:1.6}}>{lg.description}</p>
+                        {/* Next follow-up if set */}
+                        {lg.nextFollowUp&&(
+                          <div style={{marginTop:8,display:"flex",alignItems:"center",gap:5,fontSize:12,color:T.brand,fontFamily:F,fontWeight:500}}>
+                            <Ic d={P.arrow} sz={12} color={T.brand}/>
+                            Next follow-up set: {lg.nextFollowUp}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+            }
+          </div>
+
+          {/* ════════════════════════════════════════════════════
+              AUDIT COMMENTS  (CEO / Manager only)
+          ════════════════════════════════════════════════════ */}
           <div style={{height:24}}/>
           <div style={{borderTop:`2px solid ${T.line}`,paddingTop:20}}>
             <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:16}}>
@@ -1186,7 +1274,6 @@ function ViewDrawer({funnel,onClose,onEdit,onStatusChange,user,comments,onAddCom
               {comments.length>0&&<span style={{fontSize:11,fontWeight:500,background:T.brandSubtle,color:T.brand,padding:"1px 8px",borderRadius:10,fontFamily:F}}>{comments.length}</span>}
             </div>
 
-            {/* Comment input — only for CEO/Manager */}
             {canComment&&(
               <div style={{marginBottom:16}}>
                 <textarea
@@ -1203,11 +1290,8 @@ function ViewDrawer({funnel,onClose,onEdit,onStatusChange,user,comments,onAddCom
               </div>
             )}
 
-            {/* Comments list */}
             {comments.length===0
-              ? <div style={{textAlign:"center",padding:"20px 0",fontSize:12,color:T.inkMuted,fontFamily:F}}>
-                  No audit comments yet.
-                </div>
+              ? <div style={{textAlign:"center",padding:"20px 0",fontSize:12,color:T.inkMuted,fontFamily:F}}>No audit comments yet.</div>
               : <div style={{display:"flex",flexDirection:"column",gap:10}}>
                   {[...comments].reverse().map((c,i)=>{
                     const rc=roleColor[c.role]||T.drop;
@@ -1242,113 +1326,124 @@ function Shell({user,users,onLogout,onUsersChange}) {
   const [search,setSearch]=useState("");
   const [sidebarOpen,setSidebarOpen]=useState(false);
 
-  // Fetch funnels on mount
-  useEffect(() => {
-    const fetchFunnels = async () => {
-      try {
-        const data = await crmService.getAllFunnels();
-        setFunnels(data);
-      } catch (err) {
-        console.error("Failed to fetch funnels:", err);
-      } finally {
-        setLoading(false);
-      }
+  useEffect(()=>{
+    const fetchFunnels=async()=>{
+      try{const data=await crmService.getAllFunnels();setFunnels(data);}
+      catch(err){console.error("Failed to fetch funnels:",err);}
+      finally{setLoading(false);}
     };
     fetchFunnels();
-  }, []);
+  },[]);
 
-  // Real-time subscription for funnels
-  useEffect(() => {
-    const channel = supabase
-      .channel('funnels_changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'funnels' }, (payload) => {
-        if (payload.eventType === 'INSERT') {
-          const newFunnel = crmService.mapFromDb(payload.new);
-          setFunnels(prev => {
-            if (prev.find(f => f.id === newFunnel.id)) return prev;
-            return [newFunnel, ...prev];
-          });
-        } else if (payload.eventType === 'UPDATE') {
-          const updatedFunnel = crmService.mapFromDb(payload.new);
-          setFunnels(prev => prev.map(f => f.id === updatedFunnel.id ? updatedFunnel : f));
-        } else if (payload.eventType === 'DELETE') {
-          setFunnels(prev => prev.filter(f => f.id !== payload.old.id));
+  useEffect(()=>{
+    const channel=supabase.channel('funnels_changes')
+      .on('postgres_changes',{event:'*',schema:'public',table:'funnels'},(payload)=>{
+        if(payload.eventType==='INSERT'){
+          const f=crmService.mapFromDb(payload.new);
+          setFunnels(prev=>prev.find(x=>x.id===f.id)?prev:[f,...prev]);
+        } else if(payload.eventType==='UPDATE'){
+          const f=crmService.mapFromDb(payload.new);
+          setFunnels(prev=>prev.map(x=>x.id===f.id?f:x));
+        } else if(payload.eventType==='DELETE'){
+          setFunnels(prev=>prev.filter(x=>x.id!==payload.old.id));
         }
-      })
-      .subscribe();
+      }).subscribe();
+    return()=>supabase.removeChannel(channel);
+  },[]);
 
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, []);
-
-  // Audit comments
+  // ── Audit comments ────────────────────────────────────────────────────────
   const [funnelComments,setFunnelComments]=useState({});
-  
-  // Fetch comments when a funnel is viewed
   const [viewT,setViewT]=useState(null);
-  useEffect(() => {
-    if (viewT && !funnelComments[viewT.id]) {
-      const fetchComments = async () => {
-        try {
-          const comments = await crmService.getComments(viewT.id);
-          setFunnelComments(prev => ({...prev, [viewT.id]: comments}));
-        } catch (err) {
-          console.error("Failed to fetch comments:", err);
-        }
+
+  useEffect(()=>{
+    if(viewT&&!funnelComments[viewT.id]){
+      const fetch=async()=>{
+        try{
+          const c=await crmService.getComments(viewT.id);
+          setFunnelComments(prev=>({...prev,[viewT.id]:c}));
+        }catch(err){console.error("Failed to fetch comments:",err);}
       };
-      fetchComments();
+      fetch();
     }
-  }, [viewT, funnelComments]);
+  },[viewT,funnelComments]);
 
-  // Real-time subscription for audit comments
-  useEffect(() => {
-    const channel = supabase
-      .channel('comments_changes')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'audit_comments' }, async (payload) => {
-        const funnelId = payload.new.funnel_id;
-        const newComment = {
-          text: payload.new.text,
-          author: payload.new.author,
-          role: payload.new.role,
-          time: new Date(payload.new.created_at).toLocaleString('en-IN', { 
-            month: 'short', day: 'numeric', year: 'numeric', 
-            hour: '2-digit', minute: '2-digit' 
-          })
+  useEffect(()=>{
+    const channel=supabase.channel('comments_changes')
+      .on('postgres_changes',{event:'INSERT',schema:'public',table:'audit_comments'},async(payload)=>{
+        const fid=payload.new.funnel_id;
+        const nc={
+          text:payload.new.text,author:payload.new.author,role:payload.new.role,
+          time:new Date(payload.new.created_at).toLocaleString('en-IN',{month:'short',day:'numeric',year:'numeric',hour:'2-digit',minute:'2-digit'})
         };
-        setFunnelComments(prev => ({
-          ...prev,
-          [funnelId]: [...(prev[funnelId] || []), newComment]
-        }));
-      })
-      .subscribe();
+        setFunnelComments(prev=>({...prev,[fid]:[...(prev[fid]||[]),nc]}));
+      }).subscribe();
+    return()=>supabase.removeChannel(channel);
+  },[]);
 
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, []);
+  const addComment=async(funnelId,comment)=>{
+    try{await crmService.addComment(funnelId,comment);}
+    catch(err){console.error("Failed to add comment:",err);}
+  };
 
-  const addComment = async (funnelId, comment) => {
-    try {
-      await crmService.addComment(funnelId, comment);
-      // Real-time subscription will update the UI
-    } catch (err) {
-      console.error("Failed to add comment:", err);
+  // ── Follow-up Logs ────────────────────────────────────────────────────────
+  const [funnelLogs,setFunnelLogs]=useState({});
+
+  // Fetch logs when a funnel is opened
+  useEffect(()=>{
+    if(viewT&&!funnelLogs[viewT.id]){
+      const fetch=async()=>{
+        try{
+          const logs=await crmService.getFollowUpLogs(viewT.id);
+          setFunnelLogs(prev=>({...prev,[viewT.id]:logs}));
+        }catch(err){console.error("Failed to fetch follow-up logs:",err);}
+      };
+      fetch();
+    }
+  },[viewT,funnelLogs]);
+
+  // Real-time subscription for follow_up_logs
+  useEffect(()=>{
+    const channel=supabase.channel('followup_logs_changes')
+      .on('postgres_changes',{event:'INSERT',schema:'public',table:'follow_up_logs'},(payload)=>{
+        const fid=payload.new.funnel_id;
+        const nl={
+          followUpDate: payload.new.follow_up_date,
+          description:  payload.new.description,
+          nextFollowUp: payload.new.next_follow_up||null,
+          author:       payload.new.author,
+          role:         payload.new.role,
+          time:         new Date(payload.new.created_at).toLocaleString('en-IN',{month:'short',day:'numeric',year:'numeric',hour:'2-digit',minute:'2-digit'})
+        };
+        setFunnelLogs(prev=>({...prev,[fid]:[...(prev[fid]||[]),nl]}));
+      }).subscribe();
+    return()=>supabase.removeChannel(channel);
+  },[]);
+
+  const addFollowUpLog=async(funnelId,log)=>{
+    try{await crmService.addFollowUpLog(funnelId,log);}
+    catch(err){console.error("Failed to add follow-up log:",err);throw err;}
+  };
+
+  // Update funnel's next follow-up date in local state + DB
+  const updateFunnelFollowUp=async(funnelId,newDate)=>{
+    try{
+      await crmService.updateStatus(funnelId,null,newDate); // pass date; adjust crmService if needed
+      setFunnels(prev=>prev.map(f=>f.id===funnelId?{...f,nextFollowUp:newDate}:f));
+      // Also patch viewT so header shows updated date
+      setViewT(prev=>prev&&prev.id===funnelId?{...prev,nextFollowUp:newDate}:prev);
+      push(`Follow-up updated → ${newDate}`);
+    }catch(err){
+      // Non-fatal: log saved, date update failed — update locally anyway
+      setFunnels(prev=>prev.map(f=>f.id===funnelId?{...f,nextFollowUp:newDate}:f));
+      setViewT(prev=>prev&&prev.id===funnelId?{...prev,nextFollowUp:newDate}:prev);
     }
   };
 
-  const [fil,setFil]=useState({
-    status:"",funnelType:"",enquiryType:"",
-    leadSource:"",
-    descFilter:"",
-    missed:false,todayF:false,upcoming:false,
-  });
-
+  // ── Filters ───────────────────────────────────────────────────────────────
+  const [fil,setFil]=useState({status:"",funnelType:"",enquiryType:"",leadSource:"",descFilter:"",missed:false,todayF:false,upcoming:false});
   const [addOpen,setAddOpen]=useState(false);
   const [editT,setEditT]=useState(null);
-
   const {list:toasts,push}=useToast();
-
   const TODAY=today();
 
   const sf=(k,v)=>setFil(f=>({...f,[k]:v}));
@@ -1359,10 +1454,7 @@ function Shell({user,users,onLogout,onUsersChange}) {
   const filtered=useMemo(()=>scoped.filter(f=>{
     if(search){
       const q=search.toLowerCase();
-      if(!(f.name||"").toLowerCase().includes(q) && 
-         !(f.email||"").toLowerCase().includes(q) &&
-         !(f.phone||"").toLowerCase().includes(q) &&
-         !(f.orderNumber||"").toLowerCase().includes(q)) return false;
+      if(!(f.name||"").toLowerCase().includes(q)&&!(f.email||"").toLowerCase().includes(q)&&!(f.phone||"").toLowerCase().includes(q)&&!(f.orderNumber||"").toLowerCase().includes(q)) return false;
     }
     if(fil.status      && f.status     !==fil.status)      return false;
     if(fil.funnelType  && f.funnelType !==fil.funnelType)  return false;
@@ -1370,9 +1462,7 @@ function Shell({user,users,onLogout,onUsersChange}) {
     if(fil.leadSource  && f.leadSource !==fil.leadSource)  return false;
     if(fil.descFilter){
       const q=fil.descFilter.toLowerCase();
-      const inRemarks =(f.remarks   ||"").toLowerCase().includes(q);
-      const inQuote   =(f.quoteDesc ||"").toLowerCase().includes(q);
-      if(!inRemarks&&!inQuote) return false;
+      if(!(f.remarks||"").toLowerCase().includes(q)&&!(f.quoteDesc||"").toLowerCase().includes(q)) return false;
     }
     if(fil.missed   && (!f.nextFollowUp||f.nextFollowUp>=TODAY)) return false;
     if(fil.todayF   && f.nextFollowUp!==TODAY)                   return false;
@@ -1380,57 +1470,30 @@ function Shell({user,users,onLogout,onUsersChange}) {
     return true;
   }),[scoped,search,fil,TODAY]);
 
-  const save = async (form) => {
-    try {
-      // Filter out empty products before saving
-      const cleanedForm = {
-        ...form,
-        products: (form.products || []).filter(p => p.desc || p.category || p.qty || p.price)
-      };
-
-      const saved = await crmService.saveFunnel(cleanedForm, user);
-      if (editT) {
-        setFunnels(p => p.map(f => f.id === saved.id ? saved : f));
-        setEditT(null); push("Funnel updated");
-      } else {
-        setFunnels(p => [saved, ...p]);
-        setAddOpen(false); push("Funnel added");
-      }
-    } catch (err) {
-      console.error("Failed to save funnel:", err);
-      push(`Error: ${err.message || "Could not save lead"}`, "error");
+  const save=async(form)=>{
+    try{
+      const cleaned={...form,products:(form.products||[]).filter(p=>p.desc||p.category||p.qty||p.price)};
+      const saved=await crmService.saveFunnel(cleaned,user);
+      if(editT){setFunnels(p=>p.map(f=>f.id===saved.id?saved:f));setEditT(null);push("Funnel updated");}
+      else{setFunnels(p=>[saved,...p]);setAddOpen(false);push("Funnel added");}
+    }catch(err){
+      console.error("Failed to save funnel:",err);
+      push(`Error: ${err.message||"Could not save lead"}`,"error");
     }
   };
 
-  const del = async (id) => {
-    if (!window.confirm("Are you sure you want to delete this lead?")) return;
-    try {
-      await crmService.deleteFunnel(id);
-      setFunnels(p => p.filter(f => f.id !== id));
-      push("Deleted", "info");
-    } catch (err) {
-      console.error("Failed to delete funnel:", err);
-      push("Error deleting funnel", "error");
-    }
+  const del=async(id)=>{
+    if(!window.confirm("Are you sure you want to delete this lead?")) return;
+    try{await crmService.deleteFunnel(id);setFunnels(p=>p.filter(f=>f.id!==id));push("Deleted","info");}
+    catch(err){console.error("Failed to delete funnel:",err);push("Error deleting funnel","error");}
   };
 
-  const upStatus = async (id, s) => {
-    try {
-      await crmService.updateStatus(id, s);
-      setFunnels(p => p.map(f => f.id === id ? { ...f, status: s } : f));
-      push(`Status → ${s}`);
-    } catch (err) {
-      console.error("Failed to update status:", err);
-      push("Error updating status", "error");
-    }
+  const upStatus=async(id,s)=>{
+    try{await crmService.updateStatus(id,s);setFunnels(p=>p.map(f=>f.id===id?{...f,status:s}:f));push(`Status → ${s}`);}
+    catch(err){console.error("Failed to update status:",err);push("Error updating status","error");}
   };
 
   const titles={dashboard:"Dashboard",funnels:"Funnels",analytics:"Analytics",team:"Team"};
-  const subs={
-    dashboard:new Date().toLocaleDateString("en-IN",{weekday:"long",day:"numeric",month:"long",year:"numeric"}),
-    funnels:"All leads",analytics:"Performance metrics",team:"Users & access",
-  };
-
   const showFilters=view==="dashboard"||view==="funnels";
   const showStats  =view==="dashboard";
 
@@ -1439,7 +1502,7 @@ function Shell({user,users,onLogout,onUsersChange}) {
       <Sidebar active={view} set={setView} user={user} onLogout={onLogout} open={sidebarOpen} onClose={()=>setSidebarOpen(false)}/>
       <div style={{flex:1,display:"flex",flexDirection:"column",minWidth:0,minHeight:"100vh"}}>
         <Topbar
-          title={titles[view]} sub={subs[view]}
+          title={titles[view]}
           search={search} setSearch={setSearch}
           user={user} onAdd={()=>setAddOpen(true)}
           onExportAll={()=>{xls(scoped,`Ekanta_All_${TODAY}.xls`);push(`Exported ${scoped.length} funnels`,"info");}}
@@ -1450,7 +1513,6 @@ function Shell({user,users,onLogout,onUsersChange}) {
 
         {showStats&&<Stats funnels={scoped}/>}
         {showFilters&&<div style={{marginTop:16}}><FilterBar fil={fil} setF={sf} reset={rf}/></div>}
-        {showStats&&!showFilters&&<div style={{height:16}}/>}
 
         <div style={{flex:1,background:showFilters?T.surface:"transparent",borderTop:showFilters?`1px solid ${T.line}`:"none"}}>
           {(view==="dashboard"||view==="funnels")&&(
@@ -1471,6 +1533,9 @@ function Shell({user,users,onLogout,onUsersChange}) {
           user={user}
           comments={funnelComments[viewT.id]||[]}
           onAddComment={addComment}
+          logs={funnelLogs[viewT.id]||[]}
+          onAddLog={addFollowUpLog}
+          onUpdateFunnelFollowUp={updateFunnelFollowUp}
         />
       )}
       <Toaster list={toasts}/>
@@ -1478,59 +1543,43 @@ function Shell({user,users,onLogout,onUsersChange}) {
   );
 }
 
-// ─── ROOT ──────────────────────────────────────────────────────────────────────
+// ─── ROOT ─────────────────────────────────────────────────────────────────────
 export default function App() {
-  const [user, setUser] = useState(null);
-  const [users, setUsers] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [user,setUser]=useState(null);
+  const [users,setUsers]=useState([]);
+  const [loading,setLoading]=useState(true);
 
-  useEffect(() => {
-     const fetchUsers = async () => {
-       try {
-         const data = await crmService.getUsers();
-         if (data && data.length > 0) {
-           setUsers(data);
-         } else {
-           // If table exists but is empty, use SEED_USERS
-           setUsers(SEED_USERS);
-         }
-       } catch (err) {
-         console.error("Failed to fetch users:", err);
-         setUsers(SEED_USERS); // Fallback to seed if DB fails or table doesn't exist
-       } finally {
-         setLoading(false);
-       }
-     };
-     fetchUsers();
-   }, []);
+  useEffect(()=>{
+    const fetchUsers=async()=>{
+      try{
+        const data=await crmService.getUsers();
+        setUsers(data&&data.length>0?data:SEED_USERS);
+      }catch(err){
+        console.error("Failed to fetch users:",err);
+        setUsers(SEED_USERS);
+      }finally{setLoading(false);}
+    };
+    fetchUsers();
+  },[]);
 
-  const handleUsersChange = async (newUsers) => {
-    try {
-      // Find deleted users
-      const currentUsernames = users.map(u => u.username);
-      const newUsernames = newUsers.map(u => u.username);
-      const deletedUsernames = currentUsernames.filter(u => !newUsernames.includes(u));
-
-      for (const username of deletedUsernames) {
-        await crmService.deleteUser(username);
-      }
-
+  const handleUsersChange=async(newUsers)=>{
+    try{
+      const deleted=users.map(u=>u.username).filter(u=>!newUsers.map(x=>x.username).includes(u));
+      for(const u of deleted) await crmService.deleteUser(u);
       await crmService.saveUsers(newUsers);
-      const data = await crmService.getUsers();
+      const data=await crmService.getUsers();
       setUsers(data);
-    } catch (err) {
-      console.error("Failed to update users:", err);
-    }
+    }catch(err){console.error("Failed to update users:",err);}
   };
 
-  if (loading) return <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: T.bg, fontFamily: F }}>Loading CRM...</div>;
+  if(loading) return <div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:T.bg,fontFamily:F}}>Loading CRM...</div>;
 
   return (
     <>
-      <FontLoader />
+      <FontLoader/>
       {!user
-        ? <Login users={users} onLogin={setUser} />
-        : <Shell user={user} users={users} onLogout={() => setUser(null)} onUsersChange={handleUsersChange} />
+        ?<Login users={users} onLogin={setUser}/>
+        :<Shell user={user} users={users} onLogout={()=>setUser(null)} onUsersChange={handleUsersChange}/>
       }
     </>
   );
