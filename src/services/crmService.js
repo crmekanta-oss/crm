@@ -278,7 +278,8 @@ async updateNextFollowup(funnelId, date) {
       products: f.products || [],
       remarks: f.remarks || null,
       delivery_details: f.deliveryDetails || null,
-      payment_terms: f.payment_terms || null,
+      payment_terms: f.paymentTerms || null,
+      assigned_to: f.assignedTo || null,
       order_number: f.orderNumber || null,
       quote_qty: isNum(f.quoteQty) ? Number(f.quoteQty) : null,
       quote_amount: isNum(f.quoteAmount) ? Number(f.quoteAmount) : null,
@@ -315,7 +316,9 @@ async updateNextFollowup(funnelId, date) {
         month: 'short', day: 'numeric', year: 'numeric', 
         hour: '2-digit', minute: '2-digit' 
       }),
-      createdBy: f.created_by
+      createdBy: f.created_by,
+      assignedTo: f.assigned_to || null,
+      assignedTo: f.assigned_to || null,
     };
   }
 };
