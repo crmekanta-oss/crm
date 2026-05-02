@@ -537,14 +537,21 @@ function FilterBar({fil,setF,reset}) {
 }
 
 // ─── TABLE ────────────────────────────────────────────────────────────────────
-// ⑨⑩ Compact rows, CRE edit button, assigned badge
 function Table({rows,user,onView,onEdit,onCreEdit,onDelete,onLogFollowup,loading}) {
+  const [isMobile, setIsMobile] = useState(typeof window !== "undefined" ? window.innerWidth < 768 : false);
+  useEffect(()=>{
+    const h=()=>setIsMobile(window.innerWidth<768);
+    window.addEventListener("resize",h);
+    return ()=>window.removeEventListener("resize",h);
+  },[]);
+
   if(loading) return (
     <div style={{display:"flex",alignItems:"center",justifyContent:"center",padding:72,flexDirection:"column",gap:16}}>
       <div style={{width:32,height:32,border:"3px solid rgba(91,59,232,.1)",borderTopColor:T.brand,borderRadius:"50%",animation:"spin .8s linear infinite"}}/>
       <div style={{fontSize:13,color:T.inkSub,fontFamily:F}}>Loading funnels...</div>
     </div>
   );
+
   if(!rows.length) return (
     <div style={{textAlign:"center",padding:"72px 24px",fontFamily:F}}>
       <div style={{width:48,height:48,background:T.brandSubtle,borderRadius:14,display:"flex",alignItems:"center",justifyContent:"center",margin:"0 auto 16px"}}>
@@ -554,7 +561,105 @@ function Table({rows,user,onView,onEdit,onCreEdit,onDelete,onLogFollowup,loading
       <p style={{fontSize:13,color:T.inkSub,margin:0}}>Adjust your filters or add a new lead.</p>
     </div>
   );
+
   const todayV=today();
+
+  // ─── MOBILE CARD VIEW ───────────────────────────────────────────────────────
+  if(isMobile) {
+    return (
+      <div style={{display:"flex",flexDirection:"column",gap:0}}>
+        {rows.map((f,i)=>{
+          const over=f.nextFollowUp&&f.nextFollowUp<todayV&&f.status==="Pending";
+          const tod=f.nextFollowUp===todayV&&f.status==="Pending";
+          const showLog=(over||tod);
+          const cats=[...new Set((f.products||[]).map(p=>p.category).filter(Boolean))].join(", ")||"—";
+          const canCreEdit=!FULL.includes(user.role)&&(f.createdBy===user.name||f.assignedTo===user.name);
+          return (
+            <div key={f.id} style={{padding:"14px 16px",borderBottom:`1px solid ${T.line}`,background:i%2===0?T.surface:"#FAFBFC"}}>
+
+              {/* Row 1: Name + Status */}
+              <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",marginBottom:8}}>
+                <div style={{flex:1,minWidth:0,marginRight:10}}>
+                  <div style={{fontSize:14,fontWeight:700,color:T.ink,fontFamily:F,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{f.name||"—"}</div>
+                  <div style={{display:"flex",alignItems:"center",gap:5,marginTop:3,flexWrap:"wrap"}}>
+                    <span style={{fontSize:11,color:T.inkMuted,fontFamily:F}}>{f.createdBy}</span>
+                    {f.assignedTo&&<span style={{fontSize:10,fontWeight:500,background:T.brandSubtle,color:T.brand,padding:"0px 6px",borderRadius:8,fontFamily:F}}>→{f.assignedTo}</span>}
+                    {f.leadSource&&<SourcePill source={f.leadSource}/>}
+                  </div>
+                </div>
+                <StatusPill status={f.status} sm/>
+              </div>
+
+              {/* Row 2: Details grid */}
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"6px 16px",marginBottom:10,padding:"10px 12px",background:T.bg,borderRadius:T.r.md}}>
+                <div>
+                  <div style={{fontSize:10,color:T.inkMuted,fontFamily:F,marginBottom:2,textTransform:"uppercase",letterSpacing:"0.04em"}}>Category</div>
+                  <div style={{fontSize:12,color:T.ink,fontFamily:F,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{cats}</div>
+                </div>
+                <div>
+                  <div style={{fontSize:10,color:T.inkMuted,fontFamily:F,marginBottom:2,textTransform:"uppercase",letterSpacing:"0.04em"}}>Type</div>
+                  <div>{f.funnelType?<StatusPill status={f.funnelType} sm/>:<span style={{fontSize:12,color:T.inkMuted}}>—</span>}</div>
+                </div>
+                <div>
+                  <div style={{fontSize:10,color:T.inkMuted,fontFamily:F,marginBottom:2,textTransform:"uppercase",letterSpacing:"0.04em"}}>Follow-up</div>
+                  <div style={{display:"flex",alignItems:"center",gap:4,flexWrap:"wrap"}}>
+                    {over&&<Dot color={T.lost.dot} size={5}/>}
+                    {tod&&<Dot color={T.pending.dot} size={5}/>}
+                    <span style={{fontSize:12,color:over?"#B91C1C":tod?T.pending.text:T.ink,fontWeight:over||tod?600:400,fontFamily:F}}>{f.nextFollowUp||"—"}</span>
+                    {over&&<span style={{fontSize:10,color:T.lost.text,fontWeight:600,fontFamily:F}}>Overdue</span>}
+                  </div>
+                </div>
+                <div>
+                  <div style={{fontSize:10,color:T.inkMuted,fontFamily:F,marginBottom:2,textTransform:"uppercase",letterSpacing:"0.04em"}}>Quote</div>
+                  <div style={{fontSize:13,fontWeight:700,color:T.brand,fontFamily:F}}>{inr(f.quoteAmount)||<span style={{color:T.inkMuted,fontWeight:400,fontSize:12}}>—</span>}</div>
+                </div>
+                {f.orderNumber&&(
+                  <div>
+                    <div style={{fontSize:10,color:T.inkMuted,fontFamily:F,marginBottom:2,textTransform:"uppercase",letterSpacing:"0.04em"}}>Order No.</div>
+                    <div style={{fontSize:12,color:T.inkSub,fontFamily:F}}>{f.orderNumber}</div>
+                  </div>
+                )}
+              </div>
+
+              {/* Row 3: Action buttons */}
+              <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+                {showLog&&(
+                  <button onClick={()=>onLogFollowup(f)}
+                    style={{background:T.pending.bg,border:`1px solid ${T.pending.dot}`,borderRadius:T.r.md,padding:"7px 14px",fontSize:12,fontWeight:600,color:T.pending.text,cursor:"pointer",fontFamily:F,display:"flex",alignItems:"center",gap:5}}>
+                    📋 Log
+                  </button>
+                )}
+                <button onClick={()=>onView(f)}
+                  style={{background:T.brandSubtle,border:`1px solid ${T.brand}`,borderRadius:T.r.md,padding:"7px 16px",fontSize:12,fontWeight:600,color:T.brand,cursor:"pointer",fontFamily:F}}>
+                  View
+                </button>
+                {FULL.includes(user.role)&&(
+                  <button onClick={()=>onEdit(f)}
+                    style={{background:T.surface,border:`1px solid ${T.line}`,borderRadius:T.r.md,padding:"7px 12px",cursor:"pointer",display:"flex",alignItems:"center",gap:5,fontSize:12,color:T.inkSub,fontFamily:F}}>
+                    <Ic d={P.edit} sz={13} color={T.inkSub}/> Edit
+                  </button>
+                )}
+                {canCreEdit&&(
+                  <button onClick={()=>onCreEdit(f)}
+                    style={{background:T.surface,border:`1px solid ${T.brand}`,borderRadius:T.r.md,padding:"7px 12px",cursor:"pointer",display:"flex",alignItems:"center",gap:5,fontSize:12,color:T.brand,fontFamily:F}}>
+                    <Ic d={P.edit} sz={13} color={T.brand}/> Edit
+                  </button>
+                )}
+                {FULL.includes(user.role)&&(
+                  <button onClick={()=>onDelete(f.id)}
+                    style={{background:"#FEF2F2",border:`1px solid #FECACA`,borderRadius:T.r.md,padding:"7px 12px",cursor:"pointer",display:"flex",alignItems:"center",gap:5,fontSize:12,color:"#B91C1C",fontFamily:F}}>
+                    <Ic d={P.trash} sz={13} color="#DC2626"/> Delete
+                  </button>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    );
+  }
+
+  // ─── DESKTOP TABLE VIEW ─────────────────────────────────────────────────────
   const TH=({ch})=><th style={{padding:"0 12px",textAlign:"left",fontSize:10,fontWeight:600,color:T.inkMuted,letterSpacing:"0.06em",textTransform:"uppercase",whiteSpace:"nowrap",borderBottom:`1px solid ${T.line}`,height:34,background:T.bg}}>{ch}</th>;
   return (
     <div style={{overflowX:"auto"}}>
@@ -607,7 +712,6 @@ function Table({rows,user,onView,onEdit,onCreEdit,onDelete,onLogFollowup,loading
                 <td style={{padding:"0 12px",fontSize:12,fontWeight:600,color:T.brand,verticalAlign:"middle",whiteSpace:"nowrap"}}>{inr(f.quoteAmount)||<span style={{color:T.inkMuted,fontWeight:400}}>—</span>}</td>
                 <td style={{padding:"0 8px",verticalAlign:"middle"}}>
                   <div style={{display:"flex",gap:4,justifyContent:"flex-end"}}>
-                    {/* Log button */}
                     {showLog&&(
                       <button onClick={()=>onLogFollowup(f)}
                         style={{background:T.pending.bg,border:`1px solid ${T.pending.dot}`,borderRadius:T.r.sm,padding:"3px 8px",fontSize:11,fontWeight:600,color:T.pending.text,cursor:"pointer",fontFamily:F,whiteSpace:"nowrap",transition:"all .12s"}}
@@ -616,12 +720,10 @@ function Table({rows,user,onView,onEdit,onCreEdit,onDelete,onLogFollowup,loading
                         📋 Log
                       </button>
                     )}
-                    {/* View button */}
                     <button onClick={()=>onView(f)}
                       style={{background:"transparent",border:`1px solid ${T.line}`,borderRadius:T.r.sm,padding:"3px 10px",fontSize:11,fontWeight:500,color:T.inkSub,cursor:"pointer",fontFamily:F,transition:"all .12s"}}
                       onMouseEnter={e=>{e.currentTarget.style.background=T.brandSubtle;e.currentTarget.style.color=T.brand;e.currentTarget.style.borderColor=T.brand;}}
                       onMouseLeave={e=>{e.currentTarget.style.background="transparent";e.currentTarget.style.color=T.inkSub;e.currentTarget.style.borderColor=T.line;}}>View</button>
-                    {/* CEO/Manager full edit */}
                     {FULL.includes(user.role)&&(
                       <button onClick={()=>onEdit(f)}
                         style={{background:"transparent",border:`1px solid ${T.line}`,borderRadius:T.r.sm,padding:"3px 6px",cursor:"pointer",display:"flex",transition:"all .12s"}}
@@ -630,7 +732,6 @@ function Table({rows,user,onView,onEdit,onCreEdit,onDelete,onLogFollowup,loading
                         <Ic d={P.edit} sz={12} color={T.inkSub}/>
                       </button>
                     )}
-                    {/* CRE restricted edit */}
                     {canCreEdit&&(
                       <button onClick={()=>onCreEdit(f)} title="Edit products & quote"
                         style={{background:"transparent",border:`1px solid ${T.line}`,borderRadius:T.r.sm,padding:"3px 6px",cursor:"pointer",display:"flex",transition:"all .12s"}}
@@ -639,7 +740,6 @@ function Table({rows,user,onView,onEdit,onCreEdit,onDelete,onLogFollowup,loading
                         <Ic d={P.edit} sz={12} color={T.brand}/>
                       </button>
                     )}
-                    {/* Delete — CEO/Manager only */}
                     {FULL.includes(user.role)&&(
                       <button onClick={()=>onDelete(f.id)}
                         style={{background:"transparent",border:`1px solid ${T.line}`,borderRadius:T.r.sm,padding:"3px 6px",cursor:"pointer",display:"flex",transition:"all .12s"}}
