@@ -497,7 +497,7 @@ function Stats({funnels}) {
 }
 
 // ─── FILTER BAR ───────────────────────────────────────────────────────────────
-function FilterBar({fil,setF,reset}) {
+function FilterBar({fil,setF,reset,users=[],user}) {
   const sel=(val,key,opts)=>(
     <select value={val} onChange={e=>setF(key,e.target.value)}
       style={{padding:"5px 24px 5px 9px",border:`1px solid ${T.line}`,borderRadius:T.r.md,fontSize:12,fontFamily:F,color:val?T.ink:T.inkSub,background:val?`${T.brandSubtle} ${selectBg}`:`${T.surface} ${selectBg}`,cursor:"pointer",outline:"none",appearance:"none",fontWeight:val?500:400}}>
@@ -525,7 +525,14 @@ function FilterBar({fil,setF,reset}) {
       {sel(fil.funnelType,"funnelType",FTYPES)}
       {sel(fil.enquiryType,"enquiryType",ENQS)}
       {sel(fil.leadSource,"leadSource",LEAD_SOURCES)}
-      <div style={{width:1,height:14,background:T.line}}/>
+{FULL.includes(user?.role)&&users.filter(u=>u.role==="CRE").length>0&&(
+  <select value={fil.cre||""} onChange={e=>setF("cre",e.target.value)}
+    style={{padding:"5px 24px 5px 9px",border:`1px solid ${T.line}`,borderRadius:T.r.md,fontSize:12,fontFamily:F,color:fil.cre?T.ink:T.inkSub,background:fil.cre?`${T.brandSubtle} ${selectBg}`:`${T.surface} ${selectBg}`,cursor:"pointer",outline:"none",appearance:"none",fontWeight:fil.cre?500:400}}>
+    <option value="">All CRE</option>
+    {users.filter(u=>u.role==="CRE").map(u=><option key={u.name} value={u.name}>{u.name}</option>)}
+  </select>
+)}
+<div style={{width:1,height:14,background:T.line}}/>
       <div style={{display:"flex",alignItems:"center",gap:7,background:T.bg,border:`1px solid ${T.line}`,borderRadius:T.r.md,padding:"4px 10px",minWidth:180}}>
         <Ic d={P.search} sz={12} color={T.inkMuted}/>
         <input value={fil.descFilter} onChange={e=>setF("descFilter",e.target.value)} placeholder="Search description…"
@@ -1639,7 +1646,7 @@ function Shell({user,users,onLogout,onUsersChange}) {
     }
   };
 
-  const [fil,setFil]=useState({status:"",funnelType:"",enquiryType:"",leadSource:"",descFilter:"",missed:false,todayF:false,upcoming:false});
+  const [fil,setFil]=useState({ status:"",funnelType:"",enquiryType:"", leadSource:"",descFilter:"",cre:"", missed:false,todayF:false,upcoming:false, });
   const [addOpen,setAddOpen]=useState(false);
   const [editT,setEditT]=useState(null);
   const [creEditT,setCreEditT]=useState(null); // ⑨ CRE restricted edit
@@ -1648,7 +1655,7 @@ function Shell({user,users,onLogout,onUsersChange}) {
   const TODAY=today();
 
   const sf=(k,v)=>setFil(f=>({...f,[k]:v}));
-  const rf=()=>setFil({status:"",funnelType:"",enquiryType:"",leadSource:"",descFilter:"",missed:false,todayF:false,upcoming:false});
+  const rf=()=>setFil({status:"",funnelType:"",enquiryType:"",leadSource:"",descFilter:"",cre:"",missed:false,todayF:false,upcoming:false});
 
   // ⑧ scoped includes assigned funnels for CRE
   const scoped=useMemo(()=>
@@ -1668,6 +1675,7 @@ function Shell({user,users,onLogout,onUsersChange}) {
       const q=fil.descFilter.toLowerCase();
       if(!(f.remarks||"").toLowerCase().includes(q)&&!(f.quoteDesc||"").toLowerCase().includes(q)) return false;
     }
+    if(fil.cre && f.createdBy!==fil.cre && f.assignedTo!==fil.cre) return false;
     if(fil.missed   &&(!f.nextFollowUp||f.nextFollowUp>=TODAY)) return false;
     if(fil.todayF   && f.nextFollowUp!==TODAY)                  return false;
     if(fil.upcoming && f.nextFollowUp<=TODAY)                   return false;
@@ -1722,7 +1730,7 @@ function Shell({user,users,onLogout,onUsersChange}) {
           onMenuToggle={()=>setSidebarOpen(x=>!x)}
         />
         {showStats&&<Stats funnels={scoped}/>}
-        {showFilters&&<div style={{marginTop:16}}><FilterBar fil={fil} setF={sf} reset={rf}/></div>}
+        {showFilters&&<div style={{marginTop:16}}><FilterBar fil={fil} setF={sf} reset={rf} users={users} user={user}/></div>}
         {showStats&&!showFilters&&<div style={{height:16}}/>}
         <div style={{flex:1,background:showFilters?T.surface:"transparent",borderTop:showFilters?`1px solid ${T.line}`:"none"}}>
           {(view==="dashboard"||view==="funnels")&&(
