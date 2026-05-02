@@ -45,16 +45,17 @@ function FontLoader() {
       ::-webkit-scrollbar{width:4px;height:4px}
       ::-webkit-scrollbar-track{background:transparent}
       ::-webkit-scrollbar-thumb{background:rgba(0,0,0,.12);border-radius:4px}
-      @media(max-width:767px){
-        .ek-sidebar{display:none!important}
-        .ek-sidebar.open{display:flex!important}
-        .ek-stats-grid{grid-template-columns:repeat(2,1fr)!important}
-        .ek-topbar-search{display:none!important}
-        .ek-form-3col{grid-template-columns:1fr!important}
-        .ek-form-2col{grid-template-columns:1fr!important}
-        .ek-analytics-3col{grid-template-columns:1fr!important}
-        .ek-team-grid{grid-template-columns:1fr!important}
-      }
+@media(max-width:767px){
+  .ek-sidebar{display:none!important}
+  .ek-sidebar.open{display:flex!important}
+  .ek-stats-grid{grid-template-columns:repeat(2,1fr)!important}
+  .ek-topbar-search{display:none!important}
+  .ek-form-3col{grid-template-columns:1fr!important}
+  .ek-form-2col{grid-template-columns:1fr!important}
+  .ek-analytics-3col{grid-template-columns:1fr!important}
+  .ek-team-grid{grid-template-columns:1fr!important}
+  .ek-mobile-menu{display:flex!important}
+}
     `;
     document.head.appendChild(g);
   }, []);
