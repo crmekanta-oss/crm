@@ -390,14 +390,14 @@ function Login({users,onLogin}) {
 
 // ─── SIDEBAR ──────────────────────────────────────────────────────────────────
 function Sidebar({active,set,user,onLogout,open,onClose}) {
-  const nav=[
-    {id:"dashboard",label:"Dashboard",icon:P.dash},
-    {id:"funnels",  label:"Funnels",  icon:P.list},
-    ...(FULL.includes(user.role)?[
-      {id:"analytics",label:"Analytics",icon:P.chart},
-      {id:"team",     label:"Team",     icon:P.users},
-    ]:[]),
-  ];
+const nav=[
+  {id:"dashboard",label:"Dashboard",icon:P.dash},
+  {id:"funnels",  label:"Funnels",  icon:P.list},
+  {id:"analytics",label:"Analytics",icon:P.chart},   // ← now visible to all
+  ...(FULL.includes(user.role)?[
+    {id:"team",label:"Team",icon:P.users},
+  ]:[]),
+];
 
   return (
     <>
@@ -1631,7 +1631,7 @@ function Shell({user,users,onLogout,onUsersChange}) {
               loading={loading}
             />
           )}
-          {view==="analytics"&&FULL.includes(user.role)&&<Analytics funnels={funnels}/>}
+          {view==="analytics"&&<Analytics funnels={FULL.includes(user.role)?funnels:scoped}/>}
           {view==="team"&&FULL.includes(user.role)&&<Team users={users} onSave={onUsersChange}/>}
         </div>
       </div>
