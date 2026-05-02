@@ -4,14 +4,13 @@ import { supabase } from "./lib/supabase";
 
 /*
   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  EKANTA CRM — v4
-  Changes on top of v3:
-  ① Company name → optional (not required)
-  ② Quote Link field removed everywhere
-  ③ New fields: City/Region, Delivery Details, Payment Terms
-  ④ Audit Comments in ViewDrawer (Owner/Manager write, CRE/Sales read)
-  ⑤ Login: removed show/hide password toggle & hint text
-  ⑥ Mobile responsive (desktop first)
+  EKANTA CRM — v5
+  Changes on top of v4:
+  ⑦ Follow-up Log — log customer response on follow-up date
+     • "Log" button in table row (overdue/today + Pending)
+     • FollowupLogModal — response, outcome, reschedule date
+     • Follow-up History timeline in ViewDrawer
+     • Auto-updates nextFollowUp date after logging
   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 */
 
@@ -126,12 +125,11 @@ const big  = n => {
 
 // ─── SEED DATA ────────────────────────────────────────────────────────────────
 const SEED_USERS = [
-  {id:1,name:"Admin",      role:"CEO",              username:"admin",      password:"admin123"},
-  {id:2,name:"Vinodhini",  role:"CRE",              username:"vinodhini",  password:"pass123" },
-  {id:3,name:"Arjun Kumar",role:"Manager",          username:"arjun",      password:"pass123" },
+  {id:1,name:"Admin",      role:"CEO",     username:"admin",     password:"admin123"},
+  {id:2,name:"Vinodhini",  role:"CRE",     username:"vinodhini", password:"pass123" },
+  {id:3,name:"Arjun Kumar",role:"Manager", username:"arjun",     password:"pass123" },
 ];
 
-// ② quoteLink removed, ③ cityRegion/deliveryDetails/paymentTerms added
 const SEED_FUNNELS = [];
 
 // ─── EXCEL EXPORT ─────────────────────────────────────────────────────────────
@@ -188,6 +186,10 @@ function StatusPill({status,sm}) {
     Won:T.won, Pending:T.pending, Lost:T.lost, Drop:T.drop,
     "New Lead":T.new, "Qualified":T.pending, "Proposal Sent":T.high,
     "High Value":T.high, "Premium":T.premium, "Bulk":T.bulk, "Normal":T.drop, "Strategic":T.new,
+    // ⑦ outcome colours
+    "Interested":T.won, "Order Confirmed":T.won,
+    "Needs Time":T.pending, "Callback Requested":T.pending, "Rescheduled":T.pending,
+    "Not Interested":T.lost, "Other":T.drop,
   };
   const c=map[status]||T.drop;
   return (
@@ -313,7 +315,6 @@ function FSelect({label,value,onChange,options,placeholder,full=true,required,er
 const SL = ({children}) => <div style={{fontSize:11,fontWeight:600,color:T.inkMuted,letterSpacing:"0.07em",textTransform:"uppercase",marginBottom:12,fontFamily:F}}>{children}</div>;
 
 // ─── LOGIN ────────────────────────────────────────────────────────────────────
-// ⑤ Removed show/hide password toggle and hint text
 function Login({users,onLogin}) {
   const [u,su]=useState(""); const [p,sp]=useState(""); const [err,se]=useState(""); const [load,sl]=useState(false);
 
@@ -356,7 +357,6 @@ function Login({users,onLogin}) {
                 Password
                 <span style={{color:T.brand,cursor:"pointer",fontSize:12,fontWeight:500}} onClick={()=>se("Contact your administrator to reset your password.")}>Forgot?</span>
               </label>
-              {/* ⑤ password type fixed, no toggle button */}
               <input
                 type="password"
                 value={p}
@@ -401,7 +401,6 @@ function Sidebar({active,set,user,onLogout,open,onClose}) {
 
   return (
     <>
-      {/* Mobile overlay */}
       {open&&<div onClick={onClose} style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.4)",zIndex:199,display:"none"}} className="mobile-overlay"/>}
       <div className={`ek-sidebar${open?" open":""}`} style={{width:200,minHeight:"100vh",background:T.sidebar,borderRight:`1px solid ${T.line}`,display:"flex",flexDirection:"column",flexShrink:0,position:"relative",zIndex:200}}>
         <div style={{padding:"18px 16px 14px",borderBottom:`1px solid ${T.line}`}}>
@@ -459,7 +458,6 @@ function Topbar({title,sub,search,setSearch,user,onAdd,onExportAll,onExportFilte
     <div style={{background:T.surface,borderBottom:`1px solid ${T.line}`,padding:"0 16px"}}>
       <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",height:56}}>
         <div style={{display:"flex",alignItems:"center",gap:10,flex:1}}>
-          {/* ⑥ Mobile hamburger */}
           <button onClick={onMenuToggle} className="ek-mobile-menu"
             style={{background:"none",border:"none",cursor:"pointer",color:T.inkSub,display:"none",padding:4,borderRadius:6}}
             onMouseEnter={e=>e.currentTarget.style.color=T.ink}
@@ -580,7 +578,8 @@ function FilterBar({fil,setF,reset}) {
 }
 
 // ─── TABLE ────────────────────────────────────────────────────────────────────
-function Table({rows,user,onView,onEdit,onDelete,loading}) {
+// ⑦ Added onLogFollowup prop + Log button in action column
+function Table({rows,user,onView,onEdit,onDelete,onLogFollowup,loading}) {
   if(loading) return (
     <div style={{display:"flex",alignItems:"center",justifyContent:"center",padding:72,flexDirection:"column",gap:16}}>
       <div style={{width:32,height:32,border:"3px solid rgba(91,59,232,.1)",borderTopColor:T.brand,borderRadius:"50%",animation:"spin .8s linear infinite"}}/>
@@ -597,8 +596,10 @@ function Table({rows,user,onView,onEdit,onDelete,loading}) {
       <p style={{fontSize:13,color:T.inkSub,margin:0}}>Adjust your filters or add a new lead.</p>
     </div>
   );
+
   const todayV=today();
   const TH=({ch})=><th style={{padding:"0 14px",textAlign:"left",fontSize:10,fontWeight:600,color:T.inkMuted,letterSpacing:"0.07em",textTransform:"uppercase",whiteSpace:"nowrap",borderBottom:`1px solid ${T.line}`,height:38,background:T.bg}}>{ch}</th>;
+
   return (
     <div style={{overflowX:"auto"}}>
       <table style={{width:"100%",borderCollapse:"collapse",fontFamily:F,tableLayout:"fixed"}}>
@@ -623,7 +624,8 @@ function Table({rows,user,onView,onEdit,onDelete,loading}) {
         <tbody>
           {rows.map((f,i)=>{
             const over=f.nextFollowUp&&f.nextFollowUp<todayV&&f.status==="Pending";
-            const tod=f.nextFollowUp===todayV;
+            const tod=f.nextFollowUp===todayV&&f.status==="Pending";
+            const showLog=(over||tod);
             const cats=[...new Set((f.products||[]).map(p=>p.category).filter(Boolean))].join(", ")||"—";
             return (
               <tr key={f.id}
@@ -653,6 +655,17 @@ function Table({rows,user,onView,onEdit,onDelete,loading}) {
                 <td style={{padding:"0 14px",fontSize:12,fontWeight:600,color:T.brand,verticalAlign:"middle",whiteSpace:"nowrap"}}>{inr(f.quoteAmount)||<span style={{color:T.inkMuted,fontWeight:400}}>—</span>}</td>
                 <td style={{padding:"0 10px",verticalAlign:"middle"}}>
                   <div style={{display:"flex",gap:4,justifyContent:"flex-end"}}>
+
+                    {/* ⑦ LOG BUTTON — only when follow-up is due/overdue and Pending */}
+                    {showLog&&(
+                      <button onClick={()=>onLogFollowup(f)}
+                        style={{background:T.pending.bg,border:`1px solid ${T.pending.dot}`,borderRadius:T.r.sm,padding:"4px 10px",fontSize:11,fontWeight:600,color:T.pending.text,cursor:"pointer",fontFamily:F,whiteSpace:"nowrap",transition:"all .12s"}}
+                        onMouseEnter={e=>{e.currentTarget.style.background=T.pending.dot;e.currentTarget.style.color="#fff";}}
+                        onMouseLeave={e=>{e.currentTarget.style.background=T.pending.bg;e.currentTarget.style.color=T.pending.text;}}>
+                        📋 Log
+                      </button>
+                    )}
+
                     <button onClick={()=>onView(f)} style={{background:"transparent",border:`1px solid ${T.line}`,borderRadius:T.r.sm,padding:"4px 10px",fontSize:11,fontWeight:500,color:T.inkSub,cursor:"pointer",fontFamily:F,transition:"all .12s"}}
                       onMouseEnter={e=>{e.currentTarget.style.background=T.brandSubtle;e.currentTarget.style.color=T.brand;e.currentTarget.style.borderColor=T.brand;}}
                       onMouseLeave={e=>{e.currentTarget.style.background="transparent";e.currentTarget.style.color=T.inkSub;e.currentTarget.style.borderColor=T.line;}}>View</button>
@@ -849,7 +862,6 @@ function Team({users,onSave}) {
 }
 
 // ─── FUNNEL FORM ──────────────────────────────────────────────────────────────
-// ① company optional, ② quoteLink removed, ③ new fields added
 function FunnelForm({onClose,onSave,existing,user}) {
   const blank={
     name:"",phone:"",email:"",
@@ -882,16 +894,10 @@ function FunnelForm({onClose,onSave,existing,user}) {
     if(!form.quoteDesc)      e.quoteDesc="Required";
     if(!form.quoteQty)       e.quoteQty="Required";
     if(!form.quoteAmount)    e.quoteAmount="Required";
-    
-    // Check products: at least one item must have a description
     const hasProduct = form.products.some(p => p.desc.trim() !== "");
     if(!hasProduct) e.products = "At least one product item is required";
-
     if(!user?.name) e.auth="You must be logged in";
     setErrs(e);
-    if(Object.keys(e).length > 0) {
-      console.warn('Form validation failed:', e);
-    }
     return !Object.keys(e).length;
   };
   const submit=()=>{if(val())onSave(form);};
@@ -904,7 +910,6 @@ function FunnelForm({onClose,onSave,existing,user}) {
       <div style={{background:T.surface,borderRadius:T.r["2xl"],width:"100%",maxWidth:720,maxHeight:"90vh",overflowY:"auto",boxShadow:T.shadowXl,animation:"fadeUp .2s ease"}}
         onClick={e=>e.stopPropagation()}>
 
-        {/* Header */}
         <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"20px 24px 16px",borderBottom:`1px solid ${T.line}`,position:"sticky",top:0,background:T.surface,zIndex:1,borderRadius:`${T.r["2xl"]} ${T.r["2xl"]} 0 0`}}>
           <div>
             <h2 style={{fontSize:16,fontWeight:700,color:T.ink,fontFamily:F,margin:"0 0 2px"}}>{existing?"Edit funnel":"New funnel"}</h2>
@@ -916,8 +921,6 @@ function FunnelForm({onClose,onSave,existing,user}) {
         </div>
 
         <div style={{padding:"22px 24px",display:"flex",flexDirection:"column",gap:20}}>
-
-          {/* Contact */}
           <section>
             <SL>Contact details</SL>
             <div style={{display:"flex",flexDirection:"column",gap:12}}>
@@ -930,7 +933,6 @@ function FunnelForm({onClose,onSave,existing,user}) {
             </div>
           </section>
 
-          {/* Funnel details */}
           <section>
             <SL>Funnel details</SL>
             <div className="ek-form-2col" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:10}}>
@@ -938,15 +940,7 @@ function FunnelForm({onClose,onSave,existing,user}) {
               <FSelect label="Funnel type"  value={form.funnelType}  onChange={e=>set("funnelType",e.target.value)}  options={FTYPES} required error={errs.funnelType}/>
             </div>
             <div className="ek-form-2col" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
-              <FSelect
-                label="Lead source"
-                required
-                value={form.leadSource}
-                onChange={e=>set("leadSource",e.target.value)}
-                options={LEAD_SOURCES}
-                placeholder="Select source…"
-                error={errs.leadSource}
-              />
+              <FSelect label="Lead source" required value={form.leadSource} onChange={e=>set("leadSource",e.target.value)} options={LEAD_SOURCES} placeholder="Select source…" error={errs.leadSource}/>
               <div style={{display:"flex",flexDirection:"column",gap:5}}>
                 <label style={{fontSize:12,fontWeight:500,color:T.inkSub,fontFamily:F}}>Next follow-up<span style={{color:"#DC2626",marginLeft:2}}>*</span></label>
                 <input type="date" value={form.nextFollowUp} onChange={e=>set("nextFollowUp",e.target.value)}
@@ -956,7 +950,6 @@ function FunnelForm({onClose,onSave,existing,user}) {
             </div>
           </section>
 
-          {/* Products */}
           <section>
             <SL>Customer requirements</SL>
             <div style={{border:`1px solid ${errs.products?T.lost.dot:T.line}`,borderRadius:T.r.lg,overflow:"hidden"}}>
@@ -993,7 +986,6 @@ function FunnelForm({onClose,onSave,existing,user}) {
             </div>
           </section>
 
-          {/* Remarks */}
           <section>
             <SL>Remarks <span style={{color:"#DC2626"}}>*</span></SL>
             <textarea value={form.remarks} onChange={e=>set("remarks",e.target.value)} placeholder="Additional notes…" rows={2}
@@ -1001,7 +993,6 @@ function FunnelForm({onClose,onSave,existing,user}) {
             {errs.remarks&&<div style={{fontSize:11,color:"#B91C1C",marginTop:4}}>{errs.remarks}</div>}
           </section>
 
-          {/* ③ Delivery & Payment */}
           <section>
             <SL>Delivery & Payment</SL>
             <div className="ek-form-2col" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
@@ -1019,7 +1010,6 @@ function FunnelForm({onClose,onSave,existing,user}) {
             </div>
           </section>
 
-          {/* Quotation — ② quoteLink removed */}
           <section>
             <SL>Initial quotation</SL>
             <div style={{display:"flex",flexDirection:"column",gap:12}}>
@@ -1038,7 +1028,6 @@ function FunnelForm({onClose,onSave,existing,user}) {
           </section>
         </div>
 
-        {/* Footer */}
         <div style={{display:"flex",justifyContent:"flex-end",gap:10,padding:"14px 24px 22px",borderTop:`1px solid ${T.line}`,position:"sticky",bottom:0,background:T.surface,borderRadius:`0 0 ${T.r["2xl"]} ${T.r["2xl"]}`}}>
           <Btn ghost label="Cancel" onClick={onClose}/>
           <Btn primary icon={existing?P.check:P.plus} label={existing?"Save changes":"Add funnel"} onClick={submit}/>
@@ -1056,11 +1045,7 @@ const OUTCOMES = [
 
 // ─── FOLLOWUP LOG MODAL ───────────────────────────────────────────────────────
 function FollowupLogModal({ funnel, user, onClose, onSave }) {
-  const [form, setForm] = useState({
-    customerResponse: "",
-    outcome: "",
-    nextFollowUp: "",
-  });
+  const [form, setForm] = useState({ customerResponse: "", outcome: "", nextFollowUp: "" });
   const [err, setErr] = useState({});
   const [saving, setSaving] = useState(false);
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
@@ -1072,7 +1057,6 @@ function FollowupLogModal({ funnel, user, onClose, onSave }) {
     if (!form.nextFollowUp)            e.nextFollowUp = "Required";
     setErr(e);
     if (Object.keys(e).length) return;
-
     setSaving(true);
     try {
       await onSave({
@@ -1091,118 +1075,82 @@ function FollowupLogModal({ funnel, user, onClose, onSave }) {
   };
 
   const outcomeColors = {
-    "Interested":          T.won,
-    "Order Confirmed":     T.won,
-    "Needs Time":          T.pending,
-    "Callback Requested":  T.pending,
-    "Rescheduled":         T.pending,
-    "Not Interested":      T.lost,
-    "Other":               T.drop,
+    "Interested":T.won,"Order Confirmed":T.won,
+    "Needs Time":T.pending,"Callback Requested":T.pending,"Rescheduled":T.pending,
+    "Not Interested":T.lost,"Other":T.drop,
   };
 
   return (
-    <div style={{
-      position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)",
-      zIndex: 3000, display: "flex", alignItems: "center", justifyContent: "center",
-      padding: 16, backdropFilter: "blur(2px)"
-    }} onClick={onClose}>
-      <div style={{
-        background: T.surface, borderRadius: T.r["2xl"], width: "100%",
-        maxWidth: 480, boxShadow: T.shadowXl, animation: "fadeUp .2s ease"
-      }} onClick={e => e.stopPropagation()}>
+    <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.4)",zIndex:3000,display:"flex",alignItems:"center",justifyContent:"center",padding:16,backdropFilter:"blur(2px)"}}
+      onClick={onClose}>
+      <div style={{background:T.surface,borderRadius:T.r["2xl"],width:"100%",maxWidth:480,boxShadow:T.shadowXl,animation:"fadeUp .2s ease"}}
+        onClick={e=>e.stopPropagation()}>
 
         {/* Header */}
-        <div style={{
-          padding: "20px 24px 16px", borderBottom: `1px solid ${T.line}`,
-          display: "flex", justifyContent: "space-between", alignItems: "flex-start"
-        }}>
+        <div style={{padding:"20px 24px 16px",borderBottom:`1px solid ${T.line}`,display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
           <div>
-            <h2 style={{ fontSize: 15, fontWeight: 700, color: T.ink, fontFamily: F, margin: "0 0 3px" }}>
-              Log Follow-up
-            </h2>
-            <p style={{ margin: 0, fontSize: 12, color: T.inkSub, fontFamily: F }}>
-              {funnel.name} · Due {funnel.nextFollowUp}
-            </p>
+            <h2 style={{fontSize:15,fontWeight:700,color:T.ink,fontFamily:F,margin:"0 0 3px"}}>Log Follow-up</h2>
+            <p style={{margin:0,fontSize:12,color:T.inkSub,fontFamily:F}}>{funnel.name} · Due {funnel.nextFollowUp}</p>
           </div>
-          <button onClick={onClose} style={{
-            width: 28, height: 28, border: `1px solid ${T.line}`, borderRadius: T.r.md,
-            background: T.bg, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center"
-          }}>
-            <Ic d={P.close} sz={12} color={T.inkSub} />
+          <button onClick={onClose} style={{width:28,height:28,border:`1px solid ${T.line}`,borderRadius:T.r.md,background:T.bg,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>
+            <Ic d={P.close} sz={12} color={T.inkSub}/>
           </button>
         </div>
 
         {/* Body */}
-        <div style={{ padding: "20px 24px", display: "flex", flexDirection: "column", gap: 16 }}>
+        <div style={{padding:"20px 24px",display:"flex",flexDirection:"column",gap:16}}>
 
-          {/* What did customer say */}
           <div>
-            <label style={{ fontSize: 12, fontWeight: 500, color: T.inkSub, fontFamily: F, display: "block", marginBottom: 5 }}>
-              What did the customer say? <span style={{ color: "#DC2626" }}>*</span>
+            <label style={{fontSize:12,fontWeight:500,color:T.inkSub,fontFamily:F,display:"block",marginBottom:5}}>
+              What did the customer say? <span style={{color:"#DC2626"}}>*</span>
             </label>
-            <textarea
-              value={form.customerResponse}
-              onChange={e => set("customerResponse", e.target.value)}
-              placeholder="e.g. Customer said she'll confirm after checking with family…"
-              rows={3}
-              style={{ ...inputSx(err.response), padding: "9px 11px", resize: "vertical", lineHeight: 1.6, width: "100%", boxSizing: "border-box" }}
-              onFocus={onfocus} onBlur={onblur}
-              autoFocus
-            />
-            {err.response && <div style={{ fontSize: 11, color: "#B91C1C", marginTop: 4 }}>{err.response}</div>}
+            <textarea value={form.customerResponse} onChange={e=>set("customerResponse",e.target.value)}
+              placeholder="e.g. Customer said she'll confirm after checking with family…" rows={3}
+              style={{...inputSx(err.response),padding:"9px 11px",resize:"vertical",lineHeight:1.6,width:"100%",boxSizing:"border-box"}}
+              onFocus={onfocus} onBlur={onblur} autoFocus/>
+            {err.response&&<div style={{fontSize:11,color:"#B91C1C",marginTop:4}}>{err.response}</div>}
           </div>
 
-          {/* Outcome pills */}
           <div>
-            <label style={{ fontSize: 12, fontWeight: 500, color: T.inkSub, fontFamily: F, display: "block", marginBottom: 8 }}>
-              Outcome <span style={{ color: "#DC2626" }}>*</span>
+            <label style={{fontSize:12,fontWeight:500,color:T.inkSub,fontFamily:F,display:"block",marginBottom:8}}>
+              Outcome <span style={{color:"#DC2626"}}>*</span>
             </label>
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 7 }}>
-              {OUTCOMES.map(o => {
-                const c = outcomeColors[o] || T.drop;
-                const sel = form.outcome === o;
+            <div style={{display:"flex",flexWrap:"wrap",gap:7}}>
+              {OUTCOMES.map(o=>{
+                const c=outcomeColors[o]||T.drop;
+                const sel=form.outcome===o;
                 return (
-                  <button key={o} onClick={() => set("outcome", o)} style={{
-                    padding: "5px 12px", borderRadius: 20,
-                    border: `1px solid ${sel ? c.dot : T.line}`,
-                    background: sel ? c.bg : "transparent",
-                    color: sel ? c.text : T.inkSub,
-                    fontSize: 12, fontWeight: sel ? 600 : 400,
-                    cursor: "pointer", fontFamily: F, transition: "all .15s",
-                    display: "flex", alignItems: "center", gap: 5
+                  <button key={o} onClick={()=>set("outcome",o)} style={{
+                    padding:"5px 12px",borderRadius:20,
+                    border:`1px solid ${sel?c.dot:T.line}`,
+                    background:sel?c.bg:"transparent",
+                    color:sel?c.text:T.inkSub,
+                    fontSize:12,fontWeight:sel?600:400,
+                    cursor:"pointer",fontFamily:F,transition:"all .15s",
+                    display:"flex",alignItems:"center",gap:5
                   }}>
-                    <Dot color={sel ? c.dot : T.inkMuted} size={5} />{o}
+                    <Dot color={sel?c.dot:T.inkMuted} size={5}/>{o}
                   </button>
                 );
               })}
             </div>
-            {err.outcome && <div style={{ fontSize: 11, color: "#B91C1C", marginTop: 6 }}>{err.outcome}</div>}
+            {err.outcome&&<div style={{fontSize:11,color:"#B91C1C",marginTop:6}}>{err.outcome}</div>}
           </div>
 
-          {/* Next follow-up date */}
           <div>
-            <label style={{ fontSize: 12, fontWeight: 500, color: T.inkSub, fontFamily: F, display: "block", marginBottom: 5 }}>
-              Reschedule next follow-up to <span style={{ color: "#DC2626" }}>*</span>
+            <label style={{fontSize:12,fontWeight:500,color:T.inkSub,fontFamily:F,display:"block",marginBottom:5}}>
+              Reschedule next follow-up to <span style={{color:"#DC2626"}}>*</span>
             </label>
-            <input
-              type="date"
-              value={form.nextFollowUp}
-              onChange={e => set("nextFollowUp", e.target.value)}
-              style={{ ...inputSx(err.nextFollowUp) }}
-              onFocus={onfocus} onBlur={onblur}
-              min={today()}
-            />
-            {err.nextFollowUp && <div style={{ fontSize: 11, color: "#B91C1C", marginTop: 4 }}>{err.nextFollowUp}</div>}
+            <input type="date" value={form.nextFollowUp} onChange={e=>set("nextFollowUp",e.target.value)}
+              style={{...inputSx(err.nextFollowUp)}} onFocus={onfocus} onBlur={onblur} min={today()}/>
+            {err.nextFollowUp&&<div style={{fontSize:11,color:"#B91C1C",marginTop:4}}>{err.nextFollowUp}</div>}
           </div>
         </div>
 
         {/* Footer */}
-        <div style={{
-          display: "flex", justifyContent: "flex-end", gap: 10,
-          padding: "14px 24px 20px", borderTop: `1px solid ${T.line}`
-        }}>
-          <Btn ghost label="Cancel" onClick={onClose} />
-          <Btn primary icon={P.check} label={saving ? "Saving…" : "Save & Reschedule"} onClick={submit} disabled={saving} />
+        <div style={{display:"flex",justifyContent:"flex-end",gap:10,padding:"14px 24px 20px",borderTop:`1px solid ${T.line}`}}>
+          <Btn ghost label="Cancel" onClick={onClose}/>
+          <Btn primary icon={P.check} label={saving?"Saving…":"Save & Reschedule"} onClick={submit} disabled={saving}/>
         </div>
       </div>
     </div>
@@ -1210,25 +1158,19 @@ function FollowupLogModal({ funnel, user, onClose, onSave }) {
 }
 
 // ─── VIEW DRAWER ──────────────────────────────────────────────────────────────
-// ② quoteLink removed, ③ new fields added, ④ Audit Comments added
-function ViewDrawer({funnel,onClose,onEdit,onStatusChange,user,comments,onAddComment}) {
+// ⑦ Added followupLogs + onLogFollowup props + Follow-up History timeline
+function ViewDrawer({funnel,onClose,onEdit,onStatusChange,user,comments,onAddComment,followupLogs=[],onLogFollowup}) {
   const [status,setStatus]=useState(funnel.status);
   const tot=(funnel.products||[]).reduce((a,p)=>a+(Number(p.qty)*Number(p.price)||0),0);
   const sc=T[status.toLowerCase()]||T.drop;
   const doStatus=s=>{setStatus(s);onStatusChange(funnel.id,s);};
 
-  // ④ Audit comment state
   const [commentText,setCommentText]=useState("");
   const canComment=FULL.includes(user.role);
 
   const submitComment=()=>{
     if(!commentText.trim()) return;
-    onAddComment(funnel.id,{
-      text:commentText.trim(),
-      author:user.name,
-      role:user.role,
-      time:stamp(),
-    });
+    onAddComment(funnel.id,{text:commentText.trim(),author:user.name,role:user.role,time:stamp()});
     setCommentText("");
   };
 
@@ -1239,8 +1181,13 @@ function ViewDrawer({funnel,onClose,onEdit,onStatusChange,user,comments,onAddCom
     </div>
   );
   const Sec=({t})=><div style={{fontSize:10,fontWeight:600,color:T.inkMuted,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:10,marginTop:4,fontFamily:F}}>{t}</div>;
-
   const roleColor={"CEO":T.high,"Manager":T.won,"CRE":T.pending};
+
+  const outcomeColors={
+    "Interested":T.won,"Order Confirmed":T.won,
+    "Needs Time":T.pending,"Callback Requested":T.pending,"Rescheduled":T.pending,
+    "Not Interested":T.lost,"Other":T.drop,
+  };
 
   return (
     <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.3)",zIndex:2000,display:"flex",justifyContent:"flex-end",backdropFilter:"blur(1px)"}}
@@ -1318,7 +1265,6 @@ function ViewDrawer({funnel,onClose,onEdit,onStatusChange,user,comments,onAddCom
 
           {funnel.remarks&&<><Sec t="Remarks"/><div style={{background:T.bg,padding:"10px 14px",borderRadius:T.r.md,fontSize:13,color:T.ink,fontFamily:F,lineHeight:1.6,marginBottom:18}}>{funnel.remarks}</div></>}
 
-          {/* ③ Delivery & Payment */}
           {(funnel.deliveryDetails||funnel.paymentTerms)&&(
             <>
               <Sec t="Delivery & Payment"/>
@@ -1338,8 +1284,59 @@ function ViewDrawer({funnel,onClose,onEdit,onStatusChange,user,comments,onAddCom
             {funnel.quoteDesc&&<Row l="Description" v={funnel.quoteDesc}/>}
           </dl>
 
-          {/* ④ AUDIT COMMENTS */}
+          {/* ⑦ FOLLOW-UP HISTORY */}
           <div style={{height:24}}/>
+          <div style={{borderTop:`2px solid ${T.line}`,paddingTop:20,marginBottom:24}}>
+            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:16}}>
+              <div style={{display:"flex",alignItems:"center",gap:8}}>
+                <span style={{fontSize:16}}>📅</span>
+                <span style={{fontSize:13,fontWeight:600,color:T.ink,fontFamily:F}}>Follow-up History</span>
+                {followupLogs.length>0&&(
+                  <span style={{fontSize:11,fontWeight:500,background:T.brandSubtle,color:T.brand,padding:"1px 8px",borderRadius:10,fontFamily:F}}>
+                    {followupLogs.length}
+                  </span>
+                )}
+              </div>
+              <Btn primary sm label="+ Log Follow-up" onClick={onLogFollowup}/>
+            </div>
+
+            {followupLogs.length===0
+              ? <div style={{textAlign:"center",padding:"16px 0",fontSize:12,color:T.inkMuted,fontFamily:F}}>
+                  No follow-ups logged yet.
+                </div>
+              : <div style={{display:"flex",flexDirection:"column",gap:0,position:"relative"}}>
+                  {/* Vertical timeline line */}
+                  <div style={{position:"absolute",left:11,top:12,bottom:12,width:2,background:T.line,borderRadius:2}}/>
+                  {[...followupLogs].reverse().map((log,i)=>{
+                    const c=outcomeColors[log.outcome]||T.drop;
+                    return (
+                      <div key={i} style={{display:"flex",gap:14,paddingBottom:16,position:"relative"}}>
+                        <div style={{width:24,height:24,borderRadius:"50%",background:c.bg,border:`2px solid ${c.dot}`,flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center",zIndex:1}}>
+                          <Dot color={c.dot} size={6}/>
+                        </div>
+                        <div style={{flex:1,background:T.bg,border:`1px solid ${T.line}`,borderRadius:T.r.lg,padding:"12px 14px"}}>
+                          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8,flexWrap:"wrap",gap:6}}>
+                            <div style={{display:"flex",alignItems:"center",gap:7}}>
+                              <StatusPill status={log.outcome} sm/>
+                              <span style={{fontSize:11,color:T.inkMuted,fontFamily:F}}>by {log.loggedBy}</span>
+                            </div>
+                            <span style={{fontSize:10,color:T.inkMuted,fontFamily:F,whiteSpace:"nowrap"}}>{log.loggedAt}</span>
+                          </div>
+                          <p style={{margin:"0 0 8px",fontSize:13,color:T.ink,fontFamily:F,lineHeight:1.6}}>{log.customerResponse}</p>
+                          {log.nextFollowUp&&(
+                            <div style={{display:"flex",alignItems:"center",gap:5,fontSize:11,color:T.brand,fontFamily:F,fontWeight:500}}>
+                              <span>→</span> Rescheduled to {log.nextFollowUp}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+            }
+          </div>
+
+          {/* ④ AUDIT COMMENTS */}
           <div style={{borderTop:`2px solid ${T.line}`,paddingTop:20}}>
             <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:16}}>
               <Ic d={P.msg} sz={14} color={T.brand}/>
@@ -1347,28 +1344,20 @@ function ViewDrawer({funnel,onClose,onEdit,onStatusChange,user,comments,onAddCom
               {comments.length>0&&<span style={{fontSize:11,fontWeight:500,background:T.brandSubtle,color:T.brand,padding:"1px 8px",borderRadius:10,fontFamily:F}}>{comments.length}</span>}
             </div>
 
-            {/* Comment input — only for CEO/Manager */}
             {canComment&&(
               <div style={{marginBottom:16}}>
-                <textarea
-                  value={commentText}
-                  onChange={e=>setCommentText(e.target.value)}
-                  placeholder="Write your audit comment…"
-                  rows={3}
+                <textarea value={commentText} onChange={e=>setCommentText(e.target.value)}
+                  placeholder="Write your audit comment…" rows={3}
                   style={{...inputSx(),padding:"10px 12px",resize:"vertical",lineHeight:1.6,width:"100%",boxSizing:"border-box"}}
-                  onFocus={onfocus} onBlur={onblur}
-                />
+                  onFocus={onfocus} onBlur={onblur}/>
                 <div style={{display:"flex",justifyContent:"flex-end",marginTop:8}}>
                   <Btn primary sm icon={P.check} label="Save comment" onClick={submitComment} disabled={!commentText.trim()}/>
                 </div>
               </div>
             )}
 
-            {/* Comments list */}
             {comments.length===0
-              ? <div style={{textAlign:"center",padding:"20px 0",fontSize:12,color:T.inkMuted,fontFamily:F}}>
-                  No audit comments yet.
-                </div>
+              ? <div style={{textAlign:"center",padding:"20px 0",fontSize:12,color:T.inkMuted,fontFamily:F}}>No audit comments yet.</div>
               : <div style={{display:"flex",flexDirection:"column",gap:10}}>
                   {[...comments].reverse().map((c,i)=>{
                     const rc=roleColor[c.role]||T.drop;
@@ -1403,7 +1392,6 @@ function Shell({user,users,onLogout,onUsersChange}) {
   const [search,setSearch]=useState("");
   const [sidebarOpen,setSidebarOpen]=useState(false);
 
-  // Fetch funnels on mount
   useEffect(() => {
     const fetchFunnels = async () => {
       try {
@@ -1418,7 +1406,6 @@ function Shell({user,users,onLogout,onUsersChange}) {
     fetchFunnels();
   }, []);
 
-  // Real-time subscription for funnels
   useEffect(() => {
     const channel = supabase
       .channel('funnels_changes')
@@ -1437,17 +1424,12 @@ function Shell({user,users,onLogout,onUsersChange}) {
         }
       })
       .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
+    return () => { supabase.removeChannel(channel); };
   }, []);
 
-  // Audit comments
   const [funnelComments,setFunnelComments]=useState({});
-  
-  // Fetch comments when a funnel is viewed
   const [viewT,setViewT]=useState(null);
+
   useEffect(() => {
     if (viewT && !funnelComments[viewT.id]) {
       const fetchComments = async () => {
@@ -1462,7 +1444,6 @@ function Shell({user,users,onLogout,onUsersChange}) {
     }
   }, [viewT, funnelComments]);
 
-  // Real-time subscription for audit comments
   useEffect(() => {
     const channel = supabase
       .channel('comments_changes')
@@ -1472,9 +1453,9 @@ function Shell({user,users,onLogout,onUsersChange}) {
           text: payload.new.text,
           author: payload.new.author,
           role: payload.new.role,
-          time: new Date(payload.new.created_at).toLocaleString('en-IN', { 
-            month: 'short', day: 'numeric', year: 'numeric', 
-            hour: '2-digit', minute: '2-digit' 
+          time: new Date(payload.new.created_at).toLocaleString('en-IN', {
+            month: 'short', day: 'numeric', year: 'numeric',
+            hour: '2-digit', minute: '2-digit'
           })
         };
         setFunnelComments(prev => ({
@@ -1483,25 +1464,53 @@ function Shell({user,users,onLogout,onUsersChange}) {
         }));
       })
       .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
+    return () => { supabase.removeChannel(channel); };
   }, []);
 
   const addComment = async (funnelId, comment) => {
     try {
       await crmService.addComment(funnelId, comment);
-      // Real-time subscription will update the UI
     } catch (err) {
       console.error("Failed to add comment:", err);
     }
   };
 
+  // ⑦ Follow-up log state
+  const [followupLogs,setFollowupLogs]=useState({});
+  const [logModalFunnel,setLogModalFunnel]=useState(null);
+
+  // ⑦ Fetch follow-up logs when a funnel is viewed
+  useEffect(()=>{
+    if(viewT && !followupLogs[viewT.id]){
+      crmService.getFollowupLogs(viewT.id).then(logs=>{
+        setFollowupLogs(prev=>({...prev,[viewT.id]:logs}));
+      }).catch(err=>console.error("Failed to fetch followup logs:",err));
+    }
+  },[viewT]);
+
+  // ⑦ Save follow-up log + auto-update next follow-up date
+  const saveFollowupLog = async (log) => {
+    try {
+      await crmService.addFollowupLog(logModalFunnel.id, log);
+      if(log.nextFollowUp){
+        await crmService.updateNextFollowup(logModalFunnel.id, log.nextFollowUp);
+        setFunnels(p=>p.map(f=>
+          f.id===logModalFunnel.id ? {...f, nextFollowUp:log.nextFollowUp} : f
+        ));
+      }
+      const updated = await crmService.getFollowupLogs(logModalFunnel.id);
+      setFollowupLogs(prev=>({...prev,[logModalFunnel.id]:updated}));
+      setLogModalFunnel(null);
+      push("Follow-up logged ✓");
+    } catch(err){
+      console.error("Failed to save followup log:",err);
+      push("Error saving follow-up","error");
+    }
+  };
+
   const [fil,setFil]=useState({
     status:"",funnelType:"",enquiryType:"",
-    leadSource:"",
-    descFilter:"",
+    leadSource:"",descFilter:"",
     missed:false,todayF:false,upcoming:false,
   });
 
@@ -1520,7 +1529,7 @@ function Shell({user,users,onLogout,onUsersChange}) {
   const filtered=useMemo(()=>scoped.filter(f=>{
     if(search){
       const q=search.toLowerCase();
-      if(!(f.name||"").toLowerCase().includes(q) && 
+      if(!(f.name||"").toLowerCase().includes(q) &&
          !(f.email||"").toLowerCase().includes(q) &&
          !(f.phone||"").toLowerCase().includes(q) &&
          !(f.orderNumber||"").toLowerCase().includes(q)) return false;
@@ -1543,12 +1552,10 @@ function Shell({user,users,onLogout,onUsersChange}) {
 
   const save = async (form) => {
     try {
-      // Filter out empty products before saving
       const cleanedForm = {
         ...form,
         products: (form.products || []).filter(p => p.desc || p.category || p.qty || p.price)
       };
-
       const saved = await crmService.saveFunnel(cleanedForm, user);
       if (editT) {
         setFunnels(p => p.map(f => f.id === saved.id ? saved : f));
@@ -1615,7 +1622,14 @@ function Shell({user,users,onLogout,onUsersChange}) {
 
         <div style={{flex:1,background:showFilters?T.surface:"transparent",borderTop:showFilters?`1px solid ${T.line}`:"none"}}>
           {(view==="dashboard"||view==="funnels")&&(
-            <Table rows={filtered} user={user} onView={setViewT} onEdit={f=>setEditT(f)} onDelete={del} loading={loading}/>
+            <Table
+              rows={filtered} user={user}
+              onView={setViewT}
+              onEdit={f=>setEditT(f)}
+              onDelete={del}
+              onLogFollowup={f=>setLogModalFunnel(f)}  // ⑦
+              loading={loading}
+            />
           )}
           {view==="analytics"&&FULL.includes(user.role)&&<Analytics funnels={funnels}/>}
           {view==="team"&&FULL.includes(user.role)&&<Team users={users} onSave={onUsersChange}/>}
@@ -1623,6 +1637,7 @@ function Shell({user,users,onLogout,onUsersChange}) {
       </div>
 
       {(addOpen||editT)&&<FunnelForm onClose={()=>{setAddOpen(false);setEditT(null);}} onSave={save} existing={editT} user={user}/>}
+
       {viewT&&(
         <ViewDrawer
           funnel={viewT}
@@ -1632,8 +1647,21 @@ function Shell({user,users,onLogout,onUsersChange}) {
           user={user}
           comments={funnelComments[viewT.id]||[]}
           onAddComment={addComment}
+          followupLogs={followupLogs[viewT.id]||[]}
+          onLogFollowup={()=>setLogModalFunnel(viewT)}
         />
       )}
+
+      {/* ⑦ Follow-up Log Modal */}
+      {logModalFunnel&&(
+        <FollowupLogModal
+          funnel={logModalFunnel}
+          user={user}
+          onClose={()=>setLogModalFunnel(null)}
+          onSave={saveFollowupLog}
+        />
+      )}
+
       <Toaster list={toasts}/>
     </div>
   );
@@ -1646,36 +1674,32 @@ export default function App() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-     const fetchUsers = async () => {
-       try {
-         const data = await crmService.getUsers();
-         if (data && data.length > 0) {
-           setUsers(data);
-         } else {
-           // If table exists but is empty, use SEED_USERS
-           setUsers(SEED_USERS);
-         }
-       } catch (err) {
-         console.error("Failed to fetch users:", err);
-         setUsers(SEED_USERS); // Fallback to seed if DB fails or table doesn't exist
-       } finally {
-         setLoading(false);
-       }
-     };
-     fetchUsers();
-   }, []);
+    const fetchUsers = async () => {
+      try {
+        const data = await crmService.getUsers();
+        if (data && data.length > 0) {
+          setUsers(data);
+        } else {
+          setUsers(SEED_USERS);
+        }
+      } catch (err) {
+        console.error("Failed to fetch users:", err);
+        setUsers(SEED_USERS);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchUsers();
+  }, []);
 
   const handleUsersChange = async (newUsers) => {
     try {
-      // Find deleted users
       const currentUsernames = users.map(u => u.username);
       const newUsernames = newUsers.map(u => u.username);
       const deletedUsernames = currentUsernames.filter(u => !newUsernames.includes(u));
-
       for (const username of deletedUsernames) {
         await crmService.deleteUser(username);
       }
-
       await crmService.saveUsers(newUsers);
       const data = await crmService.getUsers();
       setUsers(data);
@@ -1684,7 +1708,7 @@ export default function App() {
     }
   };
 
-  if (loading) return <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: T.bg, fontFamily: F }}>Loading CRM...</div>;
+  if (loading) return <div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:T.bg,fontFamily:F}}>Loading CRM...</div>;
 
   return (
     <>
