@@ -1048,6 +1048,167 @@ function FunnelForm({onClose,onSave,existing,user}) {
   );
 }
 
+// ─── FOLLOW-UP OUTCOMES ───────────────────────────────────────────────────────
+const OUTCOMES = [
+  "Interested", "Needs Time", "Callback Requested",
+  "Not Interested", "Rescheduled", "Order Confirmed", "Other"
+];
+
+// ─── FOLLOWUP LOG MODAL ───────────────────────────────────────────────────────
+function FollowupLogModal({ funnel, user, onClose, onSave }) {
+  const [form, setForm] = useState({
+    customerResponse: "",
+    outcome: "",
+    nextFollowUp: "",
+  });
+  const [err, setErr] = useState({});
+  const [saving, setSaving] = useState(false);
+  const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
+
+  const submit = async () => {
+    const e = {};
+    if (!form.customerResponse.trim()) e.response = "Required";
+    if (!form.outcome)                 e.outcome = "Required";
+    if (!form.nextFollowUp)            e.nextFollowUp = "Required";
+    setErr(e);
+    if (Object.keys(e).length) return;
+
+    setSaving(true);
+    try {
+      await onSave({
+        loggedBy: user.name,
+        followUpDate: funnel.nextFollowUp,
+        customerResponse: form.customerResponse.trim(),
+        outcome: form.outcome,
+        nextFollowUp: form.nextFollowUp,
+      });
+      onClose();
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const outcomeColors = {
+    "Interested":          T.won,
+    "Order Confirmed":     T.won,
+    "Needs Time":          T.pending,
+    "Callback Requested":  T.pending,
+    "Rescheduled":         T.pending,
+    "Not Interested":      T.lost,
+    "Other":               T.drop,
+  };
+
+  return (
+    <div style={{
+      position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)",
+      zIndex: 3000, display: "flex", alignItems: "center", justifyContent: "center",
+      padding: 16, backdropFilter: "blur(2px)"
+    }} onClick={onClose}>
+      <div style={{
+        background: T.surface, borderRadius: T.r["2xl"], width: "100%",
+        maxWidth: 480, boxShadow: T.shadowXl, animation: "fadeUp .2s ease"
+      }} onClick={e => e.stopPropagation()}>
+
+        {/* Header */}
+        <div style={{
+          padding: "20px 24px 16px", borderBottom: `1px solid ${T.line}`,
+          display: "flex", justifyContent: "space-between", alignItems: "flex-start"
+        }}>
+          <div>
+            <h2 style={{ fontSize: 15, fontWeight: 700, color: T.ink, fontFamily: F, margin: "0 0 3px" }}>
+              Log Follow-up
+            </h2>
+            <p style={{ margin: 0, fontSize: 12, color: T.inkSub, fontFamily: F }}>
+              {funnel.name} · Due {funnel.nextFollowUp}
+            </p>
+          </div>
+          <button onClick={onClose} style={{
+            width: 28, height: 28, border: `1px solid ${T.line}`, borderRadius: T.r.md,
+            background: T.bg, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center"
+          }}>
+            <Ic d={P.close} sz={12} color={T.inkSub} />
+          </button>
+        </div>
+
+        {/* Body */}
+        <div style={{ padding: "20px 24px", display: "flex", flexDirection: "column", gap: 16 }}>
+
+          {/* What did customer say */}
+          <div>
+            <label style={{ fontSize: 12, fontWeight: 500, color: T.inkSub, fontFamily: F, display: "block", marginBottom: 5 }}>
+              What did the customer say? <span style={{ color: "#DC2626" }}>*</span>
+            </label>
+            <textarea
+              value={form.customerResponse}
+              onChange={e => set("customerResponse", e.target.value)}
+              placeholder="e.g. Customer said she'll confirm after checking with family…"
+              rows={3}
+              style={{ ...inputSx(err.response), padding: "9px 11px", resize: "vertical", lineHeight: 1.6, width: "100%", boxSizing: "border-box" }}
+              onFocus={onfocus} onBlur={onblur}
+              autoFocus
+            />
+            {err.response && <div style={{ fontSize: 11, color: "#B91C1C", marginTop: 4 }}>{err.response}</div>}
+          </div>
+
+          {/* Outcome pills */}
+          <div>
+            <label style={{ fontSize: 12, fontWeight: 500, color: T.inkSub, fontFamily: F, display: "block", marginBottom: 8 }}>
+              Outcome <span style={{ color: "#DC2626" }}>*</span>
+            </label>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 7 }}>
+              {OUTCOMES.map(o => {
+                const c = outcomeColors[o] || T.drop;
+                const sel = form.outcome === o;
+                return (
+                  <button key={o} onClick={() => set("outcome", o)} style={{
+                    padding: "5px 12px", borderRadius: 20,
+                    border: `1px solid ${sel ? c.dot : T.line}`,
+                    background: sel ? c.bg : "transparent",
+                    color: sel ? c.text : T.inkSub,
+                    fontSize: 12, fontWeight: sel ? 600 : 400,
+                    cursor: "pointer", fontFamily: F, transition: "all .15s",
+                    display: "flex", alignItems: "center", gap: 5
+                  }}>
+                    <Dot color={sel ? c.dot : T.inkMuted} size={5} />{o}
+                  </button>
+                );
+              })}
+            </div>
+            {err.outcome && <div style={{ fontSize: 11, color: "#B91C1C", marginTop: 6 }}>{err.outcome}</div>}
+          </div>
+
+          {/* Next follow-up date */}
+          <div>
+            <label style={{ fontSize: 12, fontWeight: 500, color: T.inkSub, fontFamily: F, display: "block", marginBottom: 5 }}>
+              Reschedule next follow-up to <span style={{ color: "#DC2626" }}>*</span>
+            </label>
+            <input
+              type="date"
+              value={form.nextFollowUp}
+              onChange={e => set("nextFollowUp", e.target.value)}
+              style={{ ...inputSx(err.nextFollowUp) }}
+              onFocus={onfocus} onBlur={onblur}
+              min={today()}
+            />
+            {err.nextFollowUp && <div style={{ fontSize: 11, color: "#B91C1C", marginTop: 4 }}>{err.nextFollowUp}</div>}
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div style={{
+          display: "flex", justifyContent: "flex-end", gap: 10,
+          padding: "14px 24px 20px", borderTop: `1px solid ${T.line}`
+        }}>
+          <Btn ghost label="Cancel" onClick={onClose} />
+          <Btn primary icon={P.check} label={saving ? "Saving…" : "Save & Reschedule"} onClick={submit} disabled={saving} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── VIEW DRAWER ──────────────────────────────────────────────────────────────
 // ② quoteLink removed, ③ new fields added, ④ Audit Comments added
 function ViewDrawer({funnel,onClose,onEdit,onStatusChange,user,comments,onAddComment}) {
