@@ -722,9 +722,16 @@ function Analytics({funnels}) {
   const byCat=CATS.map(c=>({c,n:(funnels.flatMap(f=>f.products||[])).filter(p=>p.category===c).reduce((a,p)=>a+(Number(p.qty)||0),0)})).sort((a,b)=>b.n-a.n);
   const maxCat=Math.max(...byCat.map(x=>x.n),1);
   const bySrc=LEAD_SOURCES.map(s=>({s,n:funnels.filter(f=>f.leadSource===s).length})).filter(x=>x.n>0);
+  const byEnq=ENQS.map(e=>({e,n:funnels.filter(f=>f.enquiryType===e).length})).filter(x=>x.n>0);
+  const byRole=ROLES.map(r=>({r,n:funnels.filter(f=>f.createdByRole===r||f.assignedTo).length}));
+
+  const typeColors=[T.brand,T.won.dot,T.pending.dot,T.premium.dot,T.new.dot];
+  const enqColors=[T.new.dot,T.won.dot,T.bulk.dot,T.high.dot,T.premium.dot,T.drop.dot];
 
   return (
     <div style={{padding:"20px 24px",display:"grid",gap:16}}>
+
+      {/* ROW 1 — Win rate, Status breakdown, Revenue */}
       <div className="ek-analytics-3col" style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:16}}>
         <Card title="Win rate">
           <div style={{textAlign:"center",padding:"8px 0"}}>
@@ -746,24 +753,34 @@ function Analytics({funnels}) {
         </Card>
 
         <Card title="Revenue">
-          {[["Won Potential",big(totalRevenue),T.won.dot]].map(([l,v,c])=>(
-            <div key={l} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 0",borderBottom:`1px solid ${T.line}`}}>
-              <span style={{fontSize:12,color:T.inkSub,fontFamily:F}}>{l}</span>
-              <span style={{fontSize:15,fontWeight:700,color:c,fontFamily:F,letterSpacing:"-0.3px"}}>{v}</span>
-            </div>
-          ))}
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 0",borderBottom:`1px solid ${T.line}`}}>
+            <span style={{fontSize:12,color:T.inkSub,fontFamily:F}}>Won Revenue</span>
+            <span style={{fontSize:15,fontWeight:700,color:T.won.dot,fontFamily:F,letterSpacing:"-0.3px"}}>{big(totalRevenue)}</span>
+          </div>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 0",borderBottom:`1px solid ${T.line}`}}>
+            <span style={{fontSize:12,color:T.inkSub,fontFamily:F}}>Pending potential</span>
+            <span style={{fontSize:15,fontWeight:700,color:T.pending.dot,fontFamily:F,letterSpacing:"-0.3px"}}>
+              {big(funnels.filter(f=>f.status==="Pending").reduce((a,f)=>a+(Number(f.quoteAmount)||0),0))}
+            </span>
+          </div>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 0"}}>
+            <span style={{fontSize:12,color:T.inkSub,fontFamily:F}}>Avg deal size</span>
+            <span style={{fontSize:15,fontWeight:700,color:T.brand,fontFamily:F,letterSpacing:"-0.3px"}}>
+              {big(funnels.length?funnels.reduce((a,f)=>a+(Number(f.quoteAmount)||0),0)/funnels.length:0)}
+            </span>
+          </div>
         </Card>
       </div>
 
+      {/* ROW 2 — Funnel types, Lead sources, Enquiry types */}
       <div className="ek-analytics-3col" style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:16}}>
-        <Card title="Leads by type">
+        <Card title="Leads by funnel type">
           <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
             {FTYPES.map((t,i)=>{
               const n=funnels.filter(f=>f.funnelType===t).length;
-              const colors=[T.brand,T.won.dot,T.pending.dot,T.premium.dot,T.new.dot];
               return (
                 <div key={t} style={{flex:1,minWidth:60,textAlign:"center",padding:"12px 8px",background:T.bg,borderRadius:T.r.md,border:`1px solid ${T.line}`}}>
-                  <div style={{fontSize:22,fontWeight:700,color:colors[i]||T.brand,fontFamily:F}}>{n}</div>
+                  <div style={{fontSize:22,fontWeight:700,color:typeColors[i]||T.brand,fontFamily:F}}>{n}</div>
                   <div style={{fontSize:10,color:T.inkMuted,marginTop:4,fontFamily:F,lineHeight:1.3}}>{t}</div>
                 </div>
               );
@@ -774,14 +791,31 @@ function Analytics({funnels}) {
         <Card title="Leads by source">
           {bySrc.length===0
             ? <div style={{fontSize:12,color:T.inkMuted,fontFamily:F}}>No source data yet.</div>
-            : bySrc.map(({s,n})=>{
+            : LEAD_SOURCES.map(s=>{
+                const n=funnels.filter(f=>f.leadSource===s).length;
+                if(!n) return null;
                 const pct=funnels.length?Math.round(n/funnels.length*100):0;
                 return <Row key={s} label={s} val={n} pct={pct} color={T.brand}/>;
               })
           }
         </Card>
 
-        <Card title="Units by category">
+        <Card title="Leads by enquiry type">
+          {byEnq.length===0
+            ? <div style={{fontSize:12,color:T.inkMuted,fontFamily:F}}>No enquiry data yet.</div>
+            : ENQS.map((e,i)=>{
+                const n=funnels.filter(f=>f.enquiryType===e).length;
+                if(!n) return null;
+                const pct=funnels.length?Math.round(n/funnels.length*100):0;
+                return <Row key={e} label={e} val={n} pct={pct} color={enqColors[i]||T.brand}/>;
+              })
+          }
+        </Card>
+      </div>
+
+      {/* ROW 3 — Units by category (full width) */}
+      <Card title="Units ordered by category">
+        <div style={{display:"grid",gridTemplateColumns:"repeat(2,1fr)",gap:"0 32px"}}>
           {byCat.map(({c,n})=>(
             <div key={c} style={{marginBottom:10}}>
               <div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}>
@@ -793,8 +827,9 @@ function Analytics({funnels}) {
               </div>
             </div>
           ))}
-        </Card>
-      </div>
+        </div>
+      </Card>
+
     </div>
   );
 }
