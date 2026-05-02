@@ -495,34 +495,41 @@ function Topbar({title,sub,search,setSearch,user,onAdd,onExportAll,onExportFilte
 // ─── STATS ROW ────────────────────────────────────────────────────────────────
 function Stats({funnels}) {
   const won = funnels.filter(f=>f.status==="Won");
+  const pending = funnels.filter(f=>f.status==="Pending");
+  const lost = funnels.filter(f=>f.status==="Lost");
+  const drop = funnels.filter(f=>f.status==="Drop");
   const s={
-    total:funnels.length,won:won.length,
-    pending:funnels.filter(f=>f.status==="Pending").length,
-    lost:funnels.filter(f=>f.status==="Lost").length,
+    total:funnels.length, won:won.length,
+    pending:pending.length, lost:lost.length, drop:drop.length,
     revenue:won.reduce((a,f)=>a+(Number(f.quoteAmount)||0),0),
+    pendingRevenue:pending.reduce((a,f)=>a+(Number(f.quoteAmount)||0),0),
   };
   const wr=s.total?Math.round(s.won/s.total*100):0;
 
   const cards=[
-    {label:"Total leads",   value:s.total,      caption:"All leads",         accent:T.inkMuted},
-    {label:"Won",           value:s.won,         caption:`${wr}% win rate`,   accent:T.won.dot},
-    {label:"Pending",       value:s.pending,     caption:"Need follow-up",    accent:T.pending.dot},
-    {label:"Lost",          value:s.lost,        caption:"Closed lost",       accent:T.lost.dot},
-    {label:"Won Revenue",   value:big(s.revenue),caption:"Based on quotes",   accent:T.won.dot},
+    {label:"Total leads",    value:s.total,             caption:"All leads",          accent:T.inkMuted,  bg:T.surface},
+    {label:"Won",            value:s.won,               caption:`${wr}% win rate`,    accent:T.won.dot,   bg:"#F0FDF4"},
+    {label:"Pending",        value:s.pending,           caption:"Need follow-up",     accent:T.pending.dot, bg:"#FFFBEB"},
+    {label:"Lost",           value:s.lost,              caption:"Closed lost",        accent:T.lost.dot,  bg:"#FEF2F2"},
+    {label:"Drop",           value:s.drop,              caption:"Dropped leads",      accent:T.drop.dot,  bg:T.surface},
+    {label:"Won Revenue",    value:big(s.revenue),      caption:"From won deals",     accent:T.won.dot,   bg:"#F0FDF4"},
+    {label:"Pending Revenue",value:big(s.pendingRevenue),caption:"Potential pipeline",accent:T.pending.dot,bg:"#FFFBEB"},
   ];
 
   return (
-    <div className="ek-stats-grid" style={{display:"grid",gridTemplateColumns:"repeat(6,1fr)",gap:12,padding:"20px 24px 0"}}>
-      {cards.map((c,i)=>(
-        <div key={i} style={{background:T.surface,border:`1px solid ${T.line}`,borderRadius:T.r.lg,padding:"16px 18px",boxShadow:T.shadowSm,animation:`fadeUp .25s ease ${i*.04}s both`}}>
-          <div style={{fontSize:11,fontWeight:500,color:T.inkMuted,letterSpacing:"0.04em",marginBottom:8,fontFamily:F}}>{c.label}</div>
-          <div style={{fontSize:22,fontWeight:700,color:T.ink,fontFamily:F,letterSpacing:"-0.5px",marginBottom:4}}>{c.value}</div>
-          <div style={{display:"flex",alignItems:"center",gap:5}}>
-            <Dot color={c.accent} size={5}/>
-            <span style={{fontSize:11,color:T.inkMuted,fontFamily:F}}>{c.caption}</span>
+    <div style={{padding:"20px 24px 0"}}>
+      <div className="ek-stats-grid" style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:10}}>
+        {cards.map((c,i)=>(
+          <div key={i} style={{background:c.bg,border:`1px solid ${T.line}`,borderRadius:T.r.lg,padding:"14px 16px",boxShadow:T.shadowSm,animation:`fadeUp .25s ease ${i*.04}s both`}}>
+            <div style={{fontSize:10,fontWeight:500,color:T.inkMuted,letterSpacing:"0.04em",marginBottom:8,fontFamily:F,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{c.label}</div>
+            <div style={{fontSize:20,fontWeight:700,color:T.ink,fontFamily:F,letterSpacing:"-0.5px",marginBottom:4}}>{c.value}</div>
+            <div style={{display:"flex",alignItems:"center",gap:5}}>
+              <Dot color={c.accent} size={5}/>
+              <span style={{fontSize:10,color:T.inkMuted,fontFamily:F,whiteSpace:"nowrap"}}>{c.caption}</span>
+            </div>
           </div>
-        </div>
-      ))}
+        ))}
+      </div>
     </div>
   );
 }
