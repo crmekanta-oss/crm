@@ -4,13 +4,12 @@ import { supabase } from "./lib/supabase";
 
 /*
   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  EKANTA CRM — v5
-  Changes on top of v4:
-  ⑦ Follow-up Log — log customer response on follow-up date
-     • "Log" button in table row (overdue/today + Pending)
-     • FollowupLogModal — response, outcome, reschedule date
-     • Follow-up History timeline in ViewDrawer
-     • Auto-updates nextFollowUp date after logging
+  EKANTA CRM — v6
+  Changes on top of v5:
+  ⑧ Assign funnel to CRE (CEO/Manager only)
+  ⑨ CRE restricted edit — products + quote qty/amount only
+  ⑩ Compact table — 48px rows, tighter padding, zebra rows
+  ⑪ Analytics uses all constants
   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 */
 
@@ -135,7 +134,7 @@ const SEED_FUNNELS = [];
 // ─── EXCEL EXPORT ─────────────────────────────────────────────────────────────
 function xls(data, name) {
   const e = v => String(v??"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
-  const H = ["#","Name","Lead Source","Phone","Email","Enquiry","Type","Follow-up","Status","City/Region","Delivery Details","Payment Terms","Products","Order Number","Qty","Quote Amt","Remarks","Created","By"];
+  const H = ["#","Name","Lead Source","Phone","Email","Enquiry","Type","Follow-up","Status","City/Region","Delivery Details","Payment Terms","Products","Order Number","Qty","Quote Amt","Remarks","Created","By","Assigned To"];
   const hRow = `<Row ss:StyleID="h">${H.map(h=>`<Cell><Data ss:Type="String">${e(h)}</Data></Cell>`).join("")}</Row>`;
   const rows = data.map((f,i)=>{
     const prod=(f.products||[]).map(p=>`${p.desc}(${p.category},×${p.qty},₹${p.price})`).join("|");
@@ -145,7 +144,7 @@ function xls(data, name) {
       [f.cityRegion||""],[f.deliveryDetails||""],[f.paymentTerms||""],[prod],
       [f.orderNumber||""],[f.quoteQty||"",f.quoteQty?"Number":"String"],
       [f.quoteAmount||"",f.quoteAmount?"Number":"String"],
-      [f.remarks||""],[f.createdAt],[f.createdBy]
+      [f.remarks||""],[f.createdAt],[f.createdBy],[f.assignedTo||""]
     ].map(([v,t="String"])=>`<Cell><Data ss:Type="${t}">${e(v)}</Data></Cell>`).join("")}</Row>`;
   }).join("");
   const xml=`<?xml version="1.0" encoding="UTF-8"?><?mso-application progid="Excel.Sheet"?><Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet" xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet"><Styles><Style ss:ID="h"><Font ss:Bold="1" ss:Color="#FFFFFF" ss:Size="11"/><Interior ss:Color="#5B3BE8" ss:Pattern="Solid"/></Style></Styles><Worksheet ss:Name="Funnels"><Table>${hRow}${rows}</Table></Worksheet></Workbook>`;
@@ -186,7 +185,6 @@ function StatusPill({status,sm}) {
     Won:T.won, Pending:T.pending, Lost:T.lost, Drop:T.drop,
     "New Lead":T.new, "Qualified":T.pending, "Proposal Sent":T.high,
     "High Value":T.high, "Premium":T.premium, "Bulk":T.bulk, "Normal":T.drop, "Strategic":T.new,
-    // ⑦ outcome colours
     "Interested":T.won, "Order Confirmed":T.won,
     "Needs Time":T.pending, "Callback Requested":T.pending, "Rescheduled":T.pending,
     "Not Interested":T.lost, "Other":T.drop,
@@ -339,17 +337,10 @@ function Login({users,onLogin}) {
           </div>
           <span style={{fontSize:15,fontWeight:600,color:T.ink,letterSpacing:"-0.2px"}}>Ekanta Design Studio</span>
         </div>
-
         <div style={{background:T.surface,border:`1px solid ${T.line}`,borderRadius:T.r["2xl"],padding:"32px 28px",boxShadow:T.shadowLg}}>
           <h1 style={{fontSize:20,fontWeight:700,color:T.ink,margin:"0 0 4px",letterSpacing:"-0.4px"}}>Sign in</h1>
           <p style={{fontSize:13,color:T.inkSub,margin:"0 0 24px"}}>Enter your credentials to continue</p>
-
-          {err&&(
-            <div style={{background:"#FEF2F2",border:"1px solid #FECACA",borderRadius:T.r.md,padding:"10px 12px",fontSize:12,color:"#B91C1C",marginBottom:16,fontWeight:500}}>
-              {err}
-            </div>
-          )}
-
+          {err&&<div style={{background:"#FEF2F2",border:"1px solid #FECACA",borderRadius:T.r.md,padding:"10px 12px",fontSize:12,color:"#B91C1C",marginBottom:16,fontWeight:500}}>{err}</div>}
           <div style={{display:"flex",flexDirection:"column",gap:14}}>
             <FInput label="Username" value={u} onChange={e=>su(e.target.value)} placeholder="Enter username"/>
             <div>
@@ -357,29 +348,14 @@ function Login({users,onLogin}) {
                 Password
                 <span style={{color:T.brand,cursor:"pointer",fontSize:12,fontWeight:500}} onClick={()=>se("Contact your administrator to reset your password.")}>Forgot?</span>
               </label>
-              <input
-                type="password"
-                value={p}
-                onChange={e=>sp(e.target.value)}
-                onKeyDown={e=>e.key==="Enter"&&go()}
-                placeholder="Enter password"
-                style={{...inputSx()}}
-                onFocus={onfocus}
-                onBlur={onblur}
-              />
+              <input type="password" value={p} onChange={e=>sp(e.target.value)} onKeyDown={e=>e.key==="Enter"&&go()} placeholder="Enter password"
+                style={{...inputSx()}} onFocus={onfocus} onBlur={onblur}/>
             </div>
-
             <button onClick={go} disabled={load}
-              style={{width:"100%",padding:"10px",background:load?T.brandHover:T.brand,color:"#fff",border:"none",borderRadius:T.r.md,fontSize:14,fontWeight:600,fontFamily:F,cursor:load?"not-allowed":"pointer",transition:"background .15s",marginTop:4,position:"relative"}}
+              style={{width:"100%",padding:"10px",background:load?T.brandHover:T.brand,color:"#fff",border:"none",borderRadius:T.r.md,fontSize:14,fontWeight:600,fontFamily:F,cursor:load?"not-allowed":"pointer",transition:"background .15s",marginTop:4}}
               onMouseDown={e=>!load&&(e.currentTarget.style.transform="scale(0.99)")}
               onMouseUp={e=>e.currentTarget.style.transform="scale(1)"}>
-              {load
-                ? <span style={{display:"flex",alignItems:"center",justifyContent:"center",gap:8}}>
-                    <svg style={{animation:"spin .7s linear infinite"}} width="14" height="14" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="rgba(255,255,255,.3)" strokeWidth="2.5"/><path d="M12 2a10 10 0 0110 10" stroke="#fff" strokeWidth="2.5" strokeLinecap="round"/></svg>
-                    Signing in…
-                  </span>
-                : "Sign in →"
-              }
+              {load?<span style={{display:"flex",alignItems:"center",justifyContent:"center",gap:8}}><svg style={{animation:"spin .7s linear infinite"}} width="14" height="14" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="rgba(255,255,255,.3)" strokeWidth="2.5"/><path d="M12 2a10 10 0 0110 10" stroke="#fff" strokeWidth="2.5" strokeLinecap="round"/></svg>Signing in…</span>:"Sign in →"}
             </button>
           </div>
         </div>
@@ -390,15 +366,12 @@ function Login({users,onLogin}) {
 
 // ─── SIDEBAR ──────────────────────────────────────────────────────────────────
 function Sidebar({active,set,user,onLogout,open,onClose}) {
-const nav=[
-  {id:"dashboard",label:"Dashboard",icon:P.dash},
-  {id:"funnels",  label:"Funnels",  icon:P.list},
-  {id:"analytics",label:"Analytics",icon:P.chart},   // ← now visible to all
-  ...(FULL.includes(user.role)?[
-    {id:"team",label:"Team",icon:P.users},
-  ]:[]),
-];
-
+  const nav=[
+    {id:"dashboard",label:"Dashboard",icon:P.dash},
+    {id:"funnels",  label:"Funnels",  icon:P.list},
+    {id:"analytics",label:"Analytics",icon:P.chart},
+    ...(FULL.includes(user.role)?[{id:"team",label:"Team",icon:P.users}]:[]),
+  ];
   return (
     <>
       {open&&<div onClick={onClose} style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.4)",zIndex:199,display:"none"}} className="mobile-overlay"/>}
@@ -414,7 +387,6 @@ const nav=[
             </div>
           </div>
         </div>
-
         <nav style={{flex:1,padding:"8px 8px 0"}}>
           <div style={{fontSize:10,fontWeight:600,color:T.inkMuted,letterSpacing:"0.08em",padding:"10px 8px 4px",textTransform:"uppercase"}}>Navigation</div>
           {nav.map(item=>{
@@ -431,7 +403,6 @@ const nav=[
             );
           })}
         </nav>
-
         <div style={{padding:"10px 8px 14px",borderTop:`1px solid ${T.line}`}}>
           <div style={{display:"flex",alignItems:"center",gap:9,padding:"7px 8px",borderRadius:T.r.md}}>
             <Avatar name={user.name} size={28}/>
@@ -453,7 +424,7 @@ const nav=[
 }
 
 // ─── TOPBAR ───────────────────────────────────────────────────────────────────
-function Topbar({title,sub,search,setSearch,user,onAdd,onExportAll,onExportFiltered,fLen,aLen,onMenuToggle}) {
+function Topbar({title,search,setSearch,user,onAdd,onExportAll,onExportFiltered,fLen,aLen,onMenuToggle}) {
   return (
     <div style={{background:T.surface,borderBottom:`1px solid ${T.line}`,padding:"0 16px"}}>
       <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",height:56}}>
@@ -464,9 +435,7 @@ function Topbar({title,sub,search,setSearch,user,onAdd,onExportAll,onExportFilte
             onMouseLeave={e=>e.currentTarget.style.color=T.inkSub}>
             <Ic d={P.menu} sz={18} color="currentColor"/>
           </button>
-          <div>
-            <h1 style={{fontSize:15,fontWeight:600,color:T.ink,letterSpacing:"-0.2px",margin:0,fontFamily:F}}>{title}</h1>
-          </div>
+          <h1 style={{fontSize:15,fontWeight:600,color:T.ink,letterSpacing:"-0.2px",margin:0,fontFamily:F}}>{title}</h1>
           <div className="ek-topbar-search" style={{display:"flex",alignItems:"center",gap:8,background:T.bg,border:`1px solid ${T.line}`,borderRadius:T.r.md,padding:"6px 11px",minWidth:220,maxWidth:320,flex:1}}>
             <Ic d={P.search} sz={13} color={T.inkMuted}/>
             <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search funnels…"
@@ -474,17 +443,11 @@ function Topbar({title,sub,search,setSearch,user,onAdd,onExportAll,onExportFilte
             {search&&<button onClick={()=>setSearch("")} style={{background:"none",border:"none",cursor:"pointer",color:T.inkMuted,display:"flex",padding:0,lineHeight:1}}><Ic d={P.close} sz={12} color="currentColor"/></button>}
           </div>
         </div>
-
         <div style={{display:"flex",gap:6,alignItems:"center",marginLeft:12,flexWrap:"wrap"}}>
           {FULL.includes(user.role)&&(
-            <>
-              <Btn ghost sm icon={P.dl} label={`Filtered (${fLen})`} onClick={onExportFiltered}/>
-              <Btn ghost sm icon={P.dl} label={`All (${aLen})`} onClick={onExportAll}/>
-            </>
+            <><Btn ghost sm icon={P.dl} label={`Filtered (${fLen})`} onClick={onExportFiltered}/><Btn ghost sm icon={P.dl} label={`All (${aLen})`} onClick={onExportAll}/></>
           )}
-          {!FULL.includes(user.role)&&can(user,"export")&&(
-            <Btn ghost sm icon={P.dl} label="Export" onClick={onExportFiltered}/>
-          )}
+          {!FULL.includes(user.role)&&can(user,"export")&&<Btn ghost sm icon={P.dl} label="Export" onClick={onExportFiltered}/>}
           {can(user,"create")&&<Btn primary sm icon={P.plus} label="Add funnel" onClick={onAdd}/>}
         </div>
       </div>
@@ -494,28 +457,26 @@ function Topbar({title,sub,search,setSearch,user,onAdd,onExportAll,onExportFilte
 
 // ─── STATS ROW ────────────────────────────────────────────────────────────────
 function Stats({funnels}) {
-  const won = funnels.filter(f=>f.status==="Won");
-  const pending = funnels.filter(f=>f.status==="Pending");
-  const lost = funnels.filter(f=>f.status==="Lost");
-  const drop = funnels.filter(f=>f.status==="Drop");
+  const won=funnels.filter(f=>f.status==="Won");
+  const pending=funnels.filter(f=>f.status==="Pending");
+  const lost=funnels.filter(f=>f.status==="Lost");
+  const drop=funnels.filter(f=>f.status==="Drop");
   const s={
-    total:funnels.length, won:won.length,
-    pending:pending.length, lost:lost.length, drop:drop.length,
+    total:funnels.length,won:won.length,
+    pending:pending.length,lost:lost.length,drop:drop.length,
     revenue:won.reduce((a,f)=>a+(Number(f.quoteAmount)||0),0),
     pendingRevenue:pending.reduce((a,f)=>a+(Number(f.quoteAmount)||0),0),
   };
   const wr=s.total?Math.round(s.won/s.total*100):0;
-
   const cards=[
-    {label:"Total leads",    value:s.total,             caption:"All leads",          accent:T.inkMuted,  bg:T.surface},
-    {label:"Won",            value:s.won,               caption:`${wr}% win rate`,    accent:T.won.dot,   bg:"#F0FDF4"},
-    {label:"Pending",        value:s.pending,           caption:"Need follow-up",     accent:T.pending.dot, bg:"#FFFBEB"},
-    {label:"Lost",           value:s.lost,              caption:"Closed lost",        accent:T.lost.dot,  bg:"#FEF2F2"},
-    {label:"Drop",           value:s.drop,              caption:"Dropped leads",      accent:T.drop.dot,  bg:T.surface},
-    {label:"Won Revenue",    value:big(s.revenue),      caption:"From won deals",     accent:T.won.dot,   bg:"#F0FDF4"},
-    {label:"Pending Revenue",value:big(s.pendingRevenue),caption:"Potential pipeline",accent:T.pending.dot,bg:"#FFFBEB"},
+    {label:"Total leads",     value:s.total,              caption:"All leads",          accent:T.inkMuted,    bg:T.surface},
+    {label:"Won",             value:s.won,                caption:`${wr}% win rate`,    accent:T.won.dot,     bg:"#F0FDF4"},
+    {label:"Pending",         value:s.pending,            caption:"Need follow-up",     accent:T.pending.dot, bg:"#FFFBEB"},
+    {label:"Lost",            value:s.lost,               caption:"Closed lost",        accent:T.lost.dot,    bg:"#FEF2F2"},
+    {label:"Drop",            value:s.drop,               caption:"Dropped leads",      accent:T.drop.dot,    bg:T.surface},
+    {label:"Won Revenue",     value:big(s.revenue),       caption:"From won deals",     accent:T.won.dot,     bg:"#F0FDF4"},
+    {label:"Pending Revenue", value:big(s.pendingRevenue),caption:"Potential pipeline", accent:T.pending.dot, bg:"#FFFBEB"},
   ];
-
   return (
     <div style={{padding:"20px 24px 0"}}>
       <div className="ek-stats-grid" style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:10}}>
@@ -549,9 +510,7 @@ function FilterBar({fil,setF,reset}) {
       {label}
     </label>
   );
-
   const any=fil.status||fil.funnelType||fil.enquiryType||fil.leadSource||fil.descFilter||fil.missed||fil.todayF||fil.upcoming;
-
   return (
     <div style={{display:"flex",alignItems:"center",gap:12,padding:"10px 24px",borderBottom:`1px solid ${T.line}`,background:T.surface,flexWrap:"wrap"}}>
       <div style={{display:"flex",alignItems:"center",gap:6}}>
@@ -568,16 +527,9 @@ function FilterBar({fil,setF,reset}) {
       <div style={{width:1,height:14,background:T.line}}/>
       <div style={{display:"flex",alignItems:"center",gap:7,background:T.bg,border:`1px solid ${T.line}`,borderRadius:T.r.md,padding:"4px 10px",minWidth:180}}>
         <Ic d={P.search} sz={12} color={T.inkMuted}/>
-        <input
-          value={fil.descFilter} onChange={e=>setF("descFilter",e.target.value)}
-          placeholder="Search description…"
-          style={{border:"none",background:"transparent",outline:"none",fontSize:12,color:T.ink,fontFamily:F,width:"100%"}}
-        />
-        {fil.descFilter&&(
-          <button onClick={()=>setF("descFilter","")} style={{background:"none",border:"none",cursor:"pointer",color:T.inkMuted,display:"flex",padding:0}}>
-            <Ic d={P.close} sz={11} color="currentColor"/>
-          </button>
-        )}
+        <input value={fil.descFilter} onChange={e=>setF("descFilter",e.target.value)} placeholder="Search description…"
+          style={{border:"none",background:"transparent",outline:"none",fontSize:12,color:T.ink,fontFamily:F,width:"100%"}}/>
+        {fil.descFilter&&<button onClick={()=>setF("descFilter","")} style={{background:"none",border:"none",cursor:"pointer",color:T.inkMuted,display:"flex",padding:0}}><Ic d={P.close} sz={11} color="currentColor"/></button>}
       </div>
       {any&&<button onClick={reset} style={{fontSize:12,color:T.brand,background:"none",border:"none",cursor:"pointer",fontFamily:F,fontWeight:500,padding:"0 4px",textDecoration:"underline",textUnderlineOffset:2}}>Clear</button>}
     </div>
@@ -585,15 +537,14 @@ function FilterBar({fil,setF,reset}) {
 }
 
 // ─── TABLE ────────────────────────────────────────────────────────────────────
-// ⑦ Added onLogFollowup prop + Log button in action column
-function Table({rows,user,onView,onEdit,onDelete,onLogFollowup,loading}) {
+// ⑨⑩ Compact rows, CRE edit button, assigned badge
+function Table({rows,user,onView,onEdit,onCreEdit,onDelete,onLogFollowup,loading}) {
   if(loading) return (
     <div style={{display:"flex",alignItems:"center",justifyContent:"center",padding:72,flexDirection:"column",gap:16}}>
       <div style={{width:32,height:32,border:"3px solid rgba(91,59,232,.1)",borderTopColor:T.brand,borderRadius:"50%",animation:"spin .8s linear infinite"}}/>
       <div style={{fontSize:13,color:T.inkSub,fontFamily:F}}>Loading funnels...</div>
     </div>
   );
-
   if(!rows.length) return (
     <div style={{textAlign:"center",padding:"72px 24px",fontFamily:F}}>
       <div style={{width:48,height:48,background:T.brandSubtle,borderRadius:14,display:"flex",alignItems:"center",justifyContent:"center",margin:"0 auto 16px"}}>
@@ -603,29 +554,21 @@ function Table({rows,user,onView,onEdit,onDelete,onLogFollowup,loading}) {
       <p style={{fontSize:13,color:T.inkSub,margin:0}}>Adjust your filters or add a new lead.</p>
     </div>
   );
-
   const todayV=today();
-  const TH=({ch})=><th style={{padding:"0 14px",textAlign:"left",fontSize:10,fontWeight:600,color:T.inkMuted,letterSpacing:"0.07em",textTransform:"uppercase",whiteSpace:"nowrap",borderBottom:`1px solid ${T.line}`,height:38,background:T.bg}}>{ch}</th>;
-
+  const TH=({ch})=><th style={{padding:"0 12px",textAlign:"left",fontSize:10,fontWeight:600,color:T.inkMuted,letterSpacing:"0.06em",textTransform:"uppercase",whiteSpace:"nowrap",borderBottom:`1px solid ${T.line}`,height:34,background:T.bg}}>{ch}</th>;
   return (
     <div style={{overflowX:"auto"}}>
       <table style={{width:"100%",borderCollapse:"collapse",fontFamily:F,tableLayout:"fixed"}}>
         <colgroup>
-          <col style={{width:"3%"}}/><col style={{width:"20%"}}/><col style={{width:"15%"}}/>
-          <col style={{width:"12%"}}/><col style={{width:"12%"}}/><col style={{width:"12%"}}/>
-          <col style={{width:"12%"}}/><col style={{width:"14%"}}/>
+          <col style={{width:"3%"}}/><col style={{width:"18%"}}/><col style={{width:"12%"}}/>
+          <col style={{width:"10%"}}/><col style={{width:"11%"}}/><col style={{width:"10%"}}/>
+          <col style={{width:"11%"}}/><col style={{width:"10%"}}/><col style={{width:"15%"}}/>
         </colgroup>
         <thead>
           <tr>
-            <TH ch="#"/>
-            <TH ch="Name"/>
-            <TH ch="Category"/>
-            <TH ch="Type"/>
-            <TH ch="Follow-up"/>
-            <TH ch="Status"/>
-            <TH ch="Order Number"/>
-            <TH ch="Quote"/>
-            <TH ch=""/>
+            <TH ch="#"/><TH ch="Name"/><TH ch="Category"/>
+            <TH ch="Type"/><TH ch="Follow-up"/><TH ch="Status"/>
+            <TH ch="Order No."/><TH ch="Quote"/><TH ch=""/>
           </tr>
         </thead>
         <tbody>
@@ -634,22 +577,24 @@ function Table({rows,user,onView,onEdit,onDelete,onLogFollowup,loading}) {
             const tod=f.nextFollowUp===todayV&&f.status==="Pending";
             const showLog=(over||tod);
             const cats=[...new Set((f.products||[]).map(p=>p.category).filter(Boolean))].join(", ")||"—";
+            const canCreEdit=!FULL.includes(user.role)&&(f.createdBy===user.name||f.assignedTo===user.name);
             return (
               <tr key={f.id}
-                style={{borderBottom:`1px solid ${T.line}`,transition:"background .1s",cursor:"default"}}
-                onMouseEnter={e=>e.currentTarget.style.background=T.bg}
-                onMouseLeave={e=>e.currentTarget.style.background=T.surface}>
-                <td style={{padding:"0 14px",height:56,fontSize:11,color:T.inkMuted,fontWeight:600,verticalAlign:"middle"}}>{i+1}</td>
-                <td style={{padding:"0 14px",verticalAlign:"middle",overflow:"hidden"}}>
+                style={{borderBottom:`1px solid ${T.line}`,transition:"background .1s",cursor:"default",background:i%2===0?T.surface:"#FAFBFC"}}
+                onMouseEnter={e=>e.currentTarget.style.background=T.brandSubtle}
+                onMouseLeave={e=>e.currentTarget.style.background=i%2===0?T.surface:"#FAFBFC"}>
+                <td style={{padding:"0 12px",height:48,fontSize:11,color:T.inkMuted,fontWeight:600,verticalAlign:"middle"}}>{i+1}</td>
+                <td style={{padding:"0 12px",verticalAlign:"middle",overflow:"hidden"}}>
                   <div style={{fontSize:13,fontWeight:600,color:T.ink,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{f.name||"—"}</div>
-                  <div style={{display:"flex",alignItems:"center",gap:5,marginTop:3}}>
-                    <span style={{fontSize:10,color:T.inkMuted}}>{f.createdBy}</span>
+                  <div style={{display:"flex",alignItems:"center",gap:4,marginTop:2,flexWrap:"nowrap",overflow:"hidden"}}>
+                    <span style={{fontSize:10,color:T.inkMuted,flexShrink:0}}>{f.createdBy}</span>
+                    {f.assignedTo&&<span style={{fontSize:10,fontWeight:500,background:T.brandSubtle,color:T.brand,padding:"0px 5px",borderRadius:8,fontFamily:F,flexShrink:0}}>→{f.assignedTo}</span>}
                     {f.leadSource&&<SourcePill source={f.leadSource}/>}
                   </div>
                 </td>
-                <td style={{padding:"0 14px",fontSize:11,color:T.inkSub,verticalAlign:"middle",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{cats}</td>
-                <td style={{padding:"0 14px",verticalAlign:"middle"}}>{f.funnelType?<StatusPill status={f.funnelType} sm/>:<span style={{color:T.inkMuted,fontSize:12}}>—</span>}</td>
-                <td style={{padding:"0 14px",verticalAlign:"middle"}}>
+                <td style={{padding:"0 12px",fontSize:11,color:T.inkSub,verticalAlign:"middle",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{cats}</td>
+                <td style={{padding:"0 12px",verticalAlign:"middle"}}>{f.funnelType?<StatusPill status={f.funnelType} sm/>:<span style={{color:T.inkMuted,fontSize:12}}>—</span>}</td>
+                <td style={{padding:"0 12px",verticalAlign:"middle"}}>
                   <div style={{display:"flex",alignItems:"center",gap:5}}>
                     {over&&<Dot color={T.lost.dot} size={5}/>}
                     {tod&&<Dot color={T.pending.dot} size={5}/>}
@@ -657,34 +602,47 @@ function Table({rows,user,onView,onEdit,onDelete,onLogFollowup,loading}) {
                   </div>
                   {over&&<span style={{fontSize:10,color:T.lost.text,fontWeight:500}}>Overdue</span>}
                 </td>
-                <td style={{padding:"0 14px",verticalAlign:"middle"}}><StatusPill status={f.status} sm/></td>
-                <td style={{padding:"0 14px",fontSize:12,color:T.inkSub,verticalAlign:"middle",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{f.orderNumber||"—"}</td>
-                <td style={{padding:"0 14px",fontSize:12,fontWeight:600,color:T.brand,verticalAlign:"middle",whiteSpace:"nowrap"}}>{inr(f.quoteAmount)||<span style={{color:T.inkMuted,fontWeight:400}}>—</span>}</td>
-                <td style={{padding:"0 10px",verticalAlign:"middle"}}>
+                <td style={{padding:"0 12px",verticalAlign:"middle"}}><StatusPill status={f.status} sm/></td>
+                <td style={{padding:"0 12px",fontSize:12,color:T.inkSub,verticalAlign:"middle",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{f.orderNumber||"—"}</td>
+                <td style={{padding:"0 12px",fontSize:12,fontWeight:600,color:T.brand,verticalAlign:"middle",whiteSpace:"nowrap"}}>{inr(f.quoteAmount)||<span style={{color:T.inkMuted,fontWeight:400}}>—</span>}</td>
+                <td style={{padding:"0 8px",verticalAlign:"middle"}}>
                   <div style={{display:"flex",gap:4,justifyContent:"flex-end"}}>
-
-                    {/* ⑦ LOG BUTTON — only when follow-up is due/overdue and Pending */}
+                    {/* Log button */}
                     {showLog&&(
                       <button onClick={()=>onLogFollowup(f)}
-                        style={{background:T.pending.bg,border:`1px solid ${T.pending.dot}`,borderRadius:T.r.sm,padding:"4px 10px",fontSize:11,fontWeight:600,color:T.pending.text,cursor:"pointer",fontFamily:F,whiteSpace:"nowrap",transition:"all .12s"}}
+                        style={{background:T.pending.bg,border:`1px solid ${T.pending.dot}`,borderRadius:T.r.sm,padding:"3px 8px",fontSize:11,fontWeight:600,color:T.pending.text,cursor:"pointer",fontFamily:F,whiteSpace:"nowrap",transition:"all .12s"}}
                         onMouseEnter={e=>{e.currentTarget.style.background=T.pending.dot;e.currentTarget.style.color="#fff";}}
                         onMouseLeave={e=>{e.currentTarget.style.background=T.pending.bg;e.currentTarget.style.color=T.pending.text;}}>
                         📋 Log
                       </button>
                     )}
-
-                    <button onClick={()=>onView(f)} style={{background:"transparent",border:`1px solid ${T.line}`,borderRadius:T.r.sm,padding:"4px 10px",fontSize:11,fontWeight:500,color:T.inkSub,cursor:"pointer",fontFamily:F,transition:"all .12s"}}
+                    {/* View button */}
+                    <button onClick={()=>onView(f)}
+                      style={{background:"transparent",border:`1px solid ${T.line}`,borderRadius:T.r.sm,padding:"3px 10px",fontSize:11,fontWeight:500,color:T.inkSub,cursor:"pointer",fontFamily:F,transition:"all .12s"}}
                       onMouseEnter={e=>{e.currentTarget.style.background=T.brandSubtle;e.currentTarget.style.color=T.brand;e.currentTarget.style.borderColor=T.brand;}}
                       onMouseLeave={e=>{e.currentTarget.style.background="transparent";e.currentTarget.style.color=T.inkSub;e.currentTarget.style.borderColor=T.line;}}>View</button>
-                    {can(user,"edit")&&(
-                      <button onClick={()=>onEdit(f)} style={{background:"transparent",border:`1px solid ${T.line}`,borderRadius:T.r.sm,padding:"4px 6px",cursor:"pointer",display:"flex",transition:"all .12s"}}
+                    {/* CEO/Manager full edit */}
+                    {FULL.includes(user.role)&&(
+                      <button onClick={()=>onEdit(f)}
+                        style={{background:"transparent",border:`1px solid ${T.line}`,borderRadius:T.r.sm,padding:"3px 6px",cursor:"pointer",display:"flex",transition:"all .12s"}}
                         onMouseEnter={e=>{e.currentTarget.style.background=T.bg;}}
                         onMouseLeave={e=>{e.currentTarget.style.background="transparent";}}>
                         <Ic d={P.edit} sz={12} color={T.inkSub}/>
                       </button>
                     )}
-                    {can(user,"delete")&&(
-                      <button onClick={()=>onDelete(f.id)} style={{background:"transparent",border:`1px solid ${T.line}`,borderRadius:T.r.sm,padding:"4px 6px",cursor:"pointer",display:"flex",transition:"all .12s"}}
+                    {/* CRE restricted edit */}
+                    {canCreEdit&&(
+                      <button onClick={()=>onCreEdit(f)} title="Edit products & quote"
+                        style={{background:"transparent",border:`1px solid ${T.line}`,borderRadius:T.r.sm,padding:"3px 6px",cursor:"pointer",display:"flex",transition:"all .12s"}}
+                        onMouseEnter={e=>{e.currentTarget.style.background=T.brandSubtle;e.currentTarget.style.borderColor=T.brand;}}
+                        onMouseLeave={e=>{e.currentTarget.style.background="transparent";e.currentTarget.style.borderColor=T.line;}}>
+                        <Ic d={P.edit} sz={12} color={T.brand}/>
+                      </button>
+                    )}
+                    {/* Delete — CEO/Manager only */}
+                    {FULL.includes(user.role)&&(
+                      <button onClick={()=>onDelete(f.id)}
+                        style={{background:"transparent",border:`1px solid ${T.line}`,borderRadius:T.r.sm,padding:"3px 6px",cursor:"pointer",display:"flex",transition:"all .12s"}}
                         onMouseEnter={e=>{e.currentTarget.style.background="#FEF2F2";e.currentTarget.style.borderColor="#FECACA";}}
                         onMouseLeave={e=>{e.currentTarget.style.background="transparent";e.currentTarget.style.borderColor=T.line;}}>
                         <Ic d={P.trash} sz={12} color="#DC2626"/>
@@ -728,17 +686,11 @@ function Analytics({funnels}) {
 
   const byCat=CATS.map(c=>({c,n:(funnels.flatMap(f=>f.products||[])).filter(p=>p.category===c).reduce((a,p)=>a+(Number(p.qty)||0),0)})).sort((a,b)=>b.n-a.n);
   const maxCat=Math.max(...byCat.map(x=>x.n),1);
-  const bySrc=LEAD_SOURCES.map(s=>({s,n:funnels.filter(f=>f.leadSource===s).length})).filter(x=>x.n>0);
-  const byEnq=ENQS.map(e=>({e,n:funnels.filter(f=>f.enquiryType===e).length})).filter(x=>x.n>0);
-  const byRole=ROLES.map(r=>({r,n:funnels.filter(f=>f.createdByRole===r||f.assignedTo).length}));
-
   const typeColors=[T.brand,T.won.dot,T.pending.dot,T.premium.dot,T.new.dot];
   const enqColors=[T.new.dot,T.won.dot,T.bulk.dot,T.high.dot,T.premium.dot,T.drop.dot];
 
   return (
     <div style={{padding:"20px 24px",display:"grid",gap:16}}>
-
-      {/* ROW 1 — Win rate, Status breakdown, Revenue */}
       <div className="ek-analytics-3col" style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:16}}>
         <Card title="Win rate">
           <div style={{textAlign:"center",padding:"8px 0"}}>
@@ -749,7 +701,6 @@ function Analytics({funnels}) {
             </div>
           </div>
         </Card>
-
         <Card title="Status breakdown">
           {STATUS.map(s=>{
             const n=funnels.filter(f=>f.status===s).length;
@@ -758,28 +709,26 @@ function Analytics({funnels}) {
             return <Row key={s} label={s} val={n} pct={pct} color={c.dot}/>;
           })}
         </Card>
-
         <Card title="Revenue">
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 0",borderBottom:`1px solid ${T.line}`}}>
             <span style={{fontSize:12,color:T.inkSub,fontFamily:F}}>Won Revenue</span>
-            <span style={{fontSize:15,fontWeight:700,color:T.won.dot,fontFamily:F,letterSpacing:"-0.3px"}}>{big(totalRevenue)}</span>
+            <span style={{fontSize:15,fontWeight:700,color:T.won.dot,fontFamily:F}}>{big(totalRevenue)}</span>
           </div>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 0",borderBottom:`1px solid ${T.line}`}}>
             <span style={{fontSize:12,color:T.inkSub,fontFamily:F}}>Pending potential</span>
-            <span style={{fontSize:15,fontWeight:700,color:T.pending.dot,fontFamily:F,letterSpacing:"-0.3px"}}>
+            <span style={{fontSize:15,fontWeight:700,color:T.pending.dot,fontFamily:F}}>
               {big(funnels.filter(f=>f.status==="Pending").reduce((a,f)=>a+(Number(f.quoteAmount)||0),0))}
             </span>
           </div>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 0"}}>
             <span style={{fontSize:12,color:T.inkSub,fontFamily:F}}>Avg deal size</span>
-            <span style={{fontSize:15,fontWeight:700,color:T.brand,fontFamily:F,letterSpacing:"-0.3px"}}>
+            <span style={{fontSize:15,fontWeight:700,color:T.brand,fontFamily:F}}>
               {big(funnels.length?funnels.reduce((a,f)=>a+(Number(f.quoteAmount)||0),0)/funnels.length:0)}
             </span>
           </div>
         </Card>
       </div>
 
-      {/* ROW 2 — Funnel types, Lead sources, Enquiry types */}
       <div className="ek-analytics-3col" style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:16}}>
         <Card title="Leads by funnel type">
           <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
@@ -794,33 +743,26 @@ function Analytics({funnels}) {
             })}
           </div>
         </Card>
-
         <Card title="Leads by source">
-          {bySrc.length===0
-            ? <div style={{fontSize:12,color:T.inkMuted,fontFamily:F}}>No source data yet.</div>
-            : LEAD_SOURCES.map(s=>{
-                const n=funnels.filter(f=>f.leadSource===s).length;
-                if(!n) return null;
-                const pct=funnels.length?Math.round(n/funnels.length*100):0;
-                return <Row key={s} label={s} val={n} pct={pct} color={T.brand}/>;
-              })
-          }
+          {LEAD_SOURCES.map(s=>{
+            const n=funnels.filter(f=>f.leadSource===s).length;
+            if(!n) return null;
+            const pct=funnels.length?Math.round(n/funnels.length*100):0;
+            return <Row key={s} label={s} val={n} pct={pct} color={T.brand}/>;
+          })}
+          {!funnels.some(f=>f.leadSource)&&<div style={{fontSize:12,color:T.inkMuted,fontFamily:F}}>No source data yet.</div>}
         </Card>
-
         <Card title="Leads by enquiry type">
-          {byEnq.length===0
-            ? <div style={{fontSize:12,color:T.inkMuted,fontFamily:F}}>No enquiry data yet.</div>
-            : ENQS.map((e,i)=>{
-                const n=funnels.filter(f=>f.enquiryType===e).length;
-                if(!n) return null;
-                const pct=funnels.length?Math.round(n/funnels.length*100):0;
-                return <Row key={e} label={e} val={n} pct={pct} color={enqColors[i]||T.brand}/>;
-              })
-          }
+          {ENQS.map((e,i)=>{
+            const n=funnels.filter(f=>f.enquiryType===e).length;
+            if(!n) return null;
+            const pct=funnels.length?Math.round(n/funnels.length*100):0;
+            return <Row key={e} label={e} val={n} pct={pct} color={enqColors[i]||T.brand}/>;
+          })}
+          {!funnels.some(f=>f.enquiryType)&&<div style={{fontSize:12,color:T.inkMuted,fontFamily:F}}>No enquiry data yet.</div>}
         </Card>
       </div>
 
-      {/* ROW 3 — Units by category (full width) */}
       <Card title="Units ordered by category">
         <div style={{display:"grid",gridTemplateColumns:"repeat(2,1fr)",gap:"0 32px"}}>
           {byCat.map(({c,n})=>(
@@ -836,7 +778,6 @@ function Analytics({funnels}) {
           ))}
         </div>
       </Card>
-
     </div>
   );
 }
@@ -847,7 +788,6 @@ function Team({users,onSave}) {
   const [form,setForm]=useState({name:"",username:"",password:"",role:"CRE"});
   const [err,setErr]=useState("");
   useEffect(()=>setList(users),[users]);
-
   const add=()=>{
     if(!form.name||!form.username||!form.password){setErr("All fields required.");return;}
     if(list.find(u=>u.username===form.username)){setErr("Username taken.");return;}
@@ -855,7 +795,6 @@ function Team({users,onSave}) {
     setList(u);onSave(u);setForm({name:"",username:"",password:"",role:"CRE"});setErr("");
   };
   const rm=id=>{const u=list.filter(x=>x.id!==id);setList(u);onSave(u);};
-
   const rc={"CEO":T.high,"Manager":T.won,"CRE":T.pending};
   return (
     <div className="ek-team-grid" style={{padding:"20px 24px",display:"grid",gridTemplateColumns:"360px 1fr",gap:20}}>
@@ -874,10 +813,9 @@ function Team({users,onSave}) {
         </div>
         <div style={{marginTop:18,padding:"12px 14px",background:T.brandSubtle,borderRadius:T.r.md,fontSize:12,color:T.brand,lineHeight:1.7,fontFamily:F}}>
           <strong>CEO & Manager</strong> — full access<br/>
-          <strong>CRE</strong> — create + export only
+          <strong>CRE</strong> — create + export + limited edit
         </div>
       </div>
-
       <div style={{background:T.surface,border:`1px solid ${T.line}`,borderRadius:T.r.lg,padding:22,boxShadow:T.shadowSm}}>
         <div style={{fontSize:14,fontWeight:600,color:T.ink,marginBottom:18,fontFamily:F}}>Team members ({list.length})</div>
         <div style={{display:"flex",flexDirection:"column",gap:8}}>
@@ -903,20 +841,17 @@ function Team({users,onSave}) {
   );
 }
 
-// ─── FUNNEL FORM ──────────────────────────────────────────────────────────────
-function FunnelForm({onClose,onSave,existing,user}) {
+// ─── FUNNEL FORM (CEO/Manager full form) ──────────────────────────────────────
+function FunnelForm({onClose,onSave,existing,user,users=[]}) {
   const blank={
     name:"",phone:"",email:"",
     enquiryType:"",funnelType:"",
-    leadSource:"",
-    cityRegion:"",
+    leadSource:"",cityRegion:"",
     nextFollowUp:"",
     products:[{desc:"",category:"",qty:"",price:""}],
-    remarks:"",
-    deliveryDetails:"",
-    paymentTerms:"",
+    remarks:"",deliveryDetails:"",paymentTerms:"",
     orderNumber:"",quoteQty:"",quoteAmount:"",quoteDesc:"",
-    status: "Pending"
+    status:"Pending",assignedTo:"",
   };
   const [form,setForm]=useState(existing?{...blank,...existing,products:existing.products?.length?existing.products:blank.products}:blank);
   const [errs,setErrs]=useState({});
@@ -925,37 +860,34 @@ function FunnelForm({onClose,onSave,existing,user}) {
 
   const val=()=>{
     const e={};
-    if(!form.name)           e.name="Required";
-    if(!form.phone)          e.phone="Required";
-    if(!form.enquiryType)    e.enquiryType="Required";
-    if(!form.funnelType)     e.funnelType="Required";
-    if(!form.leadSource)     e.leadSource="Required";
-    if(!form.nextFollowUp)   e.nfu="Required";
-    if(!form.remarks)        e.remarks="Required";
-    if(!form.deliveryDetails)e.deliveryDetails="Required";
-    if(!form.quoteDesc)      e.quoteDesc="Required";
-    if(!form.quoteQty)       e.quoteQty="Required";
-    if(!form.quoteAmount)    e.quoteAmount="Required";
-    const hasProduct = form.products.some(p => p.desc.trim() !== "");
-    if(!hasProduct) e.products = "At least one product item is required";
+    if(!form.name)            e.name="Required";
+    if(!form.phone)           e.phone="Required";
+    if(!form.enquiryType)     e.enquiryType="Required";
+    if(!form.funnelType)      e.funnelType="Required";
+    if(!form.leadSource)      e.leadSource="Required";
+    if(!form.nextFollowUp)    e.nfu="Required";
+    if(!form.remarks)         e.remarks="Required";
+    if(!form.deliveryDetails) e.deliveryDetails="Required";
+    if(!form.quoteDesc)       e.quoteDesc="Required";
+    if(!form.quoteQty)        e.quoteQty="Required";
+    if(!form.quoteAmount)     e.quoteAmount="Required";
+    const hasProduct=form.products.some(p=>p.desc.trim()!=="");
+    if(!hasProduct) e.products="At least one product item is required";
     if(!user?.name) e.auth="You must be logged in";
     setErrs(e);
     return !Object.keys(e).length;
   };
   const submit=()=>{if(val())onSave(form);};
-
   const prodTotal=(form.products||[]).reduce((a,p)=>a+(Number(p.qty)*Number(p.price)||0),0);
+  const creUsers=users.filter(u=>u.role==="CRE");
 
   return (
-    <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.35)",zIndex:2000,display:"flex",alignItems:"center",justifyContent:"center",padding:16,backdropFilter:"blur(2px)"}}
-      onClick={onClose}>
-      <div style={{background:T.surface,borderRadius:T.r["2xl"],width:"100%",maxWidth:720,maxHeight:"90vh",overflowY:"auto",boxShadow:T.shadowXl,animation:"fadeUp .2s ease"}}
-        onClick={e=>e.stopPropagation()}>
-
+    <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.35)",zIndex:2000,display:"flex",alignItems:"center",justifyContent:"center",padding:16,backdropFilter:"blur(2px)"}} onClick={onClose}>
+      <div style={{background:T.surface,borderRadius:T.r["2xl"],width:"100%",maxWidth:720,maxHeight:"90vh",overflowY:"auto",boxShadow:T.shadowXl,animation:"fadeUp .2s ease"}} onClick={e=>e.stopPropagation()}>
         <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"20px 24px 16px",borderBottom:`1px solid ${T.line}`,position:"sticky",top:0,background:T.surface,zIndex:1,borderRadius:`${T.r["2xl"]} ${T.r["2xl"]} 0 0`}}>
           <div>
             <h2 style={{fontSize:16,fontWeight:700,color:T.ink,fontFamily:F,margin:"0 0 2px"}}>{existing?"Edit funnel":"New funnel"}</h2>
-            <p style={{margin:0,fontSize:12,color:T.inkSub,fontFamily:F}}>{existing?`Editing ${existing.company||"funnel"}`:"Add a new sales lead"}</p>
+            <p style={{margin:0,fontSize:12,color:T.inkSub,fontFamily:F}}>{existing?"Editing funnel":"Add a new sales lead"}</p>
           </div>
           <button onClick={onClose} style={{width:30,height:30,border:`1px solid ${T.line}`,borderRadius:T.r.md,background:T.bg,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>
             <Ic d={P.close} sz={13} color={T.inkSub}/>
@@ -967,7 +899,7 @@ function FunnelForm({onClose,onSave,existing,user}) {
             <SL>Contact details</SL>
             <div style={{display:"flex",flexDirection:"column",gap:12}}>
               <div className="ek-form-3col" style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10}}>
-                <FInput label="Name" value={form.name} onChange={e=>set("name",e.target.value)} placeholder="Enter customer name" required error={errs.name}/>
+                <FInput label="Name" value={form.name} onChange={e=>set("name",e.target.value)} placeholder="Customer name" required error={errs.name}/>
                 <FInput label="Phone" value={form.phone} onChange={e=>set("phone",e.target.value)} placeholder="+91 98765 43210" required error={errs.phone}/>
                 <FInput label="Email" type="email" value={form.email} onChange={e=>set("email",e.target.value)} placeholder="email@company.com"/>
               </div>
@@ -985,12 +917,31 @@ function FunnelForm({onClose,onSave,existing,user}) {
               <FSelect label="Lead source" required value={form.leadSource} onChange={e=>set("leadSource",e.target.value)} options={LEAD_SOURCES} placeholder="Select source…" error={errs.leadSource}/>
               <div style={{display:"flex",flexDirection:"column",gap:5}}>
                 <label style={{fontSize:12,fontWeight:500,color:T.inkSub,fontFamily:F}}>Next follow-up<span style={{color:"#DC2626",marginLeft:2}}>*</span></label>
-                <input type="date" value={form.nextFollowUp} onChange={e=>set("nextFollowUp",e.target.value)}
-                  style={{...inputSx(errs.nfu)}} onFocus={onfocus} onBlur={onblur}/>
+                <input type="date" value={form.nextFollowUp} onChange={e=>set("nextFollowUp",e.target.value)} style={{...inputSx(errs.nfu)}} onFocus={onfocus} onBlur={onblur}/>
                 {errs.nfu&&<span style={{fontSize:11,color:"#B91C1C"}}>{errs.nfu}</span>}
               </div>
             </div>
           </section>
+
+          {/* ⑧ Assign to CRE — CEO/Manager only */}
+          {FULL.includes(user?.role)&&creUsers.length>0&&(
+            <section>
+              <SL>Assign to</SL>
+              <FSelect
+                label="Assign to CRE"
+                value={form.assignedTo}
+                onChange={e=>set("assignedTo",e.target.value)}
+                options={creUsers.map(u=>u.name)}
+                placeholder="Select team member…"
+              />
+              {form.assignedTo&&(
+                <div style={{marginTop:8,fontSize:12,color:T.inkSub,fontFamily:F,display:"flex",alignItems:"center",gap:6}}>
+                  <span style={{fontSize:14}}>📋</span>
+                  This funnel will appear in <strong style={{color:T.brand}}>{form.assignedTo}</strong>'s dashboard
+                </div>
+              )}
+            </section>
+          )}
 
           <section>
             <SL>Customer requirements</SL>
@@ -1079,6 +1030,125 @@ function FunnelForm({onClose,onSave,existing,user}) {
   );
 }
 
+// ─── CRE EDIT MODAL ───────────────────────────────────────────────────────────
+// ⑨ CRE can only edit: Product/item, Category, Qty, Unit price, Quote Qty, Quote Amount
+function CREEditModal({funnel, onClose, onSave}) {
+  const [products, setProducts] = useState(
+    funnel.products?.length ? funnel.products.map(p=>({...p})) : [{desc:"",category:"",qty:"",price:""}]
+  );
+  const [quoteQty, setQuoteQty] = useState(String(funnel.quoteQty||""));
+  const [quoteAmount, setQuoteAmount] = useState(String(funnel.quoteAmount||""));
+  const [saving, setSaving] = useState(false);
+
+  const sp=(i,k,v)=>{const p=[...products];p[i]={...p[i],[k]:v};setProducts(p);};
+  const prodTotal=products.reduce((a,p)=>a+(Number(p.qty)*Number(p.price)||0),0);
+
+  const submit=async()=>{
+    setSaving(true);
+    try {
+      await onSave({
+        ...funnel,
+        products: products.filter(p=>p.desc||p.category||p.qty||p.price),
+        quoteQty:    quoteQty    ? Number(quoteQty)    : funnel.quoteQty,
+        quoteAmount: quoteAmount ? Number(quoteAmount) : funnel.quoteAmount,
+      });
+      onClose();
+    } catch(err) {
+      console.error(err);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.35)",zIndex:2000,display:"flex",alignItems:"center",justifyContent:"center",padding:16,backdropFilter:"blur(2px)"}} onClick={onClose}>
+      <div style={{background:T.surface,borderRadius:T.r["2xl"],width:"100%",maxWidth:680,maxHeight:"85vh",overflowY:"auto",boxShadow:T.shadowXl,animation:"fadeUp .2s ease"}} onClick={e=>e.stopPropagation()}>
+
+        {/* Header */}
+        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"18px 24px 14px",borderBottom:`1px solid ${T.line}`,position:"sticky",top:0,background:T.surface,zIndex:1,borderRadius:`${T.r["2xl"]} ${T.r["2xl"]} 0 0`}}>
+          <div>
+            <h2 style={{fontSize:15,fontWeight:700,color:T.ink,fontFamily:F,margin:"0 0 2px"}}>Edit Products & Quote</h2>
+            <p style={{margin:0,fontSize:12,color:T.inkSub,fontFamily:F}}>{funnel.name} — update products and quote details</p>
+          </div>
+          <button onClick={onClose} style={{width:30,height:30,border:`1px solid ${T.line}`,borderRadius:T.r.md,background:T.bg,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>
+            <Ic d={P.close} sz={13} color={T.inkSub}/>
+          </button>
+        </div>
+
+        <div style={{padding:"20px 24px",display:"flex",flexDirection:"column",gap:20}}>
+
+          {/* Read-only info banner */}
+          <div style={{background:T.brandSubtle,border:`1px solid rgba(91,59,232,.15)`,borderRadius:T.r.lg,padding:"12px 16px",display:"flex",gap:24,flexWrap:"wrap"}}>
+            {[["Customer",funnel.name],["Phone",funnel.phone],["Status",funnel.status],["Follow-up",funnel.nextFollowUp]].map(([l,v])=>(
+              <div key={l}>
+                <div style={{fontSize:10,fontWeight:600,color:T.brand,letterSpacing:"0.06em",textTransform:"uppercase",fontFamily:F,marginBottom:2}}>{l}</div>
+                <div style={{fontSize:13,fontWeight:500,color:T.ink,fontFamily:F}}>{v||"—"}</div>
+              </div>
+            ))}
+          </div>
+
+          {/* Products table */}
+          <section>
+            <SL>Customer requirements</SL>
+            <div style={{border:`1px solid ${T.line}`,borderRadius:T.r.lg,overflow:"hidden"}}>
+              <div style={{display:"grid",gridTemplateColumns:"2.5fr 1.4fr .8fr 1fr .35fr",padding:"8px 14px",background:T.bg,gap:8}}>
+                {["Product / item","Category","Qty","Unit price (₹)",""].map(h=>(
+                  <div key={h} style={{fontSize:10,fontWeight:600,color:T.inkMuted,letterSpacing:"0.06em",fontFamily:F}}>{h}</div>
+                ))}
+              </div>
+              {products.map((pr,i)=>(
+                <div key={i} style={{display:"grid",gridTemplateColumns:"2.5fr 1.4fr .8fr 1fr .35fr",padding:"9px 14px",borderTop:`1px solid ${T.line}`,gap:8,alignItems:"center"}}>
+                  <input value={pr.desc} onChange={e=>sp(i,"desc",e.target.value)} placeholder="e.g. Bridal Lehenga"
+                    style={{...inputSx(),padding:"6px 9px",fontSize:12}} onFocus={onfocus} onBlur={onblur}/>
+                  <select value={pr.category} onChange={e=>sp(i,"category",e.target.value)}
+                    style={{...inputSx(),padding:"6px 24px 6px 9px",fontSize:12,cursor:"pointer",appearance:"none",background:`${T.surface} ${selectBg}`}}
+                    onFocus={onfocus} onBlur={onblur}>
+                    <option value="">Category</option>
+                    {CATS.map(c=><option key={c}>{c}</option>)}
+                  </select>
+                  {[["qty","0"],["price","0"]].map(([k,ph])=>(
+                    <input key={k} type="number" value={pr[k]} onChange={e=>sp(i,k,e.target.value)} placeholder={ph}
+                      style={{...inputSx(),padding:"6px 9px",fontSize:12}} onFocus={onfocus} onBlur={onblur}/>
+                  ))}
+                  <button onClick={()=>setProducts(products.filter((_,x)=>x!==i))} disabled={products.length===1}
+                    style={{background:"none",border:"none",cursor:products.length===1?"not-allowed":"pointer",color:T.inkMuted,fontSize:16,opacity:products.length===1?.2:1,display:"flex",alignItems:"center",justifyContent:"center"}}>×</button>
+                </div>
+              ))}
+              <div style={{padding:"9px 14px",borderTop:`1px solid ${T.line}`,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                <button onClick={()=>setProducts([...products,{desc:"",category:"",qty:"",price:""}])}
+                  style={{background:"none",border:`1px dashed ${T.brand}`,borderRadius:T.r.sm,padding:"4px 12px",color:T.brand,fontSize:12,fontWeight:500,cursor:"pointer",fontFamily:F,display:"inline-flex",alignItems:"center",gap:5}}>
+                  <Ic d={P.plus} sz={11} color={T.brand}/> Add item
+                </button>
+                {prodTotal>0&&<span style={{fontSize:12,fontWeight:600,color:T.ink,fontFamily:F}}>Total: {inr(prodTotal)}</span>}
+              </div>
+            </div>
+          </section>
+
+          {/* Quote qty and amount */}
+          <section>
+            <SL>Quote details</SL>
+            <div className="ek-form-2col" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+              <FInput label="Quantity" type="number" value={quoteQty} onChange={e=>setQuoteQty(e.target.value)} placeholder="0"/>
+              <FInput label="Amount (₹)" type="number" value={quoteAmount} onChange={e=>setQuoteAmount(e.target.value)} placeholder="0"/>
+            </div>
+          </section>
+
+          {/* Locked notice */}
+          <div style={{background:"#F9FAFB",border:`1px solid ${T.line}`,borderRadius:T.r.md,padding:"10px 14px",fontSize:12,color:T.inkMuted,fontFamily:F,display:"flex",alignItems:"center",gap:8}}>
+            <span style={{fontSize:14}}>🔒</span>
+            Other fields (contact, remarks, delivery, payment terms) can only be edited by Manager or CEO.
+          </div>
+        </div>
+
+        <div style={{display:"flex",justifyContent:"flex-end",gap:10,padding:"14px 24px 20px",borderTop:`1px solid ${T.line}`,position:"sticky",bottom:0,background:T.surface,borderRadius:`0 0 ${T.r["2xl"]} ${T.r["2xl"]}`}}>
+          <Btn ghost label="Cancel" onClick={onClose}/>
+          <Btn primary icon={P.check} label={saving?"Saving…":"Save changes"} onClick={submit} disabled={saving}/>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── FOLLOW-UP OUTCOMES ───────────────────────────────────────────────────────
 const OUTCOMES = [
   "Interested", "Needs Time", "Callback Requested",
@@ -1123,12 +1193,8 @@ function FollowupLogModal({ funnel, user, onClose, onSave }) {
   };
 
   return (
-    <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.4)",zIndex:3000,display:"flex",alignItems:"center",justifyContent:"center",padding:16,backdropFilter:"blur(2px)"}}
-      onClick={onClose}>
-      <div style={{background:T.surface,borderRadius:T.r["2xl"],width:"100%",maxWidth:480,boxShadow:T.shadowXl,animation:"fadeUp .2s ease"}}
-        onClick={e=>e.stopPropagation()}>
-
-        {/* Header */}
+    <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.4)",zIndex:3000,display:"flex",alignItems:"center",justifyContent:"center",padding:16,backdropFilter:"blur(2px)"}} onClick={onClose}>
+      <div style={{background:T.surface,borderRadius:T.r["2xl"],width:"100%",maxWidth:480,boxShadow:T.shadowXl,animation:"fadeUp .2s ease"}} onClick={e=>e.stopPropagation()}>
         <div style={{padding:"20px 24px 16px",borderBottom:`1px solid ${T.line}`,display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
           <div>
             <h2 style={{fontSize:15,fontWeight:700,color:T.ink,fontFamily:F,margin:"0 0 3px"}}>Log Follow-up</h2>
@@ -1138,10 +1204,7 @@ function FollowupLogModal({ funnel, user, onClose, onSave }) {
             <Ic d={P.close} sz={12} color={T.inkSub}/>
           </button>
         </div>
-
-        {/* Body */}
         <div style={{padding:"20px 24px",display:"flex",flexDirection:"column",gap:16}}>
-
           <div>
             <label style={{fontSize:12,fontWeight:500,color:T.inkSub,fontFamily:F,display:"block",marginBottom:5}}>
               What did the customer say? <span style={{color:"#DC2626"}}>*</span>
@@ -1152,7 +1215,6 @@ function FollowupLogModal({ funnel, user, onClose, onSave }) {
               onFocus={onfocus} onBlur={onblur} autoFocus/>
             {err.response&&<div style={{fontSize:11,color:"#B91C1C",marginTop:4}}>{err.response}</div>}
           </div>
-
           <div>
             <label style={{fontSize:12,fontWeight:500,color:T.inkSub,fontFamily:F,display:"block",marginBottom:8}}>
               Outcome <span style={{color:"#DC2626"}}>*</span>
@@ -1162,15 +1224,7 @@ function FollowupLogModal({ funnel, user, onClose, onSave }) {
                 const c=outcomeColors[o]||T.drop;
                 const sel=form.outcome===o;
                 return (
-                  <button key={o} onClick={()=>set("outcome",o)} style={{
-                    padding:"5px 12px",borderRadius:20,
-                    border:`1px solid ${sel?c.dot:T.line}`,
-                    background:sel?c.bg:"transparent",
-                    color:sel?c.text:T.inkSub,
-                    fontSize:12,fontWeight:sel?600:400,
-                    cursor:"pointer",fontFamily:F,transition:"all .15s",
-                    display:"flex",alignItems:"center",gap:5
-                  }}>
+                  <button key={o} onClick={()=>set("outcome",o)} style={{padding:"5px 12px",borderRadius:20,border:`1px solid ${sel?c.dot:T.line}`,background:sel?c.bg:"transparent",color:sel?c.text:T.inkSub,fontSize:12,fontWeight:sel?600:400,cursor:"pointer",fontFamily:F,transition:"all .15s",display:"flex",alignItems:"center",gap:5}}>
                     <Dot color={sel?c.dot:T.inkMuted} size={5}/>{o}
                   </button>
                 );
@@ -1178,7 +1232,6 @@ function FollowupLogModal({ funnel, user, onClose, onSave }) {
             </div>
             {err.outcome&&<div style={{fontSize:11,color:"#B91C1C",marginTop:6}}>{err.outcome}</div>}
           </div>
-
           <div>
             <label style={{fontSize:12,fontWeight:500,color:T.inkSub,fontFamily:F,display:"block",marginBottom:5}}>
               Reschedule next follow-up to <span style={{color:"#DC2626"}}>*</span>
@@ -1188,8 +1241,6 @@ function FollowupLogModal({ funnel, user, onClose, onSave }) {
             {err.nextFollowUp&&<div style={{fontSize:11,color:"#B91C1C",marginTop:4}}>{err.nextFollowUp}</div>}
           </div>
         </div>
-
-        {/* Footer */}
         <div style={{display:"flex",justifyContent:"flex-end",gap:10,padding:"14px 24px 20px",borderTop:`1px solid ${T.line}`}}>
           <Btn ghost label="Cancel" onClick={onClose}/>
           <Btn primary icon={P.check} label={saving?"Saving…":"Save & Reschedule"} onClick={submit} disabled={saving}/>
@@ -1200,22 +1251,17 @@ function FollowupLogModal({ funnel, user, onClose, onSave }) {
 }
 
 // ─── VIEW DRAWER ──────────────────────────────────────────────────────────────
-// ⑦ Added followupLogs + onLogFollowup props + Follow-up History timeline
-function ViewDrawer({funnel,onClose,onEdit,onStatusChange,user,comments,onAddComment,followupLogs=[],onLogFollowup}) {
+function ViewDrawer({funnel,onClose,onEdit,onCreEdit,onStatusChange,user,comments,onAddComment,followupLogs=[],onLogFollowup}) {
   const [status,setStatus]=useState(funnel.status);
   const tot=(funnel.products||[]).reduce((a,p)=>a+(Number(p.qty)*Number(p.price)||0),0);
-  const sc=T[status.toLowerCase()]||T.drop;
   const doStatus=s=>{setStatus(s);onStatusChange(funnel.id,s);};
-
   const [commentText,setCommentText]=useState("");
   const canComment=FULL.includes(user.role);
-
   const submitComment=()=>{
     if(!commentText.trim()) return;
     onAddComment(funnel.id,{text:commentText.trim(),author:user.name,role:user.role,time:stamp()});
     setCommentText("");
   };
-
   const Row=({l,v,mono})=>(
     <div style={{display:"grid",gridTemplateColumns:"140px 1fr",gap:8,padding:"8px 0",borderBottom:`1px solid ${T.line}`}}>
       <dt style={{fontSize:11,fontWeight:500,color:T.inkMuted,fontFamily:F}}>{l}</dt>
@@ -1224,31 +1270,26 @@ function ViewDrawer({funnel,onClose,onEdit,onStatusChange,user,comments,onAddCom
   );
   const Sec=({t})=><div style={{fontSize:10,fontWeight:600,color:T.inkMuted,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:10,marginTop:4,fontFamily:F}}>{t}</div>;
   const roleColor={"CEO":T.high,"Manager":T.won,"CRE":T.pending};
-
-  const outcomeColors={
-    "Interested":T.won,"Order Confirmed":T.won,
-    "Needs Time":T.pending,"Callback Requested":T.pending,"Rescheduled":T.pending,
-    "Not Interested":T.lost,"Other":T.drop,
-  };
+  const outcomeColors={"Interested":T.won,"Order Confirmed":T.won,"Needs Time":T.pending,"Callback Requested":T.pending,"Rescheduled":T.pending,"Not Interested":T.lost,"Other":T.drop};
+  const canCreEdit=!FULL.includes(user.role)&&(funnel.createdBy===user.name||funnel.assignedTo===user.name);
 
   return (
-    <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.3)",zIndex:2000,display:"flex",justifyContent:"flex-end",backdropFilter:"blur(1px)"}}
-      onClick={onClose}>
-      <div style={{background:T.surface,width:"100%",maxWidth:540,height:"100%",overflowY:"auto",boxShadow:"-8px 0 40px rgba(0,0,0,.12)",animation:"slideRight .22s ease",display:"flex",flexDirection:"column"}}
-        onClick={e=>e.stopPropagation()}>
+    <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.3)",zIndex:2000,display:"flex",justifyContent:"flex-end",backdropFilter:"blur(1px)"}} onClick={onClose}>
+      <div style={{background:T.surface,width:"100%",maxWidth:540,height:"100%",overflowY:"auto",boxShadow:"-8px 0 40px rgba(0,0,0,.12)",animation:"slideRight .22s ease",display:"flex",flexDirection:"column"}} onClick={e=>e.stopPropagation()}>
 
-        {/* Header */}
         <div style={{padding:"20px 22px 16px",borderBottom:`1px solid ${T.line}`,position:"sticky",top:0,background:T.surface,zIndex:1}}>
           <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",marginBottom:12}}>
             <div style={{flex:1,marginRight:12}}>
               <h2 style={{fontSize:17,fontWeight:700,color:T.ink,fontFamily:F,margin:"0 0 3px",letterSpacing:"-0.3px"}}>{funnel.name||"(No name)"}</h2>
-              <div style={{display:"flex",alignItems:"center",gap:8}}>
+              <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
                 <p style={{margin:0,fontSize:11,color:T.inkMuted,fontFamily:F}}>{funnel.createdAt} · {funnel.createdBy}</p>
+                {funnel.assignedTo&&<span style={{fontSize:11,fontWeight:500,background:T.brandSubtle,color:T.brand,padding:"1px 8px",borderRadius:10,fontFamily:F}}>→ {funnel.assignedTo}</span>}
                 {funnel.leadSource&&<SourcePill source={funnel.leadSource}/>}
               </div>
             </div>
             <div style={{display:"flex",gap:8,alignItems:"center"}}>
-              {can(user,"edit")&&<Btn ghost sm icon={P.edit} label="Edit" onClick={()=>{onClose();onEdit(funnel);}}/>}
+              {FULL.includes(user.role)&&<Btn ghost sm icon={P.edit} label="Edit" onClick={()=>{onClose();onEdit(funnel);}}/>}
+              {canCreEdit&&<Btn ghost sm icon={P.edit} label="Edit" onClick={()=>{onClose();onCreEdit(funnel);}}/>}
               <button onClick={onClose} style={{width:28,height:28,border:`1px solid ${T.line}`,borderRadius:T.r.md,background:T.bg,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>
                 <Ic d={P.close} sz={12} color={T.inkSub}/>
               </button>
@@ -1268,7 +1309,6 @@ function ViewDrawer({funnel,onClose,onEdit,onStatusChange,user,comments,onAddCom
           </div>
         </div>
 
-        {/* Body */}
         <div style={{padding:"18px 22px",flex:1}}>
           <Sec t="Contact"/>
           <dl>
@@ -1276,6 +1316,7 @@ function ViewDrawer({funnel,onClose,onEdit,onStatusChange,user,comments,onAddCom
             <Row l="Phone" v={funnel.phone}/>
             <Row l="Email" v={funnel.email}/>
             {funnel.cityRegion&&<Row l="City / Region" v={funnel.cityRegion}/>}
+            {funnel.assignedTo&&<Row l="Assigned to" v={funnel.assignedTo}/>}
           </dl>
           <div style={{height:18}}/>
 
@@ -1308,14 +1349,12 @@ function ViewDrawer({funnel,onClose,onEdit,onStatusChange,user,comments,onAddCom
           {funnel.remarks&&<><Sec t="Remarks"/><div style={{background:T.bg,padding:"10px 14px",borderRadius:T.r.md,fontSize:13,color:T.ink,fontFamily:F,lineHeight:1.6,marginBottom:18}}>{funnel.remarks}</div></>}
 
           {(funnel.deliveryDetails||funnel.paymentTerms)&&(
-            <>
-              <Sec t="Delivery & Payment"/>
-              <dl>
-                {funnel.deliveryDetails&&<Row l="Delivery details" v={funnel.deliveryDetails}/>}
-                {funnel.paymentTerms&&<Row l="Payment terms" v={funnel.paymentTerms}/>}
-              </dl>
-              <div style={{height:18}}/>
-            </>
+            <><Sec t="Delivery & Payment"/>
+            <dl>
+              {funnel.deliveryDetails&&<Row l="Delivery details" v={funnel.deliveryDetails}/>}
+              {funnel.paymentTerms&&<Row l="Payment terms" v={funnel.paymentTerms}/>}
+            </dl>
+            <div style={{height:18}}/></>
           )}
 
           <Sec t="Quotation"/>
@@ -1326,28 +1365,20 @@ function ViewDrawer({funnel,onClose,onEdit,onStatusChange,user,comments,onAddCom
             {funnel.quoteDesc&&<Row l="Description" v={funnel.quoteDesc}/>}
           </dl>
 
-          {/* ⑦ FOLLOW-UP HISTORY */}
+          {/* Follow-up History */}
           <div style={{height:24}}/>
           <div style={{borderTop:`2px solid ${T.line}`,paddingTop:20,marginBottom:24}}>
             <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:16}}>
               <div style={{display:"flex",alignItems:"center",gap:8}}>
                 <span style={{fontSize:16}}>📅</span>
                 <span style={{fontSize:13,fontWeight:600,color:T.ink,fontFamily:F}}>Follow-up History</span>
-                {followupLogs.length>0&&(
-                  <span style={{fontSize:11,fontWeight:500,background:T.brandSubtle,color:T.brand,padding:"1px 8px",borderRadius:10,fontFamily:F}}>
-                    {followupLogs.length}
-                  </span>
-                )}
+                {followupLogs.length>0&&<span style={{fontSize:11,fontWeight:500,background:T.brandSubtle,color:T.brand,padding:"1px 8px",borderRadius:10,fontFamily:F}}>{followupLogs.length}</span>}
               </div>
               <Btn primary sm label="+ Log Follow-up" onClick={onLogFollowup}/>
             </div>
-
             {followupLogs.length===0
-              ? <div style={{textAlign:"center",padding:"16px 0",fontSize:12,color:T.inkMuted,fontFamily:F}}>
-                  No follow-ups logged yet.
-                </div>
+              ? <div style={{textAlign:"center",padding:"16px 0",fontSize:12,color:T.inkMuted,fontFamily:F}}>No follow-ups logged yet.</div>
               : <div style={{display:"flex",flexDirection:"column",gap:0,position:"relative"}}>
-                  {/* Vertical timeline line */}
                   <div style={{position:"absolute",left:11,top:12,bottom:12,width:2,background:T.line,borderRadius:2}}/>
                   {[...followupLogs].reverse().map((log,i)=>{
                     const c=outcomeColors[log.outcome]||T.drop;
@@ -1365,11 +1396,7 @@ function ViewDrawer({funnel,onClose,onEdit,onStatusChange,user,comments,onAddCom
                             <span style={{fontSize:10,color:T.inkMuted,fontFamily:F,whiteSpace:"nowrap"}}>{log.loggedAt}</span>
                           </div>
                           <p style={{margin:"0 0 8px",fontSize:13,color:T.ink,fontFamily:F,lineHeight:1.6}}>{log.customerResponse}</p>
-                          {log.nextFollowUp&&(
-                            <div style={{display:"flex",alignItems:"center",gap:5,fontSize:11,color:T.brand,fontFamily:F,fontWeight:500}}>
-                              <span>→</span> Rescheduled to {log.nextFollowUp}
-                            </div>
-                          )}
+                          {log.nextFollowUp&&<div style={{display:"flex",alignItems:"center",gap:5,fontSize:11,color:T.brand,fontFamily:F,fontWeight:500}}><span>→</span> Rescheduled to {log.nextFollowUp}</div>}
                         </div>
                       </div>
                     );
@@ -1378,26 +1405,22 @@ function ViewDrawer({funnel,onClose,onEdit,onStatusChange,user,comments,onAddCom
             }
           </div>
 
-          {/* ④ AUDIT COMMENTS */}
+          {/* Audit Comments */}
           <div style={{borderTop:`2px solid ${T.line}`,paddingTop:20}}>
             <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:16}}>
               <Ic d={P.msg} sz={14} color={T.brand}/>
               <span style={{fontSize:13,fontWeight:600,color:T.ink,fontFamily:F}}>Audit Comments</span>
               {comments.length>0&&<span style={{fontSize:11,fontWeight:500,background:T.brandSubtle,color:T.brand,padding:"1px 8px",borderRadius:10,fontFamily:F}}>{comments.length}</span>}
             </div>
-
             {canComment&&(
               <div style={{marginBottom:16}}>
-                <textarea value={commentText} onChange={e=>setCommentText(e.target.value)}
-                  placeholder="Write your audit comment…" rows={3}
-                  style={{...inputSx(),padding:"10px 12px",resize:"vertical",lineHeight:1.6,width:"100%",boxSizing:"border-box"}}
-                  onFocus={onfocus} onBlur={onblur}/>
+                <textarea value={commentText} onChange={e=>setCommentText(e.target.value)} placeholder="Write your audit comment…" rows={3}
+                  style={{...inputSx(),padding:"10px 12px",resize:"vertical",lineHeight:1.6,width:"100%",boxSizing:"border-box"}} onFocus={onfocus} onBlur={onblur}/>
                 <div style={{display:"flex",justifyContent:"flex-end",marginTop:8}}>
                   <Btn primary sm icon={P.check} label="Save comment" onClick={submitComment} disabled={!commentText.trim()}/>
                 </div>
               </div>
             )}
-
             {comments.length===0
               ? <div style={{textAlign:"center",padding:"20px 0",fontSize:12,color:T.inkMuted,fontFamily:F}}>No audit comments yet.</div>
               : <div style={{display:"flex",flexDirection:"column",gap:10}}>
@@ -1434,113 +1457,78 @@ function Shell({user,users,onLogout,onUsersChange}) {
   const [search,setSearch]=useState("");
   const [sidebarOpen,setSidebarOpen]=useState(false);
 
-  useEffect(() => {
-    const fetchFunnels = async () => {
-      try {
-        const data = await crmService.getAllFunnels();
-        setFunnels(data);
-      } catch (err) {
-        console.error("Failed to fetch funnels:", err);
-      } finally {
-        setLoading(false);
-      }
+  useEffect(()=>{
+    const fetchFunnels=async()=>{
+      try{ const data=await crmService.getAllFunnels(); setFunnels(data); }
+      catch(err){ console.error("Failed to fetch funnels:",err); }
+      finally{ setLoading(false); }
     };
     fetchFunnels();
-  }, []);
+  },[]);
 
-  useEffect(() => {
-    const channel = supabase
-      .channel('funnels_changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'funnels' }, (payload) => {
-        if (payload.eventType === 'INSERT') {
-          const newFunnel = crmService.mapFromDb(payload.new);
-          setFunnels(prev => {
-            if (prev.find(f => f.id === newFunnel.id)) return prev;
-            return [newFunnel, ...prev];
-          });
-        } else if (payload.eventType === 'UPDATE') {
-          const updatedFunnel = crmService.mapFromDb(payload.new);
-          setFunnels(prev => prev.map(f => f.id === updatedFunnel.id ? updatedFunnel : f));
-        } else if (payload.eventType === 'DELETE') {
-          setFunnels(prev => prev.filter(f => f.id !== payload.old.id));
+  useEffect(()=>{
+    const channel=supabase.channel('funnels_changes')
+      .on('postgres_changes',{event:'*',schema:'public',table:'funnels'},(payload)=>{
+        if(payload.eventType==='INSERT'){
+          const nf=crmService.mapFromDb(payload.new);
+          setFunnels(prev=>prev.find(f=>f.id===nf.id)?prev:[nf,...prev]);
+        } else if(payload.eventType==='UPDATE'){
+          const uf=crmService.mapFromDb(payload.new);
+          setFunnels(prev=>prev.map(f=>f.id===uf.id?uf:f));
+        } else if(payload.eventType==='DELETE'){
+          setFunnels(prev=>prev.filter(f=>f.id!==payload.old.id));
         }
-      })
-      .subscribe();
-    return () => { supabase.removeChannel(channel); };
-  }, []);
+      }).subscribe();
+    return ()=>{ supabase.removeChannel(channel); };
+  },[]);
 
   const [funnelComments,setFunnelComments]=useState({});
   const [viewT,setViewT]=useState(null);
 
-  useEffect(() => {
-    if (viewT && !funnelComments[viewT.id]) {
-      const fetchComments = async () => {
-        try {
-          const comments = await crmService.getComments(viewT.id);
-          setFunnelComments(prev => ({...prev, [viewT.id]: comments}));
-        } catch (err) {
-          console.error("Failed to fetch comments:", err);
-        }
-      };
-      fetchComments();
+  useEffect(()=>{
+    if(viewT&&!funnelComments[viewT.id]){
+      crmService.getComments(viewT.id).then(comments=>{
+        setFunnelComments(prev=>({...prev,[viewT.id]:comments}));
+      }).catch(err=>console.error("Failed to fetch comments:",err));
     }
-  }, [viewT, funnelComments]);
+  },[viewT,funnelComments]);
 
-  useEffect(() => {
-    const channel = supabase
-      .channel('comments_changes')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'audit_comments' }, async (payload) => {
-        const funnelId = payload.new.funnel_id;
-        const newComment = {
-          text: payload.new.text,
-          author: payload.new.author,
-          role: payload.new.role,
-          time: new Date(payload.new.created_at).toLocaleString('en-IN', {
-            month: 'short', day: 'numeric', year: 'numeric',
-            hour: '2-digit', minute: '2-digit'
-          })
-        };
-        setFunnelComments(prev => ({
-          ...prev,
-          [funnelId]: [...(prev[funnelId] || []), newComment]
-        }));
-      })
-      .subscribe();
-    return () => { supabase.removeChannel(channel); };
-  }, []);
+  useEffect(()=>{
+    const channel=supabase.channel('comments_changes')
+      .on('postgres_changes',{event:'INSERT',schema:'public',table:'audit_comments'},async(payload)=>{
+        const funnelId=payload.new.funnel_id;
+        const newComment={text:payload.new.text,author:payload.new.author,role:payload.new.role,
+          time:new Date(payload.new.created_at).toLocaleString('en-IN',{month:'short',day:'numeric',year:'numeric',hour:'2-digit',minute:'2-digit'})};
+        setFunnelComments(prev=>({...prev,[funnelId]:[...(prev[funnelId]||[]),newComment]}));
+      }).subscribe();
+    return ()=>{ supabase.removeChannel(channel); };
+  },[]);
 
-  const addComment = async (funnelId, comment) => {
-    try {
-      await crmService.addComment(funnelId, comment);
-    } catch (err) {
-      console.error("Failed to add comment:", err);
-    }
+  const addComment=async(funnelId,comment)=>{
+    try{ await crmService.addComment(funnelId,comment); }
+    catch(err){ console.error("Failed to add comment:",err); }
   };
 
-  // ⑦ Follow-up log state
+  // Follow-up logs
   const [followupLogs,setFollowupLogs]=useState({});
   const [logModalFunnel,setLogModalFunnel]=useState(null);
 
-  // ⑦ Fetch follow-up logs when a funnel is viewed
   useEffect(()=>{
-    if(viewT && !followupLogs[viewT.id]){
+    if(viewT&&!followupLogs[viewT.id]){
       crmService.getFollowupLogs(viewT.id).then(logs=>{
         setFollowupLogs(prev=>({...prev,[viewT.id]:logs}));
       }).catch(err=>console.error("Failed to fetch followup logs:",err));
     }
   },[viewT]);
 
-  // ⑦ Save follow-up log + auto-update next follow-up date
-  const saveFollowupLog = async (log) => {
-    try {
-      await crmService.addFollowupLog(logModalFunnel.id, log);
+  const saveFollowupLog=async(log)=>{
+    try{
+      await crmService.addFollowupLog(logModalFunnel.id,log);
       if(log.nextFollowUp){
-        await crmService.updateNextFollowup(logModalFunnel.id, log.nextFollowUp);
-        setFunnels(p=>p.map(f=>
-          f.id===logModalFunnel.id ? {...f, nextFollowUp:log.nextFollowUp} : f
-        ));
+        await crmService.updateNextFollowup(logModalFunnel.id,log.nextFollowUp);
+        setFunnels(p=>p.map(f=>f.id===logModalFunnel.id?{...f,nextFollowUp:log.nextFollowUp}:f));
       }
-      const updated = await crmService.getFollowupLogs(logModalFunnel.id);
+      const updated=await crmService.getFollowupLogs(logModalFunnel.id);
       setFollowupLogs(prev=>({...prev,[logModalFunnel.id]:updated}));
       setLogModalFunnel(null);
       push("Follow-up logged ✓");
@@ -1550,31 +1538,26 @@ function Shell({user,users,onLogout,onUsersChange}) {
     }
   };
 
-  const [fil,setFil]=useState({
-    status:"",funnelType:"",enquiryType:"",
-    leadSource:"",descFilter:"",
-    missed:false,todayF:false,upcoming:false,
-  });
-
+  const [fil,setFil]=useState({status:"",funnelType:"",enquiryType:"",leadSource:"",descFilter:"",missed:false,todayF:false,upcoming:false});
   const [addOpen,setAddOpen]=useState(false);
   const [editT,setEditT]=useState(null);
+  const [creEditT,setCreEditT]=useState(null); // ⑨ CRE restricted edit
 
   const {list:toasts,push}=useToast();
-
   const TODAY=today();
 
   const sf=(k,v)=>setFil(f=>({...f,[k]:v}));
   const rf=()=>setFil({status:"",funnelType:"",enquiryType:"",leadSource:"",descFilter:"",missed:false,todayF:false,upcoming:false});
 
-  const scoped=useMemo(()=>FULL.includes(user.role)?funnels:funnels.filter(f=>f.createdBy===user.name),[funnels,user]);
+  // ⑧ scoped includes assigned funnels for CRE
+  const scoped=useMemo(()=>
+    FULL.includes(user.role)?funnels:funnels.filter(f=>f.createdBy===user.name||f.assignedTo===user.name),
+  [funnels,user]);
 
   const filtered=useMemo(()=>scoped.filter(f=>{
     if(search){
       const q=search.toLowerCase();
-      if(!(f.name||"").toLowerCase().includes(q) &&
-         !(f.email||"").toLowerCase().includes(q) &&
-         !(f.phone||"").toLowerCase().includes(q) &&
-         !(f.orderNumber||"").toLowerCase().includes(q)) return false;
+      if(!(f.name||"").toLowerCase().includes(q)&&!(f.email||"").toLowerCase().includes(q)&&!(f.phone||"").toLowerCase().includes(q)&&!(f.orderNumber||"").toLowerCase().includes(q)) return false;
     }
     if(fil.status      && f.status     !==fil.status)      return false;
     if(fil.funnelType  && f.funnelType !==fil.funnelType)  return false;
@@ -1582,65 +1565,45 @@ function Shell({user,users,onLogout,onUsersChange}) {
     if(fil.leadSource  && f.leadSource !==fil.leadSource)  return false;
     if(fil.descFilter){
       const q=fil.descFilter.toLowerCase();
-      const inRemarks =(f.remarks   ||"").toLowerCase().includes(q);
-      const inQuote   =(f.quoteDesc ||"").toLowerCase().includes(q);
-      if(!inRemarks&&!inQuote) return false;
+      if(!(f.remarks||"").toLowerCase().includes(q)&&!(f.quoteDesc||"").toLowerCase().includes(q)) return false;
     }
-    if(fil.missed   && (!f.nextFollowUp||f.nextFollowUp>=TODAY)) return false;
-    if(fil.todayF   && f.nextFollowUp!==TODAY)                   return false;
-    if(fil.upcoming && f.nextFollowUp<=TODAY)                    return false;
+    if(fil.missed   &&(!f.nextFollowUp||f.nextFollowUp>=TODAY)) return false;
+    if(fil.todayF   && f.nextFollowUp!==TODAY)                  return false;
+    if(fil.upcoming && f.nextFollowUp<=TODAY)                   return false;
     return true;
   }),[scoped,search,fil,TODAY]);
 
-  const save = async (form) => {
-    try {
-      const cleanedForm = {
-        ...form,
-        products: (form.products || []).filter(p => p.desc || p.category || p.qty || p.price)
-      };
-      const saved = await crmService.saveFunnel(cleanedForm, user);
-      if (editT) {
-        setFunnels(p => p.map(f => f.id === saved.id ? saved : f));
-        setEditT(null); push("Funnel updated");
-      } else {
-        setFunnels(p => [saved, ...p]);
-        setAddOpen(false); push("Funnel added");
-      }
-    } catch (err) {
-      console.error("Failed to save funnel:", err);
-      push(`Error: ${err.message || "Could not save lead"}`, "error");
-    }
+  const save=async(form)=>{
+    try{
+      const cleanedForm={...form,products:(form.products||[]).filter(p=>p.desc||p.category||p.qty||p.price)};
+      const saved=await crmService.saveFunnel(cleanedForm,user);
+      if(editT){ setFunnels(p=>p.map(f=>f.id===saved.id?saved:f)); setEditT(null); push("Funnel updated"); }
+      else{ setFunnels(p=>[saved,...p]); setAddOpen(false); push("Funnel added"); }
+    } catch(err){ console.error("Failed to save funnel:",err); push(`Error: ${err.message||"Could not save lead"}`,"error"); }
   };
 
-  const del = async (id) => {
-    if (!window.confirm("Are you sure you want to delete this lead?")) return;
-    try {
-      await crmService.deleteFunnel(id);
-      setFunnels(p => p.filter(f => f.id !== id));
-      push("Deleted", "info");
-    } catch (err) {
-      console.error("Failed to delete funnel:", err);
-      push("Error deleting funnel", "error");
-    }
+  // ⑨ CRE restricted save
+  const creEditSave=async(form)=>{
+    try{
+      const saved=await crmService.saveFunnel(form,user);
+      setFunnels(p=>p.map(f=>f.id===saved.id?saved:f));
+      setCreEditT(null);
+      push("Updated ✓");
+    } catch(err){ console.error("Failed to save:",err); push("Error saving","error"); }
   };
 
-  const upStatus = async (id, s) => {
-    try {
-      await crmService.updateStatus(id, s);
-      setFunnels(p => p.map(f => f.id === id ? { ...f, status: s } : f));
-      push(`Status → ${s}`);
-    } catch (err) {
-      console.error("Failed to update status:", err);
-      push("Error updating status", "error");
-    }
+  const del=async(id)=>{
+    if(!window.confirm("Are you sure you want to delete this lead?")) return;
+    try{ await crmService.deleteFunnel(id); setFunnels(p=>p.filter(f=>f.id!==id)); push("Deleted","info"); }
+    catch(err){ console.error("Failed to delete funnel:",err); push("Error deleting funnel","error"); }
+  };
+
+  const upStatus=async(id,s)=>{
+    try{ await crmService.updateStatus(id,s); setFunnels(p=>p.map(f=>f.id===id?{...f,status:s}:f)); push(`Status → ${s}`); }
+    catch(err){ console.error("Failed to update status:",err); push("Error updating status","error"); }
   };
 
   const titles={dashboard:"Dashboard",funnels:"Funnels",analytics:"Analytics",team:"Team"};
-  const subs={
-    dashboard:new Date().toLocaleDateString("en-IN",{weekday:"long",day:"numeric",month:"long",year:"numeric"}),
-    funnels:"All leads",analytics:"Performance metrics",team:"Users & access",
-  };
-
   const showFilters=view==="dashboard"||view==="funnels";
   const showStats  =view==="dashboard";
 
@@ -1649,7 +1612,7 @@ function Shell({user,users,onLogout,onUsersChange}) {
       <Sidebar active={view} set={setView} user={user} onLogout={onLogout} open={sidebarOpen} onClose={()=>setSidebarOpen(false)}/>
       <div style={{flex:1,display:"flex",flexDirection:"column",minWidth:0,minHeight:"100vh"}}>
         <Topbar
-          title={titles[view]} sub={subs[view]}
+          title={titles[view]}
           search={search} setSearch={setSearch}
           user={user} onAdd={()=>setAddOpen(true)}
           onExportAll={()=>{xls(scoped,`Ekanta_All_${TODAY}.xls`);push(`Exported ${scoped.length} funnels`,"info");}}
@@ -1657,19 +1620,18 @@ function Shell({user,users,onLogout,onUsersChange}) {
           fLen={filtered.length} aLen={scoped.length}
           onMenuToggle={()=>setSidebarOpen(x=>!x)}
         />
-
         {showStats&&<Stats funnels={scoped}/>}
         {showFilters&&<div style={{marginTop:16}}><FilterBar fil={fil} setF={sf} reset={rf}/></div>}
         {showStats&&!showFilters&&<div style={{height:16}}/>}
-
         <div style={{flex:1,background:showFilters?T.surface:"transparent",borderTop:showFilters?`1px solid ${T.line}`:"none"}}>
           {(view==="dashboard"||view==="funnels")&&(
             <Table
               rows={filtered} user={user}
               onView={setViewT}
               onEdit={f=>setEditT(f)}
+              onCreEdit={f=>setCreEditT(f)}
               onDelete={del}
-              onLogFollowup={f=>setLogModalFunnel(f)}  // ⑦
+              onLogFollowup={f=>setLogModalFunnel(f)}
               loading={loading}
             />
           )}
@@ -1678,13 +1640,14 @@ function Shell({user,users,onLogout,onUsersChange}) {
         </div>
       </div>
 
-      {(addOpen||editT)&&<FunnelForm onClose={()=>{setAddOpen(false);setEditT(null);}} onSave={save} existing={editT} user={user}/>}
+      {(addOpen||editT)&&<FunnelForm onClose={()=>{setAddOpen(false);setEditT(null);}} onSave={save} existing={editT} user={user} users={users}/>}
 
       {viewT&&(
         <ViewDrawer
           funnel={viewT}
           onClose={()=>setViewT(null)}
           onEdit={f=>setEditT(f)}
+          onCreEdit={f=>setCreEditT(f)}
           onStatusChange={upStatus}
           user={user}
           comments={funnelComments[viewT.id]||[]}
@@ -1694,7 +1657,15 @@ function Shell({user,users,onLogout,onUsersChange}) {
         />
       )}
 
-      {/* ⑦ Follow-up Log Modal */}
+      {/* ⑨ CRE restricted edit modal */}
+      {creEditT&&(
+        <CREEditModal
+          funnel={creEditT}
+          onClose={()=>setCreEditT(null)}
+          onSave={creEditSave}
+        />
+      )}
+
       {logModalFunnel&&(
         <FollowupLogModal
           funnel={logModalFunnel}
@@ -1715,49 +1686,37 @@ export default function App() {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    const fetchUsers = async () => {
-      try {
-        const data = await crmService.getUsers();
-        if (data && data.length > 0) {
-          setUsers(data);
-        } else {
-          setUsers(SEED_USERS);
-        }
-      } catch (err) {
-        console.error("Failed to fetch users:", err);
-        setUsers(SEED_USERS);
-      } finally {
-        setLoading(false);
-      }
+  useEffect(()=>{
+    const fetchUsers=async()=>{
+      try{
+        const data=await crmService.getUsers();
+        setUsers(data&&data.length>0?data:SEED_USERS);
+      } catch(err){ console.error("Failed to fetch users:",err); setUsers(SEED_USERS); }
+      finally{ setLoading(false); }
     };
     fetchUsers();
-  }, []);
+  },[]);
 
-  const handleUsersChange = async (newUsers) => {
-    try {
-      const currentUsernames = users.map(u => u.username);
-      const newUsernames = newUsers.map(u => u.username);
-      const deletedUsernames = currentUsernames.filter(u => !newUsernames.includes(u));
-      for (const username of deletedUsernames) {
-        await crmService.deleteUser(username);
-      }
+  const handleUsersChange=async(newUsers)=>{
+    try{
+      const currentUsernames=users.map(u=>u.username);
+      const newUsernames=newUsers.map(u=>u.username);
+      const deletedUsernames=currentUsernames.filter(u=>!newUsernames.includes(u));
+      for(const username of deletedUsernames){ await crmService.deleteUser(username); }
       await crmService.saveUsers(newUsers);
-      const data = await crmService.getUsers();
+      const data=await crmService.getUsers();
       setUsers(data);
-    } catch (err) {
-      console.error("Failed to update users:", err);
-    }
+    } catch(err){ console.error("Failed to update users:",err); }
   };
 
-  if (loading) return <div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:T.bg,fontFamily:F}}>Loading CRM...</div>;
+  if(loading) return <div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:T.bg,fontFamily:F}}>Loading CRM...</div>;
 
   return (
     <>
-      <FontLoader />
+      <FontLoader/>
       {!user
-        ? <Login users={users} onLogin={setUser} />
-        : <Shell user={user} users={users} onLogout={() => setUser(null)} onUsersChange={handleUsersChange} />
+        ?<Login users={users} onLogin={setUser}/>
+        :<Shell user={user} users={users} onLogout={()=>setUser(null)} onUsersChange={handleUsersChange}/>
       }
     </>
   );
