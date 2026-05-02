@@ -165,6 +165,55 @@ export const crmService = {
     }
   },
 
+  // Get all follow-up logs for a funnel
+async getFollowupLogs(funnelId) {
+  const { data, error } = await supabase
+    .from('followup_logs')
+    .select('*')
+    .eq('funnel_id', funnelId)
+    .order('logged_at', { ascending: true });
+  if (error) throw error;
+  return data.map(row => ({
+    id: row.id,
+    loggedBy: row.logged_by,
+    loggedAt: new Date(row.logged_at).toLocaleString('en-IN', {
+      month: 'short', day: 'numeric', year: 'numeric',
+      hour: '2-digit', minute: '2-digit'
+    }),
+    followUpDate: row.follow_up_date,
+    customerResponse: row.customer_response,
+    outcome: row.outcome,
+    nextFollowUp: row.next_follow_up,
+  }));
+},
+
+// Add a new follow-up log entry
+async addFollowupLog(funnelId, log) {
+  const { data, error } = await supabase
+    .from('followup_logs')
+    .insert({
+      funnel_id: funnelId,
+      logged_by: log.loggedBy,
+      follow_up_date: log.followUpDate,
+      customer_response: log.customerResponse,
+      outcome: log.outcome,
+      next_follow_up: log.nextFollowUp || null,
+    })
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
+},
+
+// Update next follow-up date on the funnel
+async updateNextFollowup(funnelId, date) {
+  const { error } = await supabase
+    .from('funnels')
+    .update({ next_follow_up: date })
+    .eq('id', funnelId);
+  if (error) throw error;
+},
+  
   // =========================
   // USERS
   // =========================
