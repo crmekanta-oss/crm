@@ -1526,21 +1526,25 @@ const areaPath = (points, maxV) => {
                     </svg>
                   </div>
                   <div style={{ flex: 1 }}>
-                    {donutData.map(d => (
-                      <div key={d.label} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
-                          <div style={{ width: 8, height: 8, borderRadius: 2, background: d.color }} />
-                          <span style={{ fontSize: 12, color: T.inkSub, fontFamily: F }}>{d.label}</span>
-                        </div>
-                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                          <span style={{ fontSize: 13, fontWeight: 700, color: T.ink, fontFamily: F }}>{d.n}</span>
-                          {compareOn && CM && (
-                            <DeltaBadge cur={d.n} prev={CM[d.label.toLowerCase()]} />
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
+  {donutData.map(d => {
+    const pct = M.total ? Math.round(d.n / M.total * 100) : 0;
+    return (
+      <div key={d.label} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
+          <div style={{ width: 8, height: 8, borderRadius: 2, background: d.color }} />
+          <span style={{ fontSize: 12, color: T.inkSub, fontFamily: F }}>{d.label}</span>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <span style={{ fontSize: 11, color: T.inkMuted, fontFamily: F, background: T.surfaceEl, padding: "1px 7px", borderRadius: 20, border: `1px solid ${T.line}` }}>{pct}%</span>
+          <span style={{ fontSize: 13, fontWeight: 700, color: T.ink, fontFamily: F, minWidth: 16, textAlign: "right" }}>{d.n}</span>
+          {compareOn && CM && (
+            <DeltaBadge cur={d.n} prev={CM[d.label.toLowerCase()]} />
+          )}
+        </div>
+      </div>
+    );
+  })}
+</div>
                 </div>
                 {/* Compare donuts side by side when compare is on */}
                 {compareOn && CM && cmpFrom && cmpTo && (
