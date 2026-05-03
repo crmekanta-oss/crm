@@ -1439,7 +1439,7 @@ const areaPath = (points, maxV) => {
       <div style={{ fontSize: 32 }}>📊</div>
       <div style={{ fontSize: 12, color: T.inkMuted, fontFamily: F }}>No data for selected period</div>
     </div>
-  ) : currSeries.length === 1 ? (
+) : currSeries.length === 1 ? (
     <div style={{ height: svgH, display: "flex", alignItems: "center", justifyContent: "center", gap: 48 }}>
       <div style={{ textAlign: "center" }}>
         <div style={{ fontSize: 56, fontWeight: 700, color: "#5B3BE8", fontFamily: F, letterSpacing: "-2px", lineHeight: 1 }}>{currSeries[0].count}</div>
