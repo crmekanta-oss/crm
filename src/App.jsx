@@ -1937,6 +1937,14 @@ function Analytics({ funnels, T }) {
   );
 }
 
+} ← closing brace of Analytics function
+                          ← blank line
+// ─── TEAM ────────────  ← paste Team here
+function Team(...) { ... }
+                          ← blank line  
+// ─── FUNNEL FORM ────── ← existing line
+function FunnelForm(...) { ... }
+
 // ─── FUNNEL FORM ──────────────────────────────────────────────────────────────
 function FunnelForm({onClose,onSave,existing,user,users=[],T}) {
   const blank={name:"",phone:"",email:"",enquiryType:"",funnelType:"",leadSource:"",cityRegion:"",nextFollowUp:"",products:[{desc:"",category:"",qty:"",price:""}],remarks:"",deliveryDetails:"",paymentTerms:"",orderNumber:"",quoteQty:"",quoteAmount:"",quoteDesc:"",status:"Pending",assignedTo:""};
