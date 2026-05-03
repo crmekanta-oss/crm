@@ -2412,7 +2412,6 @@ const confirmStatus=()=>{
           </div>
         </div>
       </div>
-      </div>
       {showReasonPicker&&(
         <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.4)",zIndex:3000,display:"flex",alignItems:"center",justifyContent:"center",padding:16}} onClick={()=>setShowReasonPicker(false)}>
           <div style={{background:T.surface,borderRadius:T.r["2xl"],width:"100%",maxWidth:440,boxShadow:T.shadowXl,animation:"fadeUp .2s ease"}} onClick={e=>e.stopPropagation()}>
