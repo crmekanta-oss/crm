@@ -960,312 +960,978 @@ function Table({rows,user,onView,onEdit,onCreEdit,onDelete,onLogFollowup,loading
   );
 }
 
-// ─── ANALYTICS ────────────────────────────────────────────────────────────────
-function Analytics({funnels, T}) {
+// ─── ANALYTICS COMPONENT — DROP-IN REPLACEMENT ───────────────────────────────
+// Props: { funnels, T }
+// Paste this function replacing your existing Analytics function in App.jsx
+// All helpers (today, big, inr, F, STATUS, CATS, LEAD_SOURCES, ENQS, FTYPES, Dot, StatusPill, Avatar, Ic, P) are used from outer scope
+
+function Analytics({ funnels, T }) {
   const todayV = today();
-  const won     = funnels.filter(f => f.status === "Won");
-  const pending = funnels.filter(f => f.status === "Pending");
-  const lost    = funnels.filter(f => f.status === "Lost");
-  const totalRevenue = won.reduce((a, f) => a + (Number(f.quoteAmount) || 0), 0);
-  const wr = funnels.length ? Math.round(won.length / funnels.length * 100) : 0;
 
-  // ── Follow-up health ──────────────────────────────────────────
-  const overdue       = pending.filter(f => f.nextFollowUp && f.nextFollowUp < todayV).length;
-  const todayFollowups= pending.filter(f => f.nextFollowUp === todayV).length;
-  const upcoming      = pending.filter(f => f.nextFollowUp && f.nextFollowUp > todayV).length;
-  const withOrder     = funnels.filter(f => f.orderNumber).length;
-  const totalUnitsQuoted   = funnels.reduce((a, f) => a + (Number(f.quoteQty) || 0), 0);
-  const totalProductUnits  = funnels.flatMap(f => f.products || []).reduce((a, p) => a + (Number(p.qty) || 0), 0);
+  // ─── DATE FILTER STATE ──────────────────────────────────────────────────────
+  const [preset, setPreset]           = React.useState("all");
+  const [customFrom, setCustomFrom]   = React.useState("");
+  const [customTo, setCustomTo]       = React.useState("");
+  const [compareOn, setCompareOn]     = React.useState(false);
+  const [cmpFrom, setCmpFrom]         = React.useState("");
+  const [cmpTo, setCmpTo]             = React.useState("");
+  const [granularity, setGranularity] = React.useState("monthly"); // daily | weekly | monthly
+  const [activeTab, setActiveTab]     = React.useState("overview"); // overview | pipeline | team | products
 
-  // ── City / region ─────────────────────────────────────────────
-  const byCityRaw = {};
-  funnels.forEach(f => { if (f.cityRegion) byCityRaw[f.cityRegion] = (byCityRaw[f.cityRegion] || 0) + 1; });
-  const byCity   = Object.entries(byCityRaw).sort((a, b) => b[1] - a[1]).slice(0, 8);
-  const maxCity  = Math.max(...byCity.map(x => x[1]), 1);
+  // ─── PRESET RANGES ──────────────────────────────────────────────────────────
+  const getRange = (p) => {
+    const now = new Date();
+    const fmt = d => d.toISOString().split("T")[0];
+    const startOf = (unit) => {
+      const d = new Date(now);
+      if (unit === "week") { d.setDate(d.getDate() - d.getDay()); }
+      if (unit === "month") { d.setDate(1); }
+      if (unit === "year")  { d.setMonth(0); d.setDate(1); }
+      return d;
+    };
+    switch (p) {
+      case "today":  return { from: fmt(now), to: fmt(now) };
+      case "week":   return { from: fmt(startOf("week")), to: fmt(now) };
+      case "month":  return { from: fmt(startOf("month")), to: fmt(now) };
+      case "last30": { const d = new Date(now); d.setDate(d.getDate()-30); return { from: fmt(d), to: fmt(now) }; }
+      case "last3m": { const d = new Date(now); d.setMonth(d.getMonth()-3); return { from: fmt(d), to: fmt(now) }; }
+      case "year":   return { from: fmt(startOf("year")), to: fmt(now) };
+      default:       return { from: "", to: "" };
+    }
+  };
 
-  // ── Revenue by category ───────────────────────────────────────
-  const catRev = {};
-  funnels.forEach(f => (f.products || []).forEach(p => {
-    if (p.category) catRev[p.category] = (catRev[p.category] || 0) + (Number(p.qty) * Number(p.price) || 0);
+  // Auto compare period
+  const getAutoCompare = (from, to) => {
+    if (!from || !to) return { from: "", to: "" };
+    const f = new Date(from), t = new Date(to);
+    const diff = t - f;
+    const cf = new Date(f - diff - 86400000);
+    const ct = new Date(f - 86400000);
+    const fmt = d => d.toISOString().split("T")[0];
+    return { from: fmt(cf), to: fmt(ct) };
+  };
+
+  const activeFrom = preset === "custom" ? customFrom : getRange(preset).from;
+  const activeTo   = preset === "custom" ? customTo   : getRange(preset).to;
+
+  React.useEffect(() => {
+    if (compareOn && activeFrom && activeTo) {
+      const auto = getAutoCompare(activeFrom, activeTo);
+      setCmpFrom(auto.from); setCmpTo(auto.to);
+    }
+  }, [preset, activeFrom, activeTo, compareOn]);
+
+  // Auto granularity
+  React.useEffect(() => {
+    if (!activeFrom || !activeTo) { setGranularity("monthly"); return; }
+    const diff = (new Date(activeTo) - new Date(activeFrom)) / 86400000;
+    if (diff <= 14)  setGranularity("daily");
+    else if (diff <= 90) setGranularity("weekly");
+    else setGranularity("monthly");
+  }, [activeFrom, activeTo]);
+
+  // ─── FILTER FUNNELS ─────────────────────────────────────────────────────────
+  const filterByRange = (arr, from, to) => {
+    if (!from && !to) return arr;
+    return arr.filter(f => {
+      try {
+        const d = new Date(f.createdAt).toISOString().split("T")[0];
+        if (from && d < from) return false;
+        if (to   && d > to)   return false;
+        return true;
+      } catch { return false; }
+    });
+  };
+
+  const curr = filterByRange(funnels, activeFrom, activeTo);
+  const cmp  = compareOn ? filterByRange(funnels, cmpFrom, cmpTo) : [];
+
+  // ─── COMPUTE METRICS ────────────────────────────────────────────────────────
+  const metrics = (arr) => {
+    const won     = arr.filter(f => f.status === "Won");
+    const pending = arr.filter(f => f.status === "Pending");
+    const lost    = arr.filter(f => f.status === "Lost");
+    const drop    = arr.filter(f => f.status === "Drop");
+    const wonRev  = won.reduce((a, f) => a + (Number(f.quoteAmount) || 0), 0);
+    const pendRev = pending.reduce((a, f) => a + (Number(f.quoteAmount) || 0), 0);
+    const lostRev = lost.reduce((a, f) => a + (Number(f.quoteAmount) || 0), 0);
+    const totalRev= arr.reduce((a, f) => a + (Number(f.quoteAmount) || 0), 0);
+    const wr      = arr.length ? Math.round(won.length / arr.length * 100) : 0;
+    const avgDeal = won.length ? wonRev / won.length : 0;
+    const overdue = pending.filter(f => f.nextFollowUp && f.nextFollowUp < todayV).length;
+    const todayF  = pending.filter(f => f.nextFollowUp === todayV).length;
+    return { total: arr.length, won: won.length, pending: pending.length, lost: lost.length, drop: drop.length, wonRev, pendRev, lostRev, totalRev, wr, avgDeal, overdue, todayF };
+  };
+
+  const M  = metrics(curr);
+  const CM = compareOn ? metrics(cmp) : null;
+
+  // Delta helper
+  const delta = (cur, prev) => {
+    if (!prev || prev === 0) return null;
+    const pct = Math.round(((cur - prev) / prev) * 100);
+    return { pct, up: pct >= 0 };
+  };
+
+  // ─── TIME SERIES ────────────────────────────────────────────────────────────
+  const buildTimeSeries = (arr, from, to, gran) => {
+    if (!from || !to) {
+      // Use last 6 months if no range
+      const buckets = {};
+      arr.forEach(f => {
+        try {
+          const key = new Date(f.createdAt).toISOString().slice(0, 7);
+          if (!buckets[key]) buckets[key] = { count: 0, revenue: 0 };
+          buckets[key].count++;
+          buckets[key].revenue += Number(f.quoteAmount) || 0;
+        } catch {}
+      });
+      return Object.entries(buckets).sort((a, b) => a[0].localeCompare(b[0])).slice(-8).map(([k, v]) => ({ label: new Date(k + "-01").toLocaleString("en-IN", { month: "short", year: "2-digit" }), ...v }));
+    }
+    const points = [];
+    const f = new Date(from), t = new Date(to);
+    let cur = new Date(f);
+    while (cur <= t) {
+      let key, label, next;
+      if (gran === "daily") {
+        key = cur.toISOString().split("T")[0];
+        label = cur.toLocaleString("en-IN", { day: "numeric", month: "short" });
+        next = new Date(cur); next.setDate(next.getDate() + 1);
+      } else if (gran === "weekly") {
+        key = cur.toISOString().split("T")[0];
+        const we = new Date(cur); we.setDate(we.getDate() + 6);
+        label = `${cur.getDate()} ${cur.toLocaleString("en-IN",{month:"short"})}`;
+        next = new Date(cur); next.setDate(next.getDate() + 7);
+      } else {
+        key = cur.toISOString().slice(0, 7);
+        label = cur.toLocaleString("en-IN", { month: "short", year: "2-digit" });
+        next = new Date(cur); next.setMonth(next.getMonth() + 1);
+      }
+      const bucket = arr.filter(item => {
+        try {
+          const d = new Date(item.createdAt).toISOString();
+          const dk = gran === "monthly" ? d.slice(0,7) : d.split("T")[0];
+          if (gran === "monthly") return dk === key;
+          if (gran === "daily")   return dk === key;
+          return dk >= key && dk < next.toISOString().split("T")[0];
+        } catch { return false; }
+      });
+      points.push({ label, count: bucket.length, revenue: bucket.reduce((a,f) => a+(Number(f.quoteAmount)||0), 0) });
+      cur = next;
+      if (points.length > 24) break;
+    }
+    return points;
+  };
+
+  const currSeries = buildTimeSeries(curr, activeFrom, activeTo, granularity);
+  const cmpSeries  = compareOn ? buildTimeSeries(cmp, cmpFrom, cmpTo, granularity) : [];
+
+  // ─── SVG HELPERS ────────────────────────────────────────────────────────────
+  const svgH = 160, svgW = 560, pad = { l: 40, r: 16, t: 16, b: 32 };
+  const innerW = svgW - pad.l - pad.r;
+  const innerH = svgH - pad.t - pad.b;
+
+  const polyline = (points, maxV) => {
+    if (!points.length || maxV === 0) return "";
+    return points.map((p, i) => {
+      const x = pad.l + (i / (points.length - 1 || 1)) * innerW;
+      const y = pad.t + innerH - (p / maxV) * innerH;
+      return `${x},${y}`;
+    }).join(" ");
+  };
+
+  const areaPath = (points, maxV) => {
+    if (!points.length || maxV === 0) return "";
+    const pts = points.map((p, i) => ({
+      x: pad.l + (i / (points.length - 1 || 1)) * innerW,
+      y: pad.t + innerH - (p / maxV) * innerH
+    }));
+    const d = pts.map((p, i) => `${i === 0 ? "M" : "L"}${p.x},${p.y}`).join(" ");
+    return `${d} L${pts[pts.length-1].x},${pad.t+innerH} L${pts[0].x},${pad.t+innerH} Z`;
+  };
+
+  // Donut arc
+  const donutArc = (cx, cy, r, startPct, endPct) => {
+    const start = (startPct * 360 - 90) * Math.PI / 180;
+    const end   = (endPct   * 360 - 90) * Math.PI / 180;
+    const x1 = cx + r * Math.cos(start), y1 = cy + r * Math.sin(start);
+    const x2 = cx + r * Math.cos(end),   y2 = cy + r * Math.sin(end);
+    const large = endPct - startPct > 0.5 ? 1 : 0;
+    return `M${x1},${y1} A${r},${r} 0 ${large} 1 ${x2},${y2}`;
+  };
+
+  // ─── COMPUTED DATA ──────────────────────────────────────────────────────────
+  const won     = curr.filter(f => f.status === "Won");
+  const pending = curr.filter(f => f.status === "Pending");
+  const lost    = curr.filter(f => f.status === "Lost");
+  const drop    = curr.filter(f => f.status === "Drop");
+
+  // Status donut data
+  const donutData = [
+    { label: "Won",     n: M.won,     color: T.won.dot },
+    { label: "Pending", n: M.pending, color: T.pending.dot },
+    { label: "Lost",    n: M.lost,    color: T.lost.dot },
+    { label: "Drop",    n: M.drop,    color: T.drop.dot },
+  ].filter(d => d.n > 0);
+
+  // Category revenue
+  const catRevMap = {};
+  curr.forEach(f => (f.products || []).forEach(p => {
+    if (p.category) catRevMap[p.category] = (catRevMap[p.category] || 0) + (Number(p.qty) * Number(p.price) || 0);
   }));
-  const byCatRevenue = Object.entries(catRev).sort((a, b) => b[1] - a[1]);
-  const maxCatRev    = Math.max(...byCatRevenue.map(x => x[1]), 1);
+  const catRevArr = Object.entries(catRevMap).sort((a, b) => b[1] - a[1]);
+  const maxCatRev = Math.max(...catRevArr.map(x => x[1]), 1);
 
-  // ── Team performance ──────────────────────────────────────────
-  const teamPerf = {};
-  funnels.forEach(f => {
-    const person = f.assignedTo || f.createdBy;
-    if (!person) return;
-    if (!teamPerf[person]) teamPerf[person] = { total: 0, won: 0, revenue: 0 };
-    teamPerf[person].total++;
-    if (f.status === "Won") { teamPerf[person].won++; teamPerf[person].revenue += Number(f.quoteAmount) || 0; }
+  // Lead source
+  const srcMap = {};
+  curr.forEach(f => { if (f.leadSource) srcMap[f.leadSource] = (srcMap[f.leadSource] || 0) + 1; });
+  const srcArr = Object.entries(srcMap).sort((a, b) => b[1] - a[1]);
+  const maxSrc = Math.max(...srcArr.map(x => x[1]), 1);
+
+  // City
+  const cityMap = {};
+  curr.forEach(f => { if (f.cityRegion) cityMap[f.cityRegion] = (cityMap[f.cityRegion] || 0) + 1; });
+  const cityArr = Object.entries(cityMap).sort((a, b) => b[1] - a[1]).slice(0, 8);
+  const maxCity = Math.max(...cityArr.map(x => x[1]), 1);
+
+  // Team perf
+  const teamMap = {};
+  curr.forEach(f => {
+    const p = f.assignedTo || f.createdBy;
+    if (!p) return;
+    if (!teamMap[p]) teamMap[p] = { total: 0, won: 0, revenue: 0, pending: 0, lost: 0 };
+    teamMap[p].total++;
+    if (f.status === "Won")     { teamMap[p].won++;     teamMap[p].revenue += Number(f.quoteAmount) || 0; }
+    if (f.status === "Pending") teamMap[p].pending++;
+    if (f.status === "Lost")    teamMap[p].lost++;
   });
-  const teamList = Object.entries(teamPerf).sort((a, b) => b[1].total - a[1].total);
+  const cmpTeamMap = {};
+  cmp.forEach(f => {
+    const p = f.assignedTo || f.createdBy;
+    if (!p) return;
+    if (!cmpTeamMap[p]) cmpTeamMap[p] = { total: 0, won: 0, revenue: 0 };
+    cmpTeamMap[p].total++;
+    if (f.status === "Won") { cmpTeamMap[p].won++; cmpTeamMap[p].revenue += Number(f.quoteAmount) || 0; }
+  });
+  const teamArr = Object.entries(teamMap).sort((a, b) => b[1].total - a[1].total);
 
-  // ── Top customers ─────────────────────────────────────────────
-  const topCustomers = [...funnels]
-    .filter(f => f.quoteAmount)
-    .sort((a, b) => (Number(b.quoteAmount) || 0) - (Number(a.quoteAmount) || 0))
-    .slice(0, 5);
+  // Funnel stage flow
+  const stageData = [
+    { label: "Total Leads", n: M.total,   color: "#5B3BE8", pct: 100 },
+    { label: "Pending",     n: M.pending, color: T.pending.dot, pct: M.total ? Math.round(M.pending/M.total*100) : 0 },
+    { label: "Won",         n: M.won,     color: T.won.dot, pct: M.total ? Math.round(M.won/M.total*100) : 0 },
+    { label: "Lost",        n: M.lost,    color: T.lost.dot, pct: M.total ? Math.round(M.lost/M.total*100) : 0 },
+  ];
 
-  // ── Units by category (existing) ─────────────────────────────
-  const byCat   = CATS.map(c => ({ c, n: (funnels.flatMap(f => f.products || [])).filter(p => p.category === c).reduce((a, p) => a + (Number(p.qty) || 0), 0) })).sort((a, b) => b.n - a.n);
-  const maxCat  = Math.max(...byCat.map(x => x.n), 1);
+  // Top customers
+  const topCustomers = [...curr].filter(f => f.quoteAmount).sort((a, b) => (Number(b.quoteAmount)||0) - (Number(a.quoteAmount)||0)).slice(0, 5);
 
-  const typeColors = ["#5B3BE8", T.won.dot, T.pending.dot, T.premium.dot, T.new.dot];
-  const enqColors  = [T.new.dot, T.won.dot, T.bulk.dot, T.high.dot, T.premium.dot, T.drop.dot];
+  // Enquiry type
+  const enqMap = {};
+  curr.forEach(f => { if (f.enquiryType) enqMap[f.enquiryType] = (enqMap[f.enquiryType] || 0) + 1; });
 
-  // ── Sub-components ────────────────────────────────────────────
-  const Row = ({ label, val, pct, color }) => (
-    <div style={{ marginBottom: 14 }}>
-      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 5 }}>
-        <span style={{ fontSize: 12, color: T.ink, fontFamily: F }}>{label}</span>
-        <span style={{ fontSize: 12, fontWeight: 600, color: T.ink, fontFamily: F }}>{val} <span style={{ color: T.inkMuted, fontWeight: 400 }}>({pct}%)</span></span>
+  // Units by cat
+  const unitsByCat = CATS.map(c => ({ c, n: curr.flatMap(f => f.products||[]).filter(p=>p.category===c).reduce((a,p)=>a+(Number(p.qty)||0),0) })).sort((a,b)=>b.n-a.n);
+  const maxUnits = Math.max(...unitsByCat.map(x=>x.n), 1);
+
+  // Overdue follow-ups
+  const overdueList = pending.filter(f => f.nextFollowUp && f.nextFollowUp < todayV).sort((a,b)=>a.nextFollowUp.localeCompare(b.nextFollowUp)).slice(0,5);
+  const upcomingList = pending.filter(f => f.nextFollowUp && f.nextFollowUp >= todayV).sort((a,b)=>a.nextFollowUp.localeCompare(b.nextFollowUp)).slice(0,5);
+
+  const seriesCountMax = Math.max(...currSeries.map(p=>p.count), ...cmpSeries.map(p=>p.count), 1);
+  const seriesRevMax   = Math.max(...currSeries.map(p=>p.revenue), ...cmpSeries.map(p=>p.revenue), 1);
+
+  // ─── STYLE HELPERS ─────────────────────────────────────────────────────────
+  const Card = ({ children, title, subtitle, span2, span3, noPad, style: extraStyle }) => (
+    <div style={{ background: T.surface, border: `1px solid ${T.line}`, borderRadius: T.r.lg, boxShadow: T.shadowSm, overflow: "hidden", ...(span2 ? { gridColumn: "span 2" } : {}), ...(span3 ? { gridColumn: "span 3" } : {}), ...extraStyle }}>
+      {(title || subtitle) && (
+        <div style={{ padding: "16px 20px 0", borderBottom: `1px solid ${T.line}`, paddingBottom: 14 }}>
+          {title && <div style={{ fontSize: 11, fontWeight: 700, color: T.inkMuted, textTransform: "uppercase", letterSpacing: "0.08em", fontFamily: F, marginBottom: subtitle ? 2 : 0 }}>{title}</div>}
+          {subtitle && <div style={{ fontSize: 12, color: T.inkSub, fontFamily: F }}>{subtitle}</div>}
+        </div>
+      )}
+      {!noPad && <div style={{ padding: "16px 20px" }}>{children}</div>}
+      {noPad && children}
+    </div>
+  );
+
+  const DeltaBadge = ({ cur, prev, format }) => {
+    const d = delta(cur, prev);
+    if (!d) return null;
+    return (
+      <span style={{ display: "inline-flex", alignItems: "center", gap: 3, fontSize: 11, fontWeight: 600, color: d.up ? T.won.text : T.lost.text, background: d.up ? T.won.bg : T.lost.bg, padding: "2px 7px", borderRadius: 20, fontFamily: F }}>
+        {d.up ? "↑" : "↓"} {Math.abs(d.pct)}%
+      </span>
+    );
+  };
+
+  const KpiCard = ({ label, value, cmpValue, icon, color, bg }) => (
+    <div style={{ background: T.surface, border: `1px solid ${T.line}`, borderRadius: T.r.lg, padding: "18px 20px", boxShadow: T.shadowSm, position: "relative", overflow: "hidden" }}>
+      <div style={{ position: "absolute", top: 0, right: 0, width: 80, height: 80, borderRadius: "0 0 0 80px", background: bg || T.brandSubtle, opacity: 0.5 }} />
+      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 10 }}>
+        <div style={{ width: 32, height: 32, borderRadius: 9, background: bg || T.brandSubtle, display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <Ic d={icon} sz={15} color={color || "#5B3BE8"} />
+        </div>
+        {compareOn && cmpValue !== undefined && <DeltaBadge cur={typeof value === "number" ? value : 0} prev={typeof cmpValue === "number" ? cmpValue : 0} />}
       </div>
-      <div style={{ height: 4, background: T.surfaceEl, borderRadius: 2, overflow: "hidden" }}>
-        <div style={{ width: `${pct}%`, height: "100%", background: color, borderRadius: 2 }}/>
+      <div style={{ fontSize: 26, fontWeight: 700, color: T.ink, fontFamily: F, letterSpacing: "-0.8px", lineHeight: 1.1, marginBottom: 3 }}>
+        {typeof value === "number" && value > 1000 ? big(value) : value}
+      </div>
+      {compareOn && cmpValue !== undefined && (
+        <div style={{ fontSize: 11, color: T.inkMuted, fontFamily: F, marginBottom: 2 }}>
+          vs {typeof cmpValue === "number" && cmpValue > 1000 ? big(cmpValue) : cmpValue} prev period
+        </div>
+      )}
+      <div style={{ fontSize: 11, fontWeight: 500, color: T.inkMuted, fontFamily: F, letterSpacing: "0.03em" }}>{label}</div>
+    </div>
+  );
+
+  const HBar = ({ label, val, max, color, sub }) => (
+    <div style={{ marginBottom: 12 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 5 }}>
+        <span style={{ fontSize: 12, color: T.ink, fontFamily: F, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: "60%" }}>{label}</span>
+        <span style={{ fontSize: 12, fontWeight: 700, color: T.ink, fontFamily: F, flexShrink: 0 }}>{sub || val}</span>
+      </div>
+      <div style={{ height: 6, background: T.surfaceEl, borderRadius: 3, overflow: "hidden" }}>
+        <div style={{ width: `${Math.round((typeof val === "number" ? val : 0) / max * 100)}%`, height: "100%", background: color || "#5B3BE8", borderRadius: 3, transition: "width .6s ease" }} />
       </div>
     </div>
   );
 
-  const Card = ({ title, children, col2 }) => (
-    <div style={{ background: T.surface, border: `1px solid ${T.line}`, borderRadius: T.r.lg, padding: "20px 22px", boxShadow: T.shadowSm, ...(col2 ? { gridColumn: "span 2" } : {}) }}>
-      <div style={{ fontSize: 11, fontWeight: 600, color: T.inkMuted, textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 18, fontFamily: F }}>{title}</div>
-      {children}
-    </div>
-  );
+  // ─── PRESET BUTTONS ─────────────────────────────────────────────────────────
+  const PRESETS = [
+    ["all", "All Time"], ["today", "Today"], ["week", "This Week"],
+    ["month", "This Month"], ["last30", "Last 30d"], ["last3m", "Last 3M"], ["year", "This Year"], ["custom", "Custom"]
+  ];
 
-  const MiniStat = ({ label, value, color, bg }) => (
-    <div style={{ flex: 1, textAlign: "center", padding: "12px 8px", background: bg, borderRadius: T.r.md, border: `1px solid ${T.line}` }}>
-      <div style={{ fontSize: 22, fontWeight: 700, color, fontFamily: F, letterSpacing: "-0.5px" }}>{value}</div>
-      <div style={{ fontSize: 10, color: T.inkMuted, marginTop: 4, fontFamily: F }}>{label}</div>
-    </div>
-  );
+  // ─── TABS ────────────────────────────────────────────────────────────────────
+  const TABS = [
+    { id: "overview",  label: "Overview"  },
+    { id: "pipeline",  label: "Pipeline"  },
+    { id: "team",      label: "Team"      },
+    { id: "products",  label: "Products"  },
+  ];
 
+  const rangeLabel = activeFrom && activeTo ? `${activeFrom} → ${activeTo}` : "All time";
+
+  // ─── RENDER ─────────────────────────────────────────────────────────────────
   return (
-    <div style={{ padding: "20px 24px", display: "flex", flexDirection: "column", gap: 16 }}>
+    <div style={{ fontFamily: F, minHeight: "100%" }}>
 
-      {/* ── Row 1: Win rate · Status · Revenue ── */}
-      <div className="ek-analytics-3col" style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 16 }}>
-
-        <Card title="Win rate">
-          <div style={{ textAlign: "center", padding: "8px 0" }}>
-            <div style={{ fontSize: 52, fontWeight: 700, color: wr >= 50 ? T.won.dot : T.pending.dot, fontFamily: F, letterSpacing: "-2px", lineHeight: 1 }}>{wr}%</div>
-            <div style={{ fontSize: 12, color: T.inkSub, marginTop: 10, fontFamily: F }}>{won.length} of {funnels.length} deals won</div>
-            <div style={{ height: 6, background: T.surfaceEl, borderRadius: 3, overflow: "hidden", marginTop: 16 }}>
-              <div style={{ width: `${wr}%`, height: "100%", background: wr >= 50 ? T.won.dot : T.pending.dot, borderRadius: 3 }}/>
-            </div>
-          </div>
-        </Card>
-
-        <Card title="Status breakdown">
-          {STATUS.map(s => {
-            const n = funnels.filter(f => f.status === s).length;
-            const pct = funnels.length ? Math.round(n / funnels.length * 100) : 0;
-            const c = T[s.toLowerCase()] || T.drop;
-            return <Row key={s} label={s} val={n} pct={pct} color={c.dot}/>;
-          })}
-        </Card>
-
-        <Card title="Revenue">
-          {[
-            ["Won revenue",       big(totalRevenue),                                                                             T.won.dot],
-            ["Pending pipeline",  big(pending.reduce((a, f) => a + (Number(f.quoteAmount) || 0), 0)),                           T.pending.dot],
-            ["Lost revenue",      big(lost.reduce((a, f) => a + (Number(f.quoteAmount) || 0), 0)),                              T.lost.dot],
-            ["Avg deal size",     big(funnels.length ? funnels.reduce((a, f) => a + (Number(f.quoteAmount) || 0), 0) / funnels.length : 0), "#5B3BE8"],
-          ].map(([label, val, color], i, arr) => (
-            <div key={label} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 0", borderBottom: i < arr.length - 1 ? `1px solid ${T.line}` : "none" }}>
-              <span style={{ fontSize: 12, color: T.inkSub, fontFamily: F }}>{label}</span>
-              <span style={{ fontSize: 15, fontWeight: 700, color, fontFamily: F }}>{val}</span>
-            </div>
-          ))}
-        </Card>
-      </div>
-
-      {/* ── Row 2: Follow-up health · Funnel type · Enquiry type ── */}
-      <div className="ek-analytics-3col" style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 16 }}>
-
-        <Card title="Follow-up health & pipeline">
-          <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
-            <MiniStat label="Overdue"  value={overdue}        color={T.lost.text}    bg={T.lost.bg}/>
-            <MiniStat label="Today"    value={todayFollowups} color={T.pending.text} bg={T.pending.bg}/>
-            <MiniStat label="Upcoming" value={upcoming}       color={T.new.text}     bg={T.new.bg}/>
-          </div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 9 }}>
-            {[
-              ["With order number",    withOrder,          "#5B3BE8"],
-              ["Without order number", funnels.length - withOrder, T.inkMuted],
-              ["Total units quoted",   totalUnitsQuoted,   T.ink],
-              ["Total product units",  totalProductUnits,  T.ink],
-            ].map(([label, val, color]) => (
-              <div key={label} style={{ display: "flex", justifyContent: "space-between", fontSize: 12, fontFamily: F }}>
-                <span style={{ color: T.inkSub }}>{label}</span>
-                <span style={{ fontWeight: 600, color }}>{val}</span>
-              </div>
+      {/* ── STICKY FILTER BAR ── */}
+      <div style={{ position: "sticky", top: 0, zIndex: 100, background: T.surface, borderBottom: `1px solid ${T.line}`, padding: "10px 24px" }}>
+        {/* Row 1: Presets + granularity + compare toggle */}
+        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: compareOn || preset === "custom" ? 10 : 0 }}>
+          <div style={{ display: "flex", gap: 4, flexWrap: "wrap", flex: 1 }}>
+            {PRESETS.map(([id, label]) => (
+              <button key={id} onClick={() => setPreset(id)}
+                style={{ padding: "5px 11px", borderRadius: 20, fontSize: 12, fontWeight: preset === id ? 600 : 400, fontFamily: F, border: `1px solid ${preset === id ? "#5B3BE8" : T.line}`, background: preset === id ? "#5B3BE8" : T.surface, color: preset === id ? "#fff" : T.inkSub, cursor: "pointer", transition: "all .15s", whiteSpace: "nowrap" }}>
+                {label}
+              </button>
             ))}
           </div>
-        </Card>
-
-        <Card title="Leads by funnel type">
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            {FTYPES.map((t, i) => {
-              const n = funnels.filter(f => f.funnelType === t).length;
-              return (
-                <div key={t} style={{ flex: 1, minWidth: 60, textAlign: "center", padding: "12px 8px", background: T.surfaceEl, borderRadius: T.r.md, border: `1px solid ${T.line}` }}>
-                  <div style={{ fontSize: 22, fontWeight: 700, color: typeColors[i] || "#5B3BE8", fontFamily: F }}>{n}</div>
-                  <div style={{ fontSize: 10, color: T.inkMuted, marginTop: 4, fontFamily: F, lineHeight: 1.3 }}>{t}</div>
-                </div>
-              );
-            })}
+          {/* Granularity */}
+          <div style={{ display: "flex", background: T.surfaceEl, border: `1px solid ${T.line}`, borderRadius: T.r.md, overflow: "hidden", flexShrink: 0 }}>
+            {["daily", "weekly", "monthly"].map(g => (
+              <button key={g} onClick={() => setGranularity(g)}
+                style={{ padding: "5px 10px", fontSize: 11, fontWeight: granularity === g ? 600 : 400, fontFamily: F, border: "none", cursor: "pointer", background: granularity === g ? T.brand : "transparent", color: granularity === g ? "#fff" : T.inkSub, textTransform: "capitalize", transition: "all .15s" }}>
+                {g.slice(0,1).toUpperCase()+g.slice(1)}
+              </button>
+            ))}
           </div>
-        </Card>
+          {/* Compare toggle */}
+          <button onClick={() => setCompareOn(x => !x)}
+            style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 13px", borderRadius: 20, fontSize: 12, fontWeight: 600, fontFamily: F, border: `1px solid ${compareOn ? "#D97706" : T.line}`, background: compareOn ? "rgba(217,119,6,0.1)" : T.surface, color: compareOn ? "#D97706" : T.inkSub, cursor: "pointer", transition: "all .15s", whiteSpace: "nowrap" }}>
+            <span style={{ fontSize: 13 }}>⚡</span> {compareOn ? "Compare ON" : "Compare"}
+          </button>
+        </div>
 
-        <Card title="Leads by enquiry type">
-          {ENQS.map((e, i) => {
-            const n = funnels.filter(f => f.enquiryType === e).length;
-            if (!n) return null;
-            const pct = funnels.length ? Math.round(n / funnels.length * 100) : 0;
-            return <Row key={e} label={e} val={n} pct={pct} color={enqColors[i] || "#5B3BE8"}/>;
-          })}
-          {!funnels.some(f => f.enquiryType) && <div style={{ fontSize: 12, color: T.inkMuted, fontFamily: F }}>No enquiry data yet.</div>}
-        </Card>
+        {/* Row 2: Custom range inputs */}
+        {preset === "custom" && (
+          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: compareOn ? 8 : 0 }}>
+            <span style={{ fontSize: 11, fontWeight: 600, color: T.inkMuted, letterSpacing: "0.06em", textTransform: "uppercase" }}>Range</span>
+            <input type="date" value={customFrom} onChange={e => setCustomFrom(e.target.value)} style={{ padding: "5px 9px", border: `1px solid ${T.lineMid}`, borderRadius: T.r.md, fontSize: 12, fontFamily: F, color: T.ink, background: T.surface, outline: "none" }} />
+            <span style={{ color: T.inkMuted, fontSize: 12 }}>→</span>
+            <input type="date" value={customTo} onChange={e => setCustomTo(e.target.value)} style={{ padding: "5px 9px", border: `1px solid ${T.lineMid}`, borderRadius: T.r.md, fontSize: 12, fontFamily: F, color: T.ink, background: T.surface, outline: "none" }} />
+          </div>
+        )}
+
+        {/* Row 3: Compare range */}
+        {compareOn && (
+          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+            <span style={{ fontSize: 11, fontWeight: 600, color: "#D97706", letterSpacing: "0.06em", textTransform: "uppercase" }}>⚡ Compare</span>
+            <input type="date" value={cmpFrom} onChange={e => setCmpFrom(e.target.value)} style={{ padding: "5px 9px", border: `1px solid #D9770644`, borderRadius: T.r.md, fontSize: 12, fontFamily: F, color: T.ink, background: "rgba(217,119,6,0.06)", outline: "none" }} />
+            <span style={{ color: T.inkMuted, fontSize: 12 }}>→</span>
+            <input type="date" value={cmpTo} onChange={e => setCmpTo(e.target.value)} style={{ padding: "5px 9px", border: `1px solid #D9770644`, borderRadius: T.r.md, fontSize: 12, fontFamily: F, color: T.ink, background: "rgba(217,119,6,0.06)", outline: "none" }} />
+            {cmpFrom && cmpTo && (
+              <span style={{ fontSize: 11, color: "#D97706", fontFamily: F, fontWeight: 500 }}>
+                vs {cmpFrom} → {cmpTo}
+              </span>
+            )}
+          </div>
+        )}
       </div>
 
-      {/* ── Row 3: Lead source · City/Region · Team performance ── */}
-      <div className="ek-analytics-3col" style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 16 }}>
+      {/* ── TABS ── */}
+      <div style={{ display: "flex", gap: 0, borderBottom: `1px solid ${T.line}`, background: T.surface, padding: "0 24px" }}>
+        {TABS.map(tab => (
+          <button key={tab.id} onClick={() => setActiveTab(tab.id)}
+            style={{ padding: "10px 16px", fontSize: 13, fontWeight: activeTab === tab.id ? 600 : 400, fontFamily: F, border: "none", borderBottom: `2px solid ${activeTab === tab.id ? "#5B3BE8" : "transparent"}`, background: "transparent", color: activeTab === tab.id ? "#5B3BE8" : T.inkSub, cursor: "pointer", transition: "all .15s", marginBottom: -1 }}>
+            {tab.label}
+          </button>
+        ))}
+        <div style={{ flex: 1 }} />
+        <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 0" }}>
+          <span style={{ fontSize: 11, color: T.inkMuted, fontFamily: F }}>{curr.length} leads · {rangeLabel}</span>
+          {compareOn && CM && (
+            <span style={{ fontSize: 11, color: "#D97706", fontFamily: F }}>vs {cmp.length} leads</span>
+          )}
+        </div>
+      </div>
 
-        <Card title="Leads by source">
-          {LEAD_SOURCES.map(s => {
-            const n = funnels.filter(f => f.leadSource === s).length;
-            if (!n) return null;
-            const pct = funnels.length ? Math.round(n / funnels.length * 100) : 0;
-            return <Row key={s} label={s} val={n} pct={pct} color="#5B3BE8"/>;
-          })}
-          {!funnels.some(f => f.leadSource) && <div style={{ fontSize: 12, color: T.inkMuted, fontFamily: F }}>No source data yet.</div>}
-        </Card>
+      <div style={{ padding: "20px 24px", display: "flex", flexDirection: "column", gap: 16 }}>
 
-        <Card title="Leads by city / region">
-          {byCity.length === 0
-            ? <div style={{ fontSize: 12, color: T.inkMuted, fontFamily: F }}>No city data yet.</div>
-            : byCity.map(([city, n]) => <Row key={city} label={city} val={n} pct={Math.round(n / maxCity * 100)} color="#5B3BE8"/>)
-          }
-        </Card>
+        {/* ════════════════════════════════════════════════════════
+            OVERVIEW TAB
+        ════════════════════════════════════════════════════════ */}
+        {activeTab === "overview" && (
+          <>
+            {/* KPI Strip */}
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 12 }}>
+              <KpiCard label="Total Leads"   value={M.total}   cmpValue={CM?.total}   icon={P.list}  color="#5B3BE8" bg={T.brandSubtle} />
+              <KpiCard label="Won Deals"     value={M.won}     cmpValue={CM?.won}     icon={P.check} color={T.won.dot} bg={T.won.bg} />
+              <KpiCard label="Win Rate"      value={`${M.wr}%`} cmpValue={CM ? `${CM.wr}%` : undefined} icon={P.chart} color={T.won.dot} bg={T.won.bg} />
+              <KpiCard label="Won Revenue"   value={M.wonRev}  cmpValue={CM?.wonRev}  icon={P.layers} color="#5B3BE8" bg={T.brandSubtle} />
+              <KpiCard label="Avg Deal Size" value={M.avgDeal} cmpValue={CM?.avgDeal} icon={P.tag}   color={T.pending.dot} bg={T.pending.bg} />
+              <KpiCard label="Pipeline"      value={M.pendRev} cmpValue={CM?.pendRev} icon={P.filter} color={T.pending.dot} bg={T.pending.bg} />
+              <KpiCard label="Overdue"       value={M.overdue} cmpValue={CM?.overdue} icon={P.bell}  color={T.lost.dot} bg={T.lost.bg} />
+              <KpiCard label="Today Follow-ups" value={M.todayF} cmpValue={CM?.todayF} icon={P.bell} color={T.pending.dot} bg={T.pending.bg} />
+            </div>
 
-        <Card title="Team performance">
-          {teamList.length === 0
-            ? <div style={{ fontSize: 12, color: T.inkMuted, fontFamily: F }}>No data yet.</div>
-            : <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                {teamList.map(([name, d]) => {
-                  const winRate = d.total ? Math.round(d.won / d.total * 100) : 0;
-                  return (
-                    <div key={name} style={{ padding: "10px 12px", background: T.surfaceEl, borderRadius: T.r.md, border: `1px solid ${T.line}` }}>
-                      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
-                        <span style={{ fontSize: 12, fontWeight: 600, color: T.ink, fontFamily: F }}>{name}</span>
-                        <span style={{ fontSize: 11, color: T.inkSub, fontFamily: F }}>{d.total} leads · {big(d.revenue)}</span>
-                      </div>
-                      <div style={{ height: 4, background: T.line, borderRadius: 2, overflow: "hidden" }}>
-                        <div style={{ width: `${winRate}%`, height: "100%", background: T.won.dot, borderRadius: 2 }}/>
-                      </div>
-                      <div style={{ fontSize: 10, color: T.inkMuted, fontFamily: F, marginTop: 4 }}>{winRate}% win rate · {d.won} won</div>
+            {/* Trend Chart */}
+            <Card title="Leads & Revenue Trend" subtitle={`${granularity.charAt(0).toUpperCase()+granularity.slice(1)} · ${rangeLabel}`} noPad>
+              <div style={{ padding: "16px 20px 8px" }}>
+                <div style={{ display: "flex", gap: 16, marginBottom: 12 }}>
+                  {[
+                    { label: "Current period", color: "#5B3BE8" },
+                    ...(compareOn ? [{ label: "Compare period", color: "#D97706", dashed: true }] : []),
+                  ].map(l => (
+                    <div key={l.label} style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                      <svg width="24" height="8"><line x1="0" y1="4" x2="24" y2="4" stroke={l.color} strokeWidth="2" strokeDasharray={l.dashed?"4,3":""}/></svg>
+                      <span style={{ fontSize: 11, color: T.inkSub, fontFamily: F }}>{l.label}</span>
                     </div>
-                  );
-                })}
+                  ))}
+                  <div style={{ marginLeft: "auto", display: "flex", gap: 4 }}>
+                    {["count", "revenue"].map(mode => (
+                      <button key={mode} onClick={() => {}} style={{ padding: "3px 9px", borderRadius: 6, fontSize: 11, fontFamily: F, border: `1px solid ${T.line}`, background: T.surface, color: T.inkSub, cursor: "pointer" }}>{mode === "count" ? "Leads" : "Revenue"}</button>
+                    ))}
+                  </div>
+                </div>
               </div>
-          }
-        </Card>
-      </div>
+              {/* Leads Count Chart */}
+              <div style={{ overflowX: "auto", padding: "0 20px 16px" }}>
+                <svg width="100%" viewBox={`0 0 ${svgW} ${svgH}`} style={{ display: "block", minWidth: 300 }}>
+                  <defs>
+                    <linearGradient id="areaGrad" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#5B3BE8" stopOpacity="0.18"/>
+                      <stop offset="100%" stopColor="#5B3BE8" stopOpacity="0"/>
+                    </linearGradient>
+                    <linearGradient id="cmpGrad" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#D97706" stopOpacity="0.15"/>
+                      <stop offset="100%" stopColor="#D97706" stopOpacity="0"/>
+                    </linearGradient>
+                  </defs>
+                  {/* Grid lines */}
+                  {[0, 0.25, 0.5, 0.75, 1].map(r => (
+                    <g key={r}>
+                      <line x1={pad.l} y1={pad.t + innerH * (1-r)} x2={pad.l + innerW} y2={pad.t + innerH * (1-r)} stroke={T.line} strokeWidth="1"/>
+                      <text x={pad.l - 4} y={pad.t + innerH*(1-r) + 4} textAnchor="end" fontSize="9" fill={T.inkMuted} fontFamily={F}>{Math.round(seriesCountMax * r)}</text>
+                    </g>
+                  ))}
+                  {/* Compare area */}
+                  {compareOn && cmpSeries.length > 1 && (
+                    <>
+                      <path d={areaPath(cmpSeries.map(p => p.count), seriesCountMax)} fill="url(#cmpGrad)"/>
+                      <polyline points={polyline(cmpSeries.map(p => p.count), seriesCountMax)} fill="none" stroke="#D97706" strokeWidth="1.5" strokeDasharray="5,3"/>
+                    </>
+                  )}
+                  {/* Current area */}
+                  {currSeries.length > 1 && (
+                    <>
+                      <path d={areaPath(currSeries.map(p => p.count), seriesCountMax)} fill="url(#areaGrad)"/>
+                      <polyline points={polyline(currSeries.map(p => p.count), seriesCountMax)} fill="none" stroke="#5B3BE8" strokeWidth="2"/>
+                    </>
+                  )}
+                  {/* X labels */}
+                  {currSeries.map((p, i) => (
+                    <text key={i} x={pad.l + (i / (currSeries.length - 1 || 1)) * innerW} y={svgH - 6} textAnchor="middle" fontSize="9" fill={T.inkMuted} fontFamily={F}>{p.label}</text>
+                  ))}
+                  {/* Data dots */}
+                  {currSeries.map((p, i) => {
+                    const x = pad.l + (i / (currSeries.length - 1 || 1)) * innerW;
+                    const y = pad.t + innerH - (p.count / seriesCountMax) * innerH;
+                    return <circle key={i} cx={x} cy={y} r="3" fill="#5B3BE8" stroke={T.surface} strokeWidth="1.5"/>;
+                  })}
+                </svg>
+              </div>
+            </Card>
 
-      {/* ── Row 4: Top customers · Revenue by category ── */}
-      <div className="ek-analytics-2col" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+            {/* Status Donut + Revenue Breakdown */}
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+              <Card title="Status Breakdown">
+                <div style={{ display: "flex", alignItems: "center", gap: 20 }}>
+                  {/* Donut */}
+                  <div style={{ flexShrink: 0 }}>
+                    <svg width="130" height="130" viewBox="0 0 130 130">
+                      {(() => {
+                        const total = donutData.reduce((a, d) => a + d.n, 0) || 1;
+                        let cumPct = 0;
+                        return donutData.map((d, i) => {
+                          const startPct = cumPct / total;
+                          cumPct += d.n;
+                          const endPct = cumPct / total;
+                          return (
+                            <g key={i}>
+                              <path d={donutArc(65, 65, 46, startPct, endPct)} fill="none" stroke={d.color} strokeWidth="18" strokeLinecap="butt"/>
+                            </g>
+                          );
+                        });
+                      })()}
+                      <text x="65" y="60" textAnchor="middle" fontSize="20" fontWeight="700" fill={T.ink} fontFamily={F}>{M.wr}%</text>
+                      <text x="65" y="76" textAnchor="middle" fontSize="9" fill={T.inkMuted} fontFamily={F}>win rate</text>
+                    </svg>
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    {donutData.map(d => (
+                      <div key={d.label} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
+                          <div style={{ width: 8, height: 8, borderRadius: 2, background: d.color }} />
+                          <span style={{ fontSize: 12, color: T.inkSub, fontFamily: F }}>{d.label}</span>
+                        </div>
+                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                          <span style={{ fontSize: 13, fontWeight: 700, color: T.ink, fontFamily: F }}>{d.n}</span>
+                          {compareOn && CM && (
+                            <DeltaBadge cur={d.n} prev={CM[d.label.toLowerCase()]} />
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                {/* Compare donuts side by side when compare is on */}
+                {compareOn && CM && cmpFrom && cmpTo && (
+                  <div style={{ marginTop: 14, paddingTop: 14, borderTop: `1px solid ${T.line}`, display: "flex", gap: 16, alignItems: "center" }}>
+                    <div style={{ fontSize: 11, color: "#D97706", fontWeight: 600, fontFamily: F, flexShrink: 0 }}>⚡ Prev period</div>
+                    {[
+                      { label: "Won", n: CM.won, color: T.won.dot },
+                      { label: "Pending", n: CM.pending, color: T.pending.dot },
+                      { label: "Lost", n: CM.lost, color: T.lost.dot },
+                    ].map(d => (
+                      <div key={d.label} style={{ flex: 1, textAlign: "center" }}>
+                        <div style={{ fontSize: 16, fontWeight: 700, color: d.color, fontFamily: F }}>{d.n}</div>
+                        <div style={{ fontSize: 10, color: T.inkMuted, fontFamily: F }}>{d.label}</div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </Card>
 
-        <Card title="Top customers by quote value">
-          {topCustomers.length === 0
-            ? <div style={{ fontSize: 12, color: T.inkMuted, fontFamily: F }}>No data yet.</div>
-            : topCustomers.map((f, i) => (
-                <div key={f.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 0", borderBottom: i < topCustomers.length - 1 ? `1px solid ${T.line}` : "none" }}>
-                  <div style={{ width: 24, height: 24, borderRadius: "50%", background: T.brandSubtle, color: "#5B3BE8", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, fontFamily: F, flexShrink: 0 }}>{i + 1}</div>
+              <Card title="Revenue Breakdown">
+                {[
+                  { label: "Won Revenue",       value: M.wonRev,  color: T.won.dot,     cmp: CM?.wonRev  },
+                  { label: "Pending Pipeline",  value: M.pendRev, color: T.pending.dot, cmp: CM?.pendRev },
+                  { label: "Lost Revenue",      value: M.lostRev, color: T.lost.dot,    cmp: CM?.lostRev },
+                  { label: "Avg Deal (Won)",    value: M.avgDeal, color: "#5B3BE8",     cmp: CM?.avgDeal },
+                  { label: "Total Quoted",      value: M.totalRev,color: T.inkMuted,    cmp: CM?.totalRev},
+                ].map((row, i, arr) => (
+                  <div key={row.label} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 0", borderBottom: i < arr.length-1 ? `1px solid ${T.line}` : "none" }}>
+                    <span style={{ fontSize: 12, color: T.inkSub, fontFamily: F }}>{row.label}</span>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      {compareOn && row.cmp !== undefined && <DeltaBadge cur={row.value} prev={row.cmp} />}
+                      <span style={{ fontSize: 14, fontWeight: 700, color: row.color, fontFamily: F }}>{big(row.value)}</span>
+                    </div>
+                  </div>
+                ))}
+              </Card>
+            </div>
+
+            {/* Funnel Stage Flow */}
+            <Card title="Conversion Funnel" subtitle="Lead stage drop-off visualization">
+              <div style={{ display: "flex", alignItems: "center", gap: 0 }}>
+                {stageData.map((stage, i) => (
+                  <React.Fragment key={stage.label}>
+                    <div style={{ flex: 1, position: "relative" }}>
+                      <div style={{ background: `${stage.color}22`, border: `1.5px solid ${stage.color}44`, borderRadius: T.r.md, padding: "14px 12px", textAlign: "center", margin: "0 4px", position: "relative", overflow: "hidden" }}>
+                        <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: `${stage.pct}%`, background: `${stage.color}18`, transition: "height .6s ease" }} />
+                        <div style={{ fontSize: 24, fontWeight: 700, color: stage.color, fontFamily: F, letterSpacing: "-0.5px", position: "relative" }}>{stage.n}</div>
+                        <div style={{ fontSize: 10, color: T.inkMuted, fontFamily: F, marginTop: 3, position: "relative" }}>{stage.label}</div>
+                        <div style={{ fontSize: 11, fontWeight: 600, color: stage.color, fontFamily: F, position: "relative" }}>{stage.pct}%</div>
+                      </div>
+                    </div>
+                    {i < stageData.length - 1 && (
+                      <div style={{ color: T.inkMuted, fontSize: 18, flexShrink: 0 }}>→</div>
+                    )}
+                  </React.Fragment>
+                ))}
+              </div>
+              {/* Drop-off rates */}
+              <div style={{ display: "flex", gap: 8, marginTop: 12, flexWrap: "wrap" }}>
+                {M.total > 0 && [
+                  { label: "Pending rate", pct: Math.round(M.pending/M.total*100), color: T.pending.dot },
+                  { label: "Win rate",     pct: M.wr, color: T.won.dot },
+                  { label: "Lost rate",    pct: Math.round(M.lost/M.total*100), color: T.lost.dot },
+                  { label: "Drop rate",    pct: Math.round(M.drop/M.total*100), color: T.drop.dot },
+                ].map(item => (
+                  <div key={item.label} style={{ display: "flex", alignItems: "center", gap: 5, padding: "4px 10px", background: T.surfaceEl, borderRadius: 20, border: `1px solid ${T.line}` }}>
+                    <div style={{ width: 6, height: 6, borderRadius: "50%", background: item.color }} />
+                    <span style={{ fontSize: 11, color: T.inkSub, fontFamily: F }}>{item.label}</span>
+                    <span style={{ fontSize: 12, fontWeight: 700, color: item.color, fontFamily: F }}>{item.pct}%</span>
+                  </div>
+                ))}
+              </div>
+            </Card>
+
+            {/* Top Customers */}
+            <Card title="Top Customers by Quote Value">
+              {topCustomers.length === 0 ? (
+                <div style={{ fontSize: 12, color: T.inkMuted, fontFamily: F }}>No data yet.</div>
+              ) : topCustomers.map((f, i) => (
+                <div key={f.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 0", borderBottom: i < topCustomers.length-1 ? `1px solid ${T.line}` : "none" }}>
+                  <div style={{ width: 28, height: 28, borderRadius: "50%", background: T.brandSubtle, color: "#5B3BE8", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 700, fontFamily: F, flexShrink: 0 }}>{i+1}</div>
+                  <Avatar name={f.name} size={32} />
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontSize: 13, fontWeight: 600, color: T.ink, fontFamily: F, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{f.name}</div>
-                    <div style={{ fontSize: 11, color: T.inkMuted, fontFamily: F }}>{f.cityRegion || f.phone || "—"}</div>
+                    <div style={{ fontSize: 11, color: T.inkMuted, fontFamily: F }}>{f.cityRegion || f.phone || "—"} · {f.enquiryType || "—"}</div>
                   </div>
                   <div style={{ textAlign: "right", flexShrink: 0 }}>
-                    <div style={{ fontSize: 13, fontWeight: 700, color: "#5B3BE8", fontFamily: F, marginBottom: 3 }}>{inr(f.quoteAmount)}</div>
-                    <StatusPill status={f.status} sm T={T}/>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: "#5B3BE8", fontFamily: F }}>{inr(f.quoteAmount)}</div>
+                    <StatusPill status={f.status} sm T={T} />
                   </div>
                 </div>
-              ))
-          }
-        </Card>
+              ))}
+            </Card>
+          </>
+        )}
 
-        <Card title="Revenue by product category">
-          {byCatRevenue.length === 0
-            ? <div style={{ fontSize: 12, color: T.inkMuted, fontFamily: F }}>No product data yet.</div>
-            : byCatRevenue.map(([cat, rev]) => <Row key={cat} label={cat} val={big(rev)} pct={Math.round(rev / maxCatRev * 100)} color="#5B3BE8"/>)
-          }
-        </Card>
-      </div>
-
-      {/* ── Row 5: Units ordered by category (existing) ── */}
-      <Card title="Units ordered by category">
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: "0 32px" }}>
-          {byCat.map(({ c, n }) => (
-            <div key={c} style={{ marginBottom: 10 }}>
-              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
-                <span style={{ fontSize: 12, color: T.ink, fontFamily: F }}>{c}</span>
-                <span style={{ fontSize: 12, fontWeight: 600, color: T.ink, fontFamily: F }}>{n}</span>
+        {/* ════════════════════════════════════════════════════════
+            PIPELINE TAB
+        ════════════════════════════════════════════════════════ */}
+        {activeTab === "pipeline" && (
+          <>
+            {/* Revenue Area Chart */}
+            <Card title="Revenue Trend" subtitle={rangeLabel} noPad>
+              <div style={{ padding: "16px 20px 0" }}>
+                <div style={{ fontSize: 26, fontWeight: 700, color: T.ink, fontFamily: F, letterSpacing: "-0.8px" }}>{big(M.wonRev)}</div>
+                <div style={{ fontSize: 12, color: T.inkSub, fontFamily: F, marginBottom: 12 }}>Won revenue {rangeLabel}</div>
               </div>
-              <div style={{ height: 4, background: T.surfaceEl, borderRadius: 2, overflow: "hidden" }}>
-                <div style={{ width: `${Math.round(n / maxCat * 100)}%`, height: "100%", background: "#5B3BE8", borderRadius: 2, opacity: .7 }}/>
+              <div style={{ overflowX: "auto", padding: "0 20px 16px" }}>
+                <svg width="100%" viewBox={`0 0 ${svgW} ${svgH}`} style={{ display: "block", minWidth: 300 }}>
+                  <defs>
+                    <linearGradient id="revGrad" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor={T.won.dot} stopOpacity="0.2"/>
+                      <stop offset="100%" stopColor={T.won.dot} stopOpacity="0"/>
+                    </linearGradient>
+                    <linearGradient id="revCmpGrad" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#D97706" stopOpacity="0.15"/>
+                      <stop offset="100%" stopColor="#D97706" stopOpacity="0"/>
+                    </linearGradient>
+                  </defs>
+                  {[0, 0.25, 0.5, 0.75, 1].map(r => (
+                    <g key={r}>
+                      <line x1={pad.l} y1={pad.t+innerH*(1-r)} x2={pad.l+innerW} y2={pad.t+innerH*(1-r)} stroke={T.line} strokeWidth="1"/>
+                      <text x={pad.l-4} y={pad.t+innerH*(1-r)+4} textAnchor="end" fontSize="9" fill={T.inkMuted} fontFamily={F}>{big(seriesRevMax*r)}</text>
+                    </g>
+                  ))}
+                  {compareOn && cmpSeries.length > 1 && (
+                    <>
+                      <path d={areaPath(cmpSeries.map(p=>p.revenue), seriesRevMax)} fill="url(#revCmpGrad)"/>
+                      <polyline points={polyline(cmpSeries.map(p=>p.revenue), seriesRevMax)} fill="none" stroke="#D97706" strokeWidth="1.5" strokeDasharray="5,3"/>
+                    </>
+                  )}
+                  {currSeries.length > 1 && (
+                    <>
+                      <path d={areaPath(currSeries.map(p=>p.revenue), seriesRevMax)} fill="url(#revGrad)"/>
+                      <polyline points={polyline(currSeries.map(p=>p.revenue), seriesRevMax)} fill="none" stroke={T.won.dot} strokeWidth="2"/>
+                    </>
+                  )}
+                  {currSeries.map((p, i) => {
+                    const x = pad.l + (i/(currSeries.length-1||1))*innerW;
+                    const y = pad.t + innerH - (p.revenue/seriesRevMax)*innerH;
+                    return <circle key={i} cx={x} cy={y} r="3" fill={T.won.dot} stroke={T.surface} strokeWidth="1.5"/>;
+                  })}
+                  {currSeries.map((p, i) => (
+                    <text key={i} x={pad.l+(i/(currSeries.length-1||1))*innerW} y={svgH-6} textAnchor="middle" fontSize="9" fill={T.inkMuted} fontFamily={F}>{p.label}</text>
+                  ))}
+                </svg>
               </div>
-            </div>
-          ))}
-        </div>
-      </Card>
+            </Card>
 
-    </div>
-  );
-}
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+              {/* Lead Source */}
+              <Card title="Leads by Source">
+                {srcArr.length === 0 ? <div style={{ fontSize: 12, color: T.inkMuted, fontFamily: F }}>No source data.</div> :
+                  srcArr.map(([src, n]) => (
+                    <HBar key={src} label={src} val={n} max={maxSrc} color="#5B3BE8" sub={`${n} (${Math.round(n/maxSrc*100)}%)`} />
+                  ))
+                }
+              </Card>
 
-// ─── TEAM ─────────────────────────────────────────────────────────────────────
-function Team({users,onSave,T}) {
-  const [list,setList]=useState(users);
-  const [form,setForm]=useState({name:"",username:"",password:"",role:"CRE"});
-  const [err,setErr]=useState("");
-  useEffect(()=>setList(users),[users]);
-  const add=()=>{if(!form.name||!form.username||!form.password){setErr("All fields required.");return;}if(list.find(u=>u.username===form.username)){setErr("Username taken.");return;}const u=[...list,{...form,id:Date.now()}];setList(u);onSave(u);setForm({name:"",username:"",password:"",role:"CRE"});setErr("");};
-  const rm=id=>{const u=list.filter(x=>x.id!==id);setList(u);onSave(u);};
-  const rc={"CEO":T.high,"Manager":T.won,"CRE":T.pending};
-  return (
-    <div className="ek-team-grid" style={{padding:"20px 24px",display:"grid",gridTemplateColumns:"360px 1fr",gap:20}}>
-      <div style={{background:T.surface,border:`1px solid ${T.line}`,borderRadius:T.r.lg,padding:22,boxShadow:T.shadowSm}}>
-        <div style={{fontSize:14,fontWeight:600,color:T.ink,marginBottom:3,fontFamily:F}}>Add team member</div>
-        <div style={{fontSize:12,color:T.inkSub,marginBottom:18,fontFamily:F}}>Access granted immediately upon creation</div>
-        <div style={{display:"flex",flexDirection:"column",gap:12}}>
-          <FInput label="Full name" value={form.name} onChange={e=>setForm(f=>({...f,name:e.target.value}))} placeholder="Jane Doe" T={T}/>
-          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
-            <FInput label="Username" value={form.username} onChange={e=>setForm(f=>({...f,username:e.target.value}))} placeholder="janedoe" T={T}/>
-            <FInput label="Password" value={form.password} onChange={e=>setForm(f=>({...f,password:e.target.value}))} placeholder="Password" type="password" T={T}/>
-          </div>
-          <FSelect label="Role" value={form.role} onChange={e=>setForm(f=>({...f,role:e.target.value}))} options={ROLES} T={T}/>
-          {err&&<div style={{fontSize:12,color:"#B91C1C",background:"#FEF2F2",border:"1px solid #FECACA",padding:"8px 11px",borderRadius:T.r.md}}>{err}</div>}
-          <Btn primary full icon={P.plus} label="Add member" onClick={add} T={T}/>
-        </div>
-        <div style={{marginTop:18,padding:"12px 14px",background:T.brandSubtle,borderRadius:T.r.md,fontSize:12,color:"#5B3BE8",lineHeight:1.7,fontFamily:F}}>
-          <strong>CEO & Manager</strong> — full access<br/><strong>CRE</strong> — create + export + limited edit
-        </div>
-      </div>
-      <div style={{background:T.surface,border:`1px solid ${T.line}`,borderRadius:T.r.lg,padding:22,boxShadow:T.shadowSm}}>
-        <div style={{fontSize:14,fontWeight:600,color:T.ink,marginBottom:18,fontFamily:F}}>Team members ({list.length})</div>
-        <div style={{display:"flex",flexDirection:"column",gap:8}}>
-          {list.map(u=>{const c=rc[u.role]||T.drop;return(
-            <div key={u.id} style={{display:"flex",alignItems:"center",gap:12,padding:"12px 14px",border:`1px solid ${T.line}`,borderRadius:T.r.md,transition:"background .1s"}} onMouseEnter={e=>e.currentTarget.style.background=T.surfaceEl} onMouseLeave={e=>e.currentTarget.style.background=T.surface}>
-              <Avatar name={u.name} size={36}/>
-              <div style={{flex:1}}><div style={{fontSize:13,fontWeight:600,color:T.ink,fontFamily:F}}>{u.name}</div><div style={{fontSize:11,color:T.inkMuted,fontFamily:F}}>@{u.username}</div></div>
-              <span style={{fontSize:11,fontWeight:500,padding:"3px 9px",borderRadius:20,background:c.bg,color:c.text,fontFamily:F}}>{u.role}</span>
-              {u.id!==1&&<Btn danger sm label="Remove" onClick={()=>rm(u.id)} T={T}/>}
+              {/* Enquiry Type */}
+              <Card title="Leads by Enquiry Type">
+                {ENQS.map((e, i) => {
+                  const n = curr.filter(f => f.enquiryType === e).length;
+                  if (!n) return null;
+                  const pct = curr.length ? Math.round(n/curr.length*100) : 0;
+                  const colors = [T.new.dot, T.won.dot, T.bulk.dot, T.high.dot, T.premium.dot, T.drop.dot];
+                  return <HBar key={e} label={e} val={n} max={curr.length || 1} color={colors[i] || "#5B3BE8"} sub={`${n} (${pct}%)`} />;
+                })}
+              </Card>
+
+              {/* Funnel Type */}
+              <Card title="Leads by Funnel Type">
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8 }}>
+                  {FTYPES.map((t, i) => {
+                    const n = curr.filter(f => f.funnelType === t).length;
+                    const colors = ["#5B3BE8", T.won.dot, T.pending.dot, T.premium.dot, T.drop.dot];
+                    return (
+                      <div key={t} style={{ textAlign: "center", padding: "12px 8px", background: T.surfaceEl, borderRadius: T.r.md, border: `1px solid ${T.line}` }}>
+                        <div style={{ fontSize: 22, fontWeight: 700, color: colors[i] || "#5B3BE8", fontFamily: F }}>{n}</div>
+                        <div style={{ fontSize: 10, color: T.inkMuted, fontFamily: F, marginTop: 3, lineHeight: 1.3 }}>{t}</div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </Card>
+
+              {/* City */}
+              <Card title="Leads by City / Region">
+                {cityArr.length === 0 ? <div style={{ fontSize: 12, color: T.inkMuted, fontFamily: F }}>No city data.</div> :
+                  cityArr.map(([city, n]) => (
+                    <HBar key={city} label={city} val={n} max={maxCity} color="#5B3BE8" sub={`${n}`} />
+                  ))
+                }
+              </Card>
             </div>
-          );})}
-        </div>
+
+            {/* Follow-up health */}
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 16 }}>
+              <Card title="Follow-up Summary">
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginBottom: 16 }}>
+                  {[
+                    { label: "Overdue",  n: M.overdue, color: T.lost.text,    bg: T.lost.bg    },
+                    { label: "Today",    n: M.todayF,  color: T.pending.text, bg: T.pending.bg },
+                    { label: "Upcoming", n: pending.filter(f=>f.nextFollowUp&&f.nextFollowUp>todayV).length, color: T.new.text, bg: T.new.bg },
+                  ].map(s => (
+                    <div key={s.label} style={{ textAlign: "center", padding: "10px 6px", background: s.bg, borderRadius: T.r.md, border: `1px solid ${T.line}` }}>
+                      <div style={{ fontSize: 22, fontWeight: 700, color: s.color, fontFamily: F }}>{s.n}</div>
+                      <div style={{ fontSize: 10, color: T.inkMuted, fontFamily: F, marginTop: 3 }}>{s.label}</div>
+                    </div>
+                  ))}
+                </div>
+                {[
+                  ["With order number",   curr.filter(f=>f.orderNumber).length,  "#5B3BE8"],
+                  ["Without order",       curr.filter(f=>!f.orderNumber).length, T.inkMuted],
+                  ["Total units quoted",  curr.reduce((a,f)=>a+(Number(f.quoteQty)||0),0), T.ink],
+                ].map(([label, val, color]) => (
+                  <div key={label} style={{ display: "flex", justifyContent: "space-between", fontSize: 12, fontFamily: F, marginBottom: 8 }}>
+                    <span style={{ color: T.inkSub }}>{label}</span>
+                    <span style={{ fontWeight: 700, color }}>{val}</span>
+                  </div>
+                ))}
+              </Card>
+
+              <Card title="Overdue Follow-ups" subtitle="Oldest first">
+                {overdueList.length === 0 ? <div style={{ fontSize: 12, color: T.inkMuted, fontFamily: F }}>🎉 No overdue follow-ups!</div> :
+                  overdueList.map((f, i) => (
+                    <div key={f.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 0", borderBottom: i < overdueList.length-1 ? `1px solid ${T.line}` : "none" }}>
+                      <div style={{ width: 6, height: 6, borderRadius: "50%", background: T.lost.dot, flexShrink: 0 }} />
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 12, fontWeight: 600, color: T.ink, fontFamily: F, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{f.name}</div>
+                        <div style={{ fontSize: 10, color: T.lost.text, fontFamily: F, fontWeight: 600 }}>Due {f.nextFollowUp}</div>
+                      </div>
+                    </div>
+                  ))
+                }
+              </Card>
+
+              <Card title="Upcoming Follow-ups">
+                {upcomingList.length === 0 ? <div style={{ fontSize: 12, color: T.inkMuted, fontFamily: F }}>No upcoming follow-ups.</div> :
+                  upcomingList.map((f, i) => (
+                    <div key={f.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 0", borderBottom: i < upcomingList.length-1 ? `1px solid ${T.line}` : "none" }}>
+                      <div style={{ width: 6, height: 6, borderRadius: "50%", background: T.new.dot, flexShrink: 0 }} />
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 12, fontWeight: 600, color: T.ink, fontFamily: F, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{f.name}</div>
+                        <div style={{ fontSize: 10, color: T.new.text, fontFamily: F, fontWeight: 600 }}>Due {f.nextFollowUp}</div>
+                      </div>
+                    </div>
+                  ))
+                }
+              </Card>
+            </div>
+          </>
+        )}
+
+        {/* ════════════════════════════════════════════════════════
+            TEAM TAB
+        ════════════════════════════════════════════════════════ */}
+        {activeTab === "team" && (
+          <>
+            {/* Team Leaderboard */}
+            <Card title="Team Leaderboard" subtitle="Ranked by total leads handled">
+              {teamArr.length === 0 ? <div style={{ fontSize: 12, color: T.inkMuted, fontFamily: F }}>No team data yet.</div> : (
+                <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                  {teamArr.map(([name, d], idx) => {
+                    const wr = d.total ? Math.round(d.won/d.total*100) : 0;
+                    const cd = cmpTeamMap[name] || { total: 0, won: 0, revenue: 0 };
+                    const medals = ["🥇", "🥈", "🥉"];
+                    return (
+                      <div key={name} style={{ background: T.surfaceEl, border: `1px solid ${T.line}`, borderRadius: T.r.lg, padding: "16px 18px", display: "flex", alignItems: "center", gap: 16 }}>
+                        <div style={{ fontSize: 20, flexShrink: 0 }}>{medals[idx] || `#${idx+1}`}</div>
+                        <Avatar name={name} size={40} />
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontSize: 14, fontWeight: 700, color: T.ink, fontFamily: F, marginBottom: 4 }}>{name}</div>
+                          {/* Win rate bar */}
+                          <div style={{ height: 5, background: T.line, borderRadius: 3, overflow: "hidden", marginBottom: 4 }}>
+                            <div style={{ width: `${wr}%`, height: "100%", background: T.won.dot, borderRadius: 3 }} />
+                          </div>
+                          <div style={{ fontSize: 11, color: T.inkMuted, fontFamily: F }}>{wr}% win rate · {d.won} won of {d.total}</div>
+                        </div>
+                        <div style={{ display: "flex", gap: 20, flexShrink: 0 }}>
+                          <div style={{ textAlign: "center" }}>
+                            <div style={{ fontSize: 18, fontWeight: 700, color: "#5B3BE8", fontFamily: F }}>{d.total}</div>
+                            <div style={{ fontSize: 10, color: T.inkMuted, fontFamily: F }}>Total</div>
+                            {compareOn && cd.total > 0 && <DeltaBadge cur={d.total} prev={cd.total} />}
+                          </div>
+                          <div style={{ textAlign: "center" }}>
+                            <div style={{ fontSize: 18, fontWeight: 700, color: T.won.dot, fontFamily: F }}>{d.won}</div>
+                            <div style={{ fontSize: 10, color: T.inkMuted, fontFamily: F }}>Won</div>
+                            {compareOn && cd.won > 0 && <DeltaBadge cur={d.won} prev={cd.won} />}
+                          </div>
+                          <div style={{ textAlign: "center" }}>
+                            <div style={{ fontSize: 18, fontWeight: 700, color: T.pending.dot, fontFamily: F }}>{d.pending}</div>
+                            <div style={{ fontSize: 10, color: T.inkMuted, fontFamily: F }}>Pending</div>
+                          </div>
+                          <div style={{ textAlign: "center" }}>
+                            <div style={{ fontSize: 16, fontWeight: 700, color: "#5B3BE8", fontFamily: F }}>{big(d.revenue)}</div>
+                            <div style={{ fontSize: 10, color: T.inkMuted, fontFamily: F }}>Revenue</div>
+                            {compareOn && cd.revenue > 0 && <DeltaBadge cur={d.revenue} prev={cd.revenue} />}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </Card>
+
+            {/* Team Stacked Bar Chart */}
+            <Card title="Team Win vs Loss — Visual" noPad>
+              <div style={{ padding: "16px 20px" }}>
+                {teamArr.length === 0 ? <div style={{ fontSize: 12, color: T.inkMuted, fontFamily: F }}>No data.</div> : (() => {
+                  const maxTotal = Math.max(...teamArr.map(([, d]) => d.total), 1);
+                  return teamArr.map(([name, d]) => (
+                    <div key={name} style={{ marginBottom: 14 }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 5 }}>
+                        <span style={{ fontSize: 12, color: T.ink, fontFamily: F, fontWeight: 500 }}>{name}</span>
+                        <span style={{ fontSize: 11, color: T.inkMuted, fontFamily: F }}>{d.total} leads</span>
+                      </div>
+                      <div style={{ height: 10, background: T.surfaceEl, borderRadius: 5, overflow: "hidden", display: "flex" }}>
+                        <div style={{ width: `${(d.won/maxTotal)*100}%`, background: T.won.dot, transition: "width .6s" }} />
+                        <div style={{ width: `${(d.pending/maxTotal)*100}%`, background: T.pending.dot, transition: "width .6s" }} />
+                        <div style={{ width: `${(d.lost/maxTotal)*100}%`, background: T.lost.dot, transition: "width .6s" }} />
+                        <div style={{ width: `${(d.drop/maxTotal)*100}%`, background: T.drop.dot, transition: "width .6s" }} />
+                      </div>
+                      <div style={{ display: "flex", gap: 12, marginTop: 4 }}>
+                        {[["Won", d.won, T.won.dot], ["Pending", d.pending, T.pending.dot], ["Lost", d.lost, T.lost.dot]].map(([l,n,c]) => n > 0 && (
+                          <span key={l} style={{ fontSize: 10, color: c, fontFamily: F, fontWeight: 600 }}>{l}: {n}</span>
+                        ))}
+                      </div>
+                    </div>
+                  ));
+                })()}
+              </div>
+            </Card>
+          </>
+        )}
+
+        {/* ════════════════════════════════════════════════════════
+            PRODUCTS TAB
+        ════════════════════════════════════════════════════════ */}
+        {activeTab === "products" && (
+          <>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+              {/* Revenue by Category */}
+              <Card title="Revenue by Product Category">
+                {catRevArr.length === 0 ? <div style={{ fontSize: 12, color: T.inkMuted, fontFamily: F }}>No product data.</div> :
+                  catRevArr.map(([cat, rev]) => (
+                    <HBar key={cat} label={cat} val={rev} max={maxCatRev} color="#5B3BE8" sub={big(rev)} />
+                  ))
+                }
+              </Card>
+
+              {/* Units by Category */}
+              <Card title="Units Ordered by Category">
+                {unitsByCat.every(x => x.n === 0) ? <div style={{ fontSize: 12, color: T.inkMuted, fontFamily: F }}>No unit data.</div> :
+                  unitsByCat.filter(x => x.n > 0).map(({ c, n }) => (
+                    <HBar key={c} label={c} val={n} max={maxUnits} color={T.premium.dot} sub={`${n} units`} />
+                  ))
+                }
+              </Card>
+            </div>
+
+            {/* Category Revenue Bar Chart SVG */}
+            <Card title="Category Revenue — Bar Chart" noPad>
+              <div style={{ overflowX: "auto", padding: "16px 20px" }}>
+                {catRevArr.length === 0 ? <div style={{ fontSize: 12, color: T.inkMuted, fontFamily: F }}>No data.</div> : (() => {
+                  const bH = 200, bW = 560, bPad = { l: 50, r: 16, t: 16, b: 56 };
+                  const bInnerW = bW - bPad.l - bPad.r;
+                  const bInnerH = bH - bPad.t - bPad.b;
+                  const data = catRevArr.slice(0, 10);
+                  const maxRev = Math.max(...data.map(x=>x[1]), 1);
+                  const bW2 = bInnerW / data.length;
+                  return (
+                    <svg width="100%" viewBox={`0 0 ${bW} ${bH}`} style={{ display: "block", minWidth: 300 }}>
+                      {[0, 0.25, 0.5, 0.75, 1].map(r => (
+                        <g key={r}>
+                          <line x1={bPad.l} y1={bPad.t+bInnerH*(1-r)} x2={bPad.l+bInnerW} y2={bPad.t+bInnerH*(1-r)} stroke={T.line} strokeWidth="1"/>
+                          <text x={bPad.l-4} y={bPad.t+bInnerH*(1-r)+4} textAnchor="end" fontSize="9" fill={T.inkMuted} fontFamily={F}>{big(maxRev*r)}</text>
+                        </g>
+                      ))}
+                      {data.map(([cat, rev], i) => {
+                        const barH = (rev/maxRev)*bInnerH;
+                        const bX = bPad.l + i*bW2 + bW2*0.1;
+                        const bW3 = bW2*0.8;
+                        return (
+                          <g key={cat}>
+                            <rect x={bX} y={bPad.t+bInnerH-barH} width={bW3} height={barH} rx="3" fill="#5B3BE8" fillOpacity="0.8"/>
+                            <text x={bX+bW3/2} y={bH-bPad.b+14} textAnchor="middle" fontSize="8" fill={T.inkMuted} fontFamily={F} transform={`rotate(-30, ${bX+bW3/2}, ${bH-bPad.b+14})`}>{cat.length > 8 ? cat.slice(0,8)+"…" : cat}</text>
+                            {barH > 16 && <text x={bX+bW3/2} y={bPad.t+bInnerH-barH-4} textAnchor="middle" fontSize="8" fill={T.inkSub} fontFamily={F}>{big(rev)}</text>}
+                          </g>
+                        );
+                      })}
+                    </svg>
+                  );
+                })()}
+              </div>
+            </Card>
+
+            {/* Product summary stats */}
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12 }}>
+              {[
+                { label: "Total Product Units",  value: curr.flatMap(f=>f.products||[]).reduce((a,p)=>a+(Number(p.qty)||0),0), color: "#5B3BE8" },
+                { label: "Total Units Quoted",   value: curr.reduce((a,f)=>a+(Number(f.quoteQty)||0),0), color: T.pending.dot },
+                { label: "With Order Number",    value: curr.filter(f=>f.orderNumber).length, color: T.won.dot },
+                { label: "Unique Categories",    value: Object.keys(catRevMap).length, color: T.premium.dot },
+              ].map(s => (
+                <div key={s.label} style={{ background: T.surface, border: `1px solid ${T.line}`, borderRadius: T.r.lg, padding: "16px 18px", boxShadow: T.shadowSm }}>
+                  <div style={{ fontSize: 24, fontWeight: 700, color: s.color, fontFamily: F, letterSpacing: "-0.5px" }}>{s.value}</div>
+                  <div style={{ fontSize: 11, color: T.inkMuted, fontFamily: F, marginTop: 5 }}>{s.label}</div>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
+
       </div>
     </div>
   );
@@ -1382,34 +2048,140 @@ function CREEditModal({funnel,onClose,onSave,T}) {
   const [products,setProducts]=useState(funnel.products?.length?funnel.products.map(p=>({...p})):[{desc:"",category:"",qty:"",price:""}]);
   const [quoteQty,setQuoteQty]=useState(String(funnel.quoteQty||""));
   const [quoteAmount,setQuoteAmount]=useState(String(funnel.quoteAmount||""));
+  const [quoteDesc,setQuoteDesc]=useState(String(funnel.quoteDesc||""));
+  const [orderNumber,setOrderNumber]=useState(String(funnel.orderNumber||""));
+  const [remarks,setRemarks]=useState(String(funnel.remarks||""));
   const [saving,setSaving]=useState(false);
   const sp=(i,k,v)=>{const p=[...products];p[i]={...p[i],[k]:v};setProducts(p);};
   const prodTotal=products.reduce((a,p)=>a+(Number(p.qty)*Number(p.price)||0),0);
   const fo=mkFocus(T); const bl=mkBlur(T);
-  const submit=async()=>{setSaving(true);try{await onSave({...funnel,products:products.filter(p=>p.desc||p.category||p.qty||p.price),quoteQty:quoteQty?Number(quoteQty):funnel.quoteQty,quoteAmount:quoteAmount?Number(quoteAmount):funnel.quoteAmount});onClose();}catch(err){console.error(err);}finally{setSaving(false);}};
+  const submit=async()=>{
+    setSaving(true);
+    try{
+      await onSave({
+        ...funnel,
+        products:products.filter(p=>p.desc||p.category||p.qty||p.price),
+        quoteQty:quoteQty?Number(quoteQty):funnel.quoteQty,
+        quoteAmount:quoteAmount?Number(quoteAmount):funnel.quoteAmount,
+        quoteDesc:quoteDesc.trim()||funnel.quoteDesc,
+        orderNumber:orderNumber.trim()||funnel.orderNumber,
+        remarks:remarks.trim()||funnel.remarks,
+      });
+      onClose();
+    }catch(err){console.error(err);}finally{setSaving(false);}
+  };
+
   return (
     <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.4)",zIndex:2000,display:"flex",alignItems:"center",justifyContent:"center",padding:16,backdropFilter:"blur(2px)"}} onClick={onClose}>
-      <div style={{background:T.surface,borderRadius:T.r["2xl"],width:"100%",maxWidth:680,maxHeight:"85vh",overflowY:"auto",boxShadow:T.shadowXl,animation:"fadeUp .2s ease"}} onClick={e=>e.stopPropagation()}>
+      <div style={{background:T.surface,borderRadius:T.r["2xl"],width:"100%",maxWidth:680,maxHeight:"90vh",overflowY:"auto",boxShadow:T.shadowXl,animation:"fadeUp .2s ease"}} onClick={e=>e.stopPropagation()}>
+
+        {/* ── Header ── */}
         <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"18px 24px 14px",borderBottom:`1px solid ${T.line}`,position:"sticky",top:0,background:T.surface,zIndex:1,borderRadius:`${T.r["2xl"]} ${T.r["2xl"]} 0 0`}}>
-          <div><h2 style={{fontSize:15,fontWeight:700,color:T.ink,fontFamily:F,margin:"0 0 2px"}}>Edit Products & Quote</h2><p style={{margin:0,fontSize:12,color:T.inkSub,fontFamily:F}}>{funnel.name} — update products and quote details</p></div>
-          <button onClick={onClose} style={{width:30,height:30,border:`1px solid ${T.line}`,borderRadius:T.r.md,background:T.surfaceEl,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}><Ic d={P.close} sz={13} color={T.inkSub}/></button>
-        </div>
-        <div style={{padding:"20px 24px",display:"flex",flexDirection:"column",gap:20}}>
-          <div style={{background:T.brandSubtle,border:`1px solid rgba(91,59,232,.15)`,borderRadius:T.r.lg,padding:"12px 16px",display:"flex",gap:24,flexWrap:"wrap"}}>
-            {[["Customer",funnel.name],["Phone",funnel.phone],["Status",funnel.status],["Follow-up",funnel.nextFollowUp]].map(([l,v])=>(<div key={l}><div style={{fontSize:10,fontWeight:600,color:"#5B3BE8",letterSpacing:"0.06em",textTransform:"uppercase",fontFamily:F,marginBottom:2}}>{l}</div><div style={{fontSize:13,fontWeight:500,color:T.ink,fontFamily:F}}>{v||"—"}</div></div>))}
+          <div>
+            <h2 style={{fontSize:15,fontWeight:700,color:T.ink,fontFamily:F,margin:"0 0 2px"}}>Edit Products & Quote</h2>
+            <p style={{margin:0,fontSize:12,color:T.inkSub,fontFamily:F}}>{funnel.name} — update products, quote and order details</p>
           </div>
+          <button onClick={onClose} style={{width:30,height:30,border:`1px solid ${T.line}`,borderRadius:T.r.md,background:T.surfaceEl,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>
+            <Ic d={P.close} sz={13} color={T.inkSub}/>
+          </button>
+        </div>
+
+        <div style={{padding:"20px 24px",display:"flex",flexDirection:"column",gap:20}}>
+
+          {/* ── Customer info strip ── */}
+          <div style={{background:T.brandSubtle,border:`1px solid rgba(91,59,232,.15)`,borderRadius:T.r.lg,padding:"12px 16px",display:"flex",gap:24,flexWrap:"wrap"}}>
+            {[["Customer",funnel.name],["Phone",funnel.phone],["Status",funnel.status],["Follow-up",funnel.nextFollowUp]].map(([l,v])=>(
+              <div key={l}>
+                <div style={{fontSize:10,fontWeight:600,color:"#5B3BE8",letterSpacing:"0.06em",textTransform:"uppercase",fontFamily:F,marginBottom:2}}>{l}</div>
+                <div style={{fontSize:13,fontWeight:500,color:T.ink,fontFamily:F}}>{v||"—"}</div>
+              </div>
+            ))}
+          </div>
+
+          {/* ── Products table ── */}
           <section>
             <SL T={T}>Customer requirements</SL>
             <div style={{border:`1px solid ${T.line}`,borderRadius:T.r.lg,overflow:"hidden"}}>
-              <div style={{display:"grid",gridTemplateColumns:"2.5fr 1.4fr .8fr 1fr .35fr",padding:"8px 14px",background:T.surfaceEl,gap:8}}>{["Product / item","Category","Qty","Unit price (₹)",""].map(h=><div key={h} style={{fontSize:10,fontWeight:600,color:T.inkMuted,letterSpacing:"0.06em",fontFamily:F}}>{h}</div>)}</div>
-              {products.map((pr,i)=>(<div key={i} style={{display:"grid",gridTemplateColumns:"2.5fr 1.4fr .8fr 1fr .35fr",padding:"9px 14px",borderTop:`1px solid ${T.line}`,gap:8,alignItems:"center"}}><input value={pr.desc} onChange={e=>sp(i,"desc",e.target.value)} placeholder="e.g. Bridal Lehenga" style={{...inputSx(T),padding:"6px 9px",fontSize:12}} onFocus={fo} onBlur={bl}/><select value={pr.category} onChange={e=>sp(i,"category",e.target.value)} style={{...inputSx(T),padding:"6px 24px 6px 9px",fontSize:12,cursor:"pointer",appearance:"none",background:`${T.surface} ${selectBg}`}} onFocus={fo} onBlur={bl}><option value="">Category</option>{CATS.map(c=><option key={c}>{c}</option>)}</select>{[["qty","0"],["price","0"]].map(([k,ph])=>(<input key={k} type="number" value={pr[k]} onChange={e=>sp(i,k,e.target.value)} placeholder={ph} style={{...inputSx(T),padding:"6px 9px",fontSize:12}} onFocus={fo} onBlur={bl}/>))}<button onClick={()=>setProducts(products.filter((_,x)=>x!==i))} disabled={products.length===1} style={{background:"none",border:"none",cursor:products.length===1?"not-allowed":"pointer",color:T.inkMuted,fontSize:16,opacity:products.length===1?.2:1,display:"flex",alignItems:"center",justifyContent:"center"}}>×</button></div>))}
-              <div style={{padding:"9px 14px",borderTop:`1px solid ${T.line}`,display:"flex",justifyContent:"space-between",alignItems:"center"}}><button onClick={()=>setProducts([...products,{desc:"",category:"",qty:"",price:""}])} style={{background:"none",border:`1px dashed #5B3BE8`,borderRadius:T.r.sm,padding:"4px 12px",color:"#5B3BE8",fontSize:12,fontWeight:500,cursor:"pointer",fontFamily:F,display:"inline-flex",alignItems:"center",gap:5}}><Ic d={P.plus} sz={11} color="#5B3BE8"/> Add item</button>{prodTotal>0&&<span style={{fontSize:12,fontWeight:600,color:T.ink,fontFamily:F}}>Total: {inr(prodTotal)}</span>}</div>
+              <div style={{display:"grid",gridTemplateColumns:"2.5fr 1.4fr .8fr 1fr .35fr",padding:"8px 14px",background:T.surfaceEl,gap:8}}>
+                {["Product / item","Category","Qty","Unit price (₹)",""].map(h=>(
+                  <div key={h} style={{fontSize:10,fontWeight:600,color:T.inkMuted,letterSpacing:"0.06em",fontFamily:F}}>{h}</div>
+                ))}
+              </div>
+              {products.map((pr,i)=>(
+                <div key={i} style={{display:"grid",gridTemplateColumns:"2.5fr 1.4fr .8fr 1fr .35fr",padding:"9px 14px",borderTop:`1px solid ${T.line}`,gap:8,alignItems:"center"}}>
+                  <input value={pr.desc} onChange={e=>sp(i,"desc",e.target.value)} placeholder="e.g. Bridal Lehenga" style={{...inputSx(T),padding:"6px 9px",fontSize:12}} onFocus={fo} onBlur={bl}/>
+                  <select value={pr.category} onChange={e=>sp(i,"category",e.target.value)} style={{...inputSx(T),padding:"6px 24px 6px 9px",fontSize:12,cursor:"pointer",appearance:"none",background:`${T.surface} ${selectBg}`}} onFocus={fo} onBlur={bl}>
+                    <option value="">Category</option>
+                    {CATS.map(c=><option key={c}>{c}</option>)}
+                  </select>
+                  {[["qty","0"],["price","0"]].map(([k,ph])=>(
+                    <input key={k} type="number" value={pr[k]} onChange={e=>sp(i,k,e.target.value)} placeholder={ph} style={{...inputSx(T),padding:"6px 9px",fontSize:12}} onFocus={fo} onBlur={bl}/>
+                  ))}
+                  <button onClick={()=>setProducts(products.filter((_,x)=>x!==i))} disabled={products.length===1}
+                    style={{background:"none",border:"none",cursor:products.length===1?"not-allowed":"pointer",color:T.inkMuted,fontSize:16,opacity:products.length===1?.2:1,display:"flex",alignItems:"center",justifyContent:"center"}}>×</button>
+                </div>
+              ))}
+              <div style={{padding:"9px 14px",borderTop:`1px solid ${T.line}`,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                <button onClick={()=>setProducts([...products,{desc:"",category:"",qty:"",price:""}])}
+                  style={{background:"none",border:`1px dashed #5B3BE8`,borderRadius:T.r.sm,padding:"4px 12px",color:"#5B3BE8",fontSize:12,fontWeight:500,cursor:"pointer",fontFamily:F,display:"inline-flex",alignItems:"center",gap:5}}>
+                  <Ic d={P.plus} sz={11} color="#5B3BE8"/> Add item
+                </button>
+                {prodTotal>0&&<span style={{fontSize:12,fontWeight:600,color:T.ink,fontFamily:F}}>Total: {inr(prodTotal)}</span>}
+              </div>
             </div>
           </section>
-          <section><SL T={T}>Quote details</SL><div className="ek-form-2col" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}><FInput label="Quantity" type="number" value={quoteQty} onChange={e=>setQuoteQty(e.target.value)} placeholder="0" T={T}/><FInput label="Amount (₹)" type="number" value={quoteAmount} onChange={e=>setQuoteAmount(e.target.value)} placeholder="0" T={T}/></div></section>
-          <div style={{background:T.surfaceEl,border:`1px solid ${T.line}`,borderRadius:T.r.md,padding:"10px 14px",fontSize:12,color:T.inkMuted,fontFamily:F,display:"flex",alignItems:"center",gap:8}}><span style={{fontSize:14}}>🔒</span>Other fields can only be edited by Manager or CEO.</div>
+
+          {/* ── Quote details ── */}
+          <section>
+            <SL T={T}>Quote details</SL>
+            <div className="ek-form-2col" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:12}}>
+              <FInput label="Quantity" type="number" value={quoteQty} onChange={e=>setQuoteQty(e.target.value)} placeholder="0" T={T}/>
+              <FInput label="Amount (₹)" type="number" value={quoteAmount} onChange={e=>setQuoteAmount(e.target.value)} placeholder="0" T={T}/>
+            </div>
+            <div style={{display:"flex",flexDirection:"column",gap:5}}>
+              <label style={{fontSize:12,fontWeight:500,color:T.inkSub,fontFamily:F}}>Description</label>
+              <textarea value={quoteDesc} onChange={e=>setQuoteDesc(e.target.value)}
+                placeholder="Quote notes, special instructions…" rows={2}
+                style={{...inputSx(T),padding:"9px 11px",resize:"vertical",lineHeight:1.5}}
+                onFocus={fo} onBlur={bl}/>
+            </div>
+          </section>
+
+          {/* ── Order Number ── */}
+          <section>
+            <SL T={T}>Order details</SL>
+            <FInput
+              label="Order Number"
+              value={orderNumber}
+              onChange={e=>setOrderNumber(e.target.value)}
+              placeholder="Enter order number"
+              T={T}
+            />
+          </section>
+
+          {/* ── Remarks ── */}
+          <section>
+            <SL T={T}>Remarks</SL>
+            <textarea value={remarks} onChange={e=>setRemarks(e.target.value)}
+              placeholder="Additional notes, customer feedback, follow-up context…" rows={3}
+              style={{...inputSx(T),padding:"9px 11px",resize:"vertical",lineHeight:1.6,width:"100%",boxSizing:"border-box"}}
+              onFocus={fo} onBlur={bl}/>
+          </section>
+
+          {/* ── Lock notice ── */}
+          <div style={{background:T.surfaceEl,border:`1px solid ${T.line}`,borderRadius:T.r.md,padding:"10px 14px",fontSize:12,color:T.inkMuted,fontFamily:F,display:"flex",alignItems:"center",gap:8}}>
+            <span style={{fontSize:14}}>🔒</span>
+            Contact info, funnel type, lead source, delivery details and payment terms can only be edited by Manager or CEO.
+          </div>
+
         </div>
-        <div style={{display:"flex",justifyContent:"flex-end",gap:10,padding:"14px 24px 20px",borderTop:`1px solid ${T.line}`,position:"sticky",bottom:0,background:T.surface,borderRadius:`0 0 ${T.r["2xl"]} ${T.r["2xl"]}`}}><Btn ghost label="Cancel" onClick={onClose} T={T}/><Btn primary icon={P.check} label={saving?"Saving…":"Save changes"} onClick={submit} disabled={saving} T={T}/></div>
+
+        {/* ── Footer ── */}
+        <div style={{display:"flex",justifyContent:"flex-end",gap:10,padding:"14px 24px 20px",borderTop:`1px solid ${T.line}`,position:"sticky",bottom:0,background:T.surface,borderRadius:`0 0 ${T.r["2xl"]} ${T.r["2xl"]}`}}>
+          <Btn ghost label="Cancel" onClick={onClose} T={T}/>
+          <Btn primary icon={P.check} label={saving?"Saving…":"Save changes"} onClick={submit} disabled={saving} T={T}/>
+        </div>
+
       </div>
     </div>
   );
