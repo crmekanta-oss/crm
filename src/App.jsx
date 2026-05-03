@@ -1132,23 +1132,22 @@ function Analytics({ funnels, T }) {
   const innerH = svgH - pad.t - pad.b;
 
   const polyline = (points, maxV) => {
-    if (!points.length || maxV === 0) return "";
-    return points.map((p, i) => {
-      const x = pad.l + (i / (points.length - 1 || 1)) * innerW;
-      const y = pad.t + innerH - (p / maxV) * innerH;
-      return `${x},${y}`;
-    }).join(" ");
-  };
-
-  const areaPath = (points, maxV) => {
-    if (!points.length || maxV === 0) return "";
-    const pts = points.map((p, i) => ({
-      x: pad.l + (i / (points.length - 1 || 1)) * innerW,
-      y: pad.t + innerH - (p / maxV) * innerH
-    }));
-    const d = pts.map((p, i) => `${i === 0 ? "M" : "L"}${p.x},${p.y}`).join(" ");
-    return `${d} L${pts[pts.length-1].x},${pad.t+innerH} L${pts[0].x},${pad.t+innerH} Z`;
-  };
+  if (points.length < 2 || maxV === 0) return "";
+  return points.map((p, i) => {
+    const x = pad.l + (i / (points.length - 1)) * innerW;
+    const y = pad.t + innerH - (p / maxV) * innerH;
+    return `${x},${y}`;
+  }).join(" ");
+};
+const areaPath = (points, maxV) => {
+  if (points.length < 2 || maxV === 0) return "";
+  const pts = points.map((p, i) => ({
+    x: pad.l + (i / (points.length - 1)) * innerW,
+    y: pad.t + innerH - (p / maxV) * innerH
+  }));
+  const d = pts.map((p, i) => `${i === 0 ? "M" : "L"}${p.x},${p.y}`).join(" ");
+  return `${d} L${pts[pts.length-1].x},${pad.t+innerH} L${pts[0].x},${pad.t+innerH} Z`;
+};
 
   // Donut arc
   const donutArc = (cx, cy, r, startPct, endPct) => {
