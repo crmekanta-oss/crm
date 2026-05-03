@@ -1590,10 +1590,6 @@ function Shell({user,users,onLogout,onUsersChange,T,dark,onToggleDark}) {
   };
 
   const [fil,setFil]=useState({status:"",funnelType:"",enquiryType:"",leadSource:"",descFilter:"",cre:"",missed:false,todayF:false,upcoming:false});
-  const [selectedIds, setSelectedIds] = useState(new Set());
-const toggleSelect = (id) => setSelectedIds(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
-const toggleSelectAll = () => setSelectedIds(prev => prev.size === filtered.length ? new Set() : new Set(filtered.map(f => f.id)));
-const selectedFunnels = filtered.filter(f => selectedIds.has(f.id));
   const [addOpen,setAddOpen]=useState(false);
   const [editT,setEditT]=useState(null);
   const [creEditT,setCreEditT]=useState(null);
@@ -1634,6 +1630,10 @@ if (dateFilter) {
 }
 return true;
   }),[scoped,search,fil,statFilter,TODAY,dateFilter,dateType]);
+  const [selectedIds, setSelectedIds] = useState(new Set());
+  const toggleSelect = (id) => setSelectedIds(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
+  const toggleSelectAll = () => setSelectedIds(prev => prev.size === filtered.length ? new Set() : new Set(filtered.map(f => f.id)));
+  const selectedFunnels = filtered.filter(f => selectedIds.has(f.id));
 
   const save=async(form)=>{try{const cleanedForm={...form,products:(form.products||[]).filter(p=>p.desc||p.category||p.qty||p.price)};const saved=await crmService.saveFunnel(cleanedForm,user);if(editT){setFunnels(p=>p.map(f=>f.id===saved.id?saved:f));setEditT(null);push("Funnel updated");}else{setFunnels(p=>[saved,...p]);setAddOpen(false);push("Funnel added");}}catch(err){console.error(err);push(`Error: ${err.message||"Could not save lead"}`,"error");}};
   const creEditSave=async(form)=>{try{const saved=await crmService.saveFunnel(form,user);setFunnels(p=>p.map(f=>f.id===saved.id?saved:f));setCreEditT(null);push("Updated ✓");}catch(err){console.error(err);push("Error saving","error");}};
