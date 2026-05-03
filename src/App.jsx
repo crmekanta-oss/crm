@@ -450,7 +450,7 @@ function Login({users,onLogin,T,dark,onToggleDark}) {
             <div>
               <label style={{fontSize:12,fontWeight:500,color:T.inkSub,display:"block",marginBottom:5}}>Username</label>
               <input value={u} onChange={e=>su(e.target.value)} placeholder="Enter your username"
-                style={{...inputSx(T),width:"100%"}} onFocus={mkFocus(T)()} onBlur={mkBlur(T)()}
+                style={{...inputSx(T),width:"100%"}} onFocus={mkFocus(T)} onBlur={mkBlur(T)}
                 onKeyDown={e=>e.key==="Enter"&&go()}/>
             </div>
             <div>
@@ -462,7 +462,7 @@ function Login({users,onLogin,T,dark,onToggleDark}) {
                 <input type={showPw?"text":"password"} value={p} onChange={e=>sp(e.target.value)}
                   placeholder="Enter your password" onKeyDown={e=>e.key==="Enter"&&go()}
                   style={{...inputSx(T),width:"100%",paddingRight:40}}
-                  onFocus={mkFocus(T)()} onBlur={mkBlur(T)()}/>
+                  onFocus={mkFocus(T)} onBlur={mkBlur(T)}/>
                 <button onClick={()=>setShowPw(x=>!x)} style={{position:"absolute",right:10,top:"50%",transform:"translateY(-50%)",background:"none",border:"none",cursor:"pointer",color:T.inkMuted,display:"flex",padding:2}}>
                   <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
                     {showPw
@@ -986,7 +986,7 @@ function FunnelForm({onClose,onSave,existing,user,users=[],T}) {
   const sp=(i,k,v)=>{const p=[...form.products];p[i]={...p[i],[k]:v};set("products",p);};
   const isWon=form.status==="Won";
   const inpSx=(err)=>({...inputSx(T,err)});
-  const fo=mkFocus(T)(); const bl=mkBlur(T)();
+  const fo=mkFocus(T); const bl=mkBlur(T);
 
   const val=()=>{
     const e={};
@@ -1091,7 +1091,7 @@ function CREEditModal({funnel,onClose,onSave,T}) {
   const [saving,setSaving]=useState(false);
   const sp=(i,k,v)=>{const p=[...products];p[i]={...p[i],[k]:v};setProducts(p);};
   const prodTotal=products.reduce((a,p)=>a+(Number(p.qty)*Number(p.price)||0),0);
-  const fo=mkFocus(T)(); const bl=mkBlur(T)();
+  const fo=mkFocus(T); const bl=mkBlur(T);
   const submit=async()=>{setSaving(true);try{await onSave({...funnel,products:products.filter(p=>p.desc||p.category||p.qty||p.price),quoteQty:quoteQty?Number(quoteQty):funnel.quoteQty,quoteAmount:quoteAmount?Number(quoteAmount):funnel.quoteAmount});onClose();}catch(err){console.error(err);}finally{setSaving(false);}};
   return (
     <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.4)",zIndex:2000,display:"flex",alignItems:"center",justifyContent:"center",padding:16,backdropFilter:"blur(2px)"}} onClick={onClose}>
@@ -1128,7 +1128,7 @@ function FollowupLogModal({funnel,user,onClose,onSave,T}) {
   const [form,setForm]=useState({customerResponse:"",outcome:"",nextFollowUp:""});
   const [err,setErr]=useState({}); const [saving,setSaving]=useState(false);
   const set=(k,v)=>setForm(f=>({...f,[k]:v}));
-  const fo=mkFocus(T)(); const bl=mkBlur(T)();
+  const fo=mkFocus(T); const bl=mkBlur(T);
   const submit=async()=>{const e={};if(!form.customerResponse.trim())e.response="Required";if(!form.outcome)e.outcome="Required";if(!form.nextFollowUp)e.nextFollowUp="Required";setErr(e);if(Object.keys(e).length)return;setSaving(true);try{await onSave({loggedBy:user.name,followUpDate:funnel.nextFollowUp,customerResponse:form.customerResponse.trim(),outcome:form.outcome,nextFollowUp:form.nextFollowUp});onClose();}catch(err){console.error(err);}finally{setSaving(false);}};
   const oc={"Interested":T.won,"Order Confirmed":T.won,"Needs Time":T.pending,"Callback Requested":T.pending,"Rescheduled":T.pending,"Not Interested":T.lost,"Other":T.drop};
   return (
@@ -1156,7 +1156,7 @@ function ViewDrawer({funnel,onClose,onEdit,onCreEdit,onStatusChange,user,comment
   const doStatus=s=>{setStatus(s);onStatusChange(funnel.id,s);};
   const [commentText,setCommentText]=useState("");
   const canComment=FULL.includes(user.role);
-  const fo=mkFocus(T)(); const bl=mkBlur(T)();
+  const fo=mkFocus(T); const bl=mkBlur(T);
   const submitComment=()=>{if(!commentText.trim())return;onAddComment(funnel.id,{text:commentText.trim(),author:user.name,role:user.role,time:stamp()});setCommentText("");};
   const Row=({l,v,mono})=>(<div style={{display:"grid",gridTemplateColumns:"140px 1fr",gap:8,padding:"8px 0",borderBottom:`1px solid ${T.line}`}}><dt style={{fontSize:11,fontWeight:500,color:T.inkMuted,fontFamily:F}}>{l}</dt><dd style={{fontSize:13,color:T.ink,fontFamily:mono?"'SF Mono',monospace":F,wordBreak:"break-all"}}>{v||"—"}</dd></div>);
   const Sec=({t})=><div style={{fontSize:10,fontWeight:600,color:T.inkMuted,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:10,marginTop:4,fontFamily:F}}>{t}</div>;
