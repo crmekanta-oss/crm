@@ -4,12 +4,11 @@ import { supabase } from "./lib/supabase";
 
 /*
   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  EKANTA CRM — v6
-  Changes on top of v5:
-  ⑧ Assign funnel to CRE (CEO/Manager only)
-  ⑨ CRE restricted edit — products + quote qty/amount only
-  ⑩ Compact table — 48px rows, tighter padding, zebra rows
-  ⑪ Analytics uses all constants
+  EKANTA CRM — v7
+  Changes on top of v6:
+  ⑫ Clickable stat cards → filter funnel list by status
+  ⑬ Won funnels — follow-up date not required
+  ⑭ Won funnels — no "Log" follow-up button shown
   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 */
 
@@ -457,7 +456,8 @@ function Topbar({title,search,setSearch,user,onAdd,onExportAll,onExportFiltered,
 }
 
 // ─── STATS ROW ────────────────────────────────────────────────────────────────
-function Stats({funnels}) {
+// ⑫ Cards are now clickable — clicking filters the funnel list by status
+function Stats({funnels, activeStatFilter, onStatClick}) {
   const won=funnels.filter(f=>f.status==="Won");
   const pending=funnels.filter(f=>f.status==="Pending");
   const lost=funnels.filter(f=>f.status==="Lost");
@@ -469,29 +469,62 @@ function Stats({funnels}) {
     pendingRevenue:pending.reduce((a,f)=>a+(Number(f.quoteAmount)||0),0),
   };
   const wr=s.total?Math.round(s.won/s.total*100):0;
+
+  // filterKey: null = no filter, "Won"/"Pending"/"Lost"/"Drop" = status filter
   const cards=[
-    {label:"Total leads",     value:s.total,              caption:"All leads",          accent:T.inkMuted,    bg:T.surface},
-    {label:"Won",             value:s.won,                caption:`${wr}% win rate`,    accent:T.won.dot,     bg:"#F0FDF4"},
-    {label:"Pending",         value:s.pending,            caption:"Need follow-up",     accent:T.pending.dot, bg:"#FFFBEB"},
-    {label:"Lost",            value:s.lost,               caption:"Closed lost",        accent:T.lost.dot,    bg:"#FEF2F2"},
-    {label:"Drop",            value:s.drop,               caption:"Dropped leads",      accent:T.drop.dot,    bg:T.surface},
-    {label:"Won Revenue",     value:big(s.revenue),       caption:"From won deals",     accent:T.won.dot,     bg:"#F0FDF4"},
-    {label:"Pending Revenue", value:big(s.pendingRevenue),caption:"Potential pipeline", accent:T.pending.dot, bg:"#FFFBEB"},
+    {label:"Total leads",     value:s.total,              caption:"All leads",          accent:T.inkMuted,    bg:T.surface,        filterKey:null},
+    {label:"Won",             value:s.won,                caption:`${wr}% win rate`,    accent:T.won.dot,     bg:"#F0FDF4",        filterKey:"Won"},
+    {label:"Pending",         value:s.pending,            caption:"Need follow-up",     accent:T.pending.dot, bg:"#FFFBEB",        filterKey:"Pending"},
+    {label:"Lost",            value:s.lost,               caption:"Closed lost",        accent:T.lost.dot,    bg:"#FEF2F2",        filterKey:"Lost"},
+    {label:"Drop",            value:s.drop,               caption:"Dropped leads",      accent:T.drop.dot,    bg:T.surface,        filterKey:"Drop"},
+    {label:"Won Revenue",     value:big(s.revenue),       caption:"From won deals",     accent:T.won.dot,     bg:"#F0FDF4",        filterKey:"Won"},
+    {label:"Pending Revenue", value:big(s.pendingRevenue),caption:"Potential pipeline", accent:T.pending.dot, bg:"#FFFBEB",        filterKey:"Pending"},
   ];
+
   return (
     <div style={{padding:"20px 24px 0"}}>
       <div className="ek-stats-grid" style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:10}}>
-        {cards.map((c,i)=>(
-          <div key={i} style={{background:c.bg,border:`1px solid ${T.line}`,borderRadius:T.r.lg,padding:"14px 16px",boxShadow:T.shadowSm,animation:`fadeUp .25s ease ${i*.04}s both`}}>
-            <div style={{fontSize:10,fontWeight:500,color:T.inkMuted,letterSpacing:"0.04em",marginBottom:8,fontFamily:F,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{c.label}</div>
-            <div style={{fontSize:20,fontWeight:700,color:T.ink,fontFamily:F,letterSpacing:"-0.5px",marginBottom:4}}>{c.value}</div>
-            <div style={{display:"flex",alignItems:"center",gap:5}}>
-              <Dot color={c.accent} size={5}/>
-              <span style={{fontSize:10,color:T.inkMuted,fontFamily:F,whiteSpace:"nowrap"}}>{c.caption}</span>
+        {cards.map((c,i)=>{
+          const isActive = activeStatFilter === c.filterKey && c.filterKey !== null;
+          return (
+            <div key={i}
+              onClick={()=>onStatClick(c.filterKey)}
+              style={{
+                background:c.bg,
+                border:`1.5px solid ${isActive ? c.accent : T.line}`,
+                borderRadius:T.r.lg,
+                padding:"14px 16px",
+                boxShadow: isActive ? `0 0 0 3px ${c.accent}22` : T.shadowSm,
+                animation:`fadeUp .25s ease ${i*.04}s both`,
+                cursor: c.filterKey ? "pointer" : "default",
+                transition:"box-shadow .15s, border-color .15s, transform .1s",
+                transform: isActive ? "translateY(-1px)" : "none",
+                position:"relative",
+              }}
+              onMouseEnter={e=>{if(c.filterKey){e.currentTarget.style.boxShadow=`0 0 0 3px ${c.accent}33`;e.currentTarget.style.transform="translateY(-1px)";}}}
+              onMouseLeave={e=>{if(c.filterKey&&!isActive){e.currentTarget.style.boxShadow=T.shadowSm;e.currentTarget.style.transform="none";}}}
+            >
+              {/* Active indicator dot */}
+              {isActive && (
+                <div style={{position:"absolute",top:8,right:8,width:6,height:6,borderRadius:"50%",background:c.accent}}/>
+              )}
+              <div style={{fontSize:10,fontWeight:500,color:T.inkMuted,letterSpacing:"0.04em",marginBottom:8,fontFamily:F,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{c.label}</div>
+              <div style={{fontSize:20,fontWeight:700,color: isActive ? c.accent : T.ink,fontFamily:F,letterSpacing:"-0.5px",marginBottom:4,transition:"color .15s"}}>{c.value}</div>
+              <div style={{display:"flex",alignItems:"center",gap:5}}>
+                <Dot color={c.accent} size={5}/>
+                <span style={{fontSize:10,color:T.inkMuted,fontFamily:F,whiteSpace:"nowrap"}}>{isActive ? "Filtered ✓" : c.caption}</span>
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
+      {/* Active filter badge */}
+      {activeStatFilter && (
+        <div style={{marginTop:10,display:"flex",alignItems:"center",gap:8}}>
+          <span style={{fontSize:12,color:T.inkSub,fontFamily:F}}>Showing <strong style={{color:T.ink}}>{activeStatFilter}</strong> funnels</span>
+          <button onClick={()=>onStatClick(null)} style={{fontSize:12,color:T.brand,background:"none",border:"none",cursor:"pointer",fontFamily:F,fontWeight:500,textDecoration:"underline",textUnderlineOffset:2,padding:0}}>Clear</button>
+        </div>
+      )}
     </div>
   );
 }
@@ -577,15 +610,14 @@ function Table({rows,user,onView,onEdit,onCreEdit,onDelete,onLogFollowup,loading
     return (
       <div style={{display:"flex",flexDirection:"column",gap:0}}>
         {rows.map((f,i)=>{
+          // ⑭ No Log button for Won funnels
           const over=f.nextFollowUp&&f.nextFollowUp<todayV&&f.status==="Pending";
           const tod=f.nextFollowUp===todayV&&f.status==="Pending";
-          const showLog=(over||tod);
+          const showLog=(over||tod)&&f.status!=="Won";
           const cats=[...new Set((f.products||[]).map(p=>p.category).filter(Boolean))].join(", ")||"—";
           const canCreEdit=!FULL.includes(user.role)&&(f.createdBy===user.name||f.assignedTo===user.name);
           return (
             <div key={f.id} style={{padding:"14px 16px",borderBottom:`1px solid ${T.line}`,background:i%2===0?T.surface:"#FAFBFC"}}>
-
-              {/* Row 1: Name + Status */}
               <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",marginBottom:8}}>
                 <div style={{flex:1,minWidth:0,marginRight:10}}>
                   <div style={{fontSize:14,fontWeight:700,color:T.ink,fontFamily:F,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{f.name||"—"}</div>
@@ -597,8 +629,6 @@ function Table({rows,user,onView,onEdit,onCreEdit,onDelete,onLogFollowup,loading
                 </div>
                 <StatusPill status={f.status} sm/>
               </div>
-
-              {/* Row 2: Details grid */}
               <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"6px 16px",marginBottom:10,padding:"10px 12px",background:T.bg,borderRadius:T.r.md}}>
                 <div>
                   <div style={{fontSize:10,color:T.inkMuted,fontFamily:F,marginBottom:2,textTransform:"uppercase",letterSpacing:"0.04em"}}>Category</div>
@@ -610,12 +640,16 @@ function Table({rows,user,onView,onEdit,onCreEdit,onDelete,onLogFollowup,loading
                 </div>
                 <div>
                   <div style={{fontSize:10,color:T.inkMuted,fontFamily:F,marginBottom:2,textTransform:"uppercase",letterSpacing:"0.04em"}}>Follow-up</div>
-                  <div style={{display:"flex",alignItems:"center",gap:4,flexWrap:"wrap"}}>
-                    {over&&<Dot color={T.lost.dot} size={5}/>}
-                    {tod&&<Dot color={T.pending.dot} size={5}/>}
-                    <span style={{fontSize:12,color:over?"#B91C1C":tod?T.pending.text:T.ink,fontWeight:over||tod?600:400,fontFamily:F}}>{f.nextFollowUp||"—"}</span>
-                    {over&&<span style={{fontSize:10,color:T.lost.text,fontWeight:600,fontFamily:F}}>Overdue</span>}
-                  </div>
+                  {/* ⑬ Won funnels show no follow-up date concern */}
+                  {f.status==="Won"
+                    ? <span style={{fontSize:12,color:T.inkMuted,fontFamily:F}}>—</span>
+                    : <div style={{display:"flex",alignItems:"center",gap:4,flexWrap:"wrap"}}>
+                        {over&&<Dot color={T.lost.dot} size={5}/>}
+                        {tod&&<Dot color={T.pending.dot} size={5}/>}
+                        <span style={{fontSize:12,color:over?"#B91C1C":tod?T.pending.text:T.ink,fontWeight:over||tod?600:400,fontFamily:F}}>{f.nextFollowUp||"—"}</span>
+                        {over&&<span style={{fontSize:10,color:T.lost.text,fontWeight:600,fontFamily:F}}>Overdue</span>}
+                      </div>
+                  }
                 </div>
                 <div>
                   <div style={{fontSize:10,color:T.inkMuted,fontFamily:F,marginBottom:2,textTransform:"uppercase",letterSpacing:"0.04em"}}>Quote</div>
@@ -628,8 +662,6 @@ function Table({rows,user,onView,onEdit,onCreEdit,onDelete,onLogFollowup,loading
                   </div>
                 )}
               </div>
-
-              {/* Row 3: Action buttons */}
               <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
                 {showLog&&(
                   <button onClick={()=>onLogFollowup(f)}
@@ -686,9 +718,10 @@ function Table({rows,user,onView,onEdit,onCreEdit,onDelete,onLogFollowup,loading
         </thead>
         <tbody>
           {rows.map((f,i)=>{
+            // ⑭ No Log button for Won funnels
             const over=f.nextFollowUp&&f.nextFollowUp<todayV&&f.status==="Pending";
             const tod=f.nextFollowUp===todayV&&f.status==="Pending";
-            const showLog=(over||tod);
+            const showLog=(over||tod)&&f.status!=="Won";
             const cats=[...new Set((f.products||[]).map(p=>p.category).filter(Boolean))].join(", ")||"—";
             const canCreEdit=!FULL.includes(user.role)&&(f.createdBy===user.name||f.assignedTo===user.name);
             return (
@@ -708,12 +741,18 @@ function Table({rows,user,onView,onEdit,onCreEdit,onDelete,onLogFollowup,loading
                 <td style={{padding:"0 12px",fontSize:11,color:T.inkSub,verticalAlign:"middle",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{cats}</td>
                 <td style={{padding:"0 12px",verticalAlign:"middle"}}>{f.funnelType?<StatusPill status={f.funnelType} sm/>:<span style={{color:T.inkMuted,fontSize:12}}>—</span>}</td>
                 <td style={{padding:"0 12px",verticalAlign:"middle"}}>
-                  <div style={{display:"flex",alignItems:"center",gap:5}}>
-                    {over&&<Dot color={T.lost.dot} size={5}/>}
-                    {tod&&<Dot color={T.pending.dot} size={5}/>}
-                    <span style={{fontSize:12,color:over?"#B91C1C":tod?T.pending.text:T.inkSub,fontWeight:over||tod?600:400}}>{f.nextFollowUp||"—"}</span>
-                  </div>
-                  {over&&<span style={{fontSize:10,color:T.lost.text,fontWeight:500}}>Overdue</span>}
+                  {/* ⑬ Won funnels — no follow-up urgency shown */}
+                  {f.status==="Won"
+                    ? <span style={{fontSize:12,color:T.inkMuted}}>—</span>
+                    : <>
+                        <div style={{display:"flex",alignItems:"center",gap:5}}>
+                          {over&&<Dot color={T.lost.dot} size={5}/>}
+                          {tod&&<Dot color={T.pending.dot} size={5}/>}
+                          <span style={{fontSize:12,color:over?"#B91C1C":tod?T.pending.text:T.inkSub,fontWeight:over||tod?600:400}}>{f.nextFollowUp||"—"}</span>
+                        </div>
+                        {over&&<span style={{fontSize:10,color:T.lost.text,fontWeight:500}}>Overdue</span>}
+                      </>
+                  }
                 </td>
                 <td style={{padding:"0 12px",verticalAlign:"middle"}}><StatusPill status={f.status} sm/></td>
                 <td style={{padding:"0 12px",fontSize:12,color:T.inkSub,verticalAlign:"middle",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{f.orderNumber||"—"}</td>
@@ -973,7 +1012,8 @@ function FunnelForm({onClose,onSave,existing,user,users=[]}) {
     if(!form.enquiryType)     e.enquiryType="Required";
     if(!form.funnelType)      e.funnelType="Required";
     if(!form.leadSource)      e.leadSource="Required";
-    if(!form.nextFollowUp)    e.nfu="Required";
+    // ⑬ follow-up date NOT required for Won funnels
+    if(!form.nextFollowUp && form.status !== "Won") e.nfu="Required";
     if(!form.remarks)         e.remarks="Required";
     if(!form.deliveryDetails) e.deliveryDetails="Required";
     if(!form.quoteDesc)       e.quoteDesc="Required";
@@ -988,6 +1028,7 @@ function FunnelForm({onClose,onSave,existing,user,users=[]}) {
   const submit=()=>{if(val())onSave(form);};
   const prodTotal=(form.products||[]).reduce((a,p)=>a+(Number(p.qty)*Number(p.price)||0),0);
   const creUsers=users.filter(u=>u.role==="CRE");
+  const isWon = form.status === "Won";
 
   return (
     <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.35)",zIndex:2000,display:"flex",alignItems:"center",justifyContent:"center",padding:16,backdropFilter:"blur(2px)"}} onClick={onClose}>
@@ -1023,15 +1064,25 @@ function FunnelForm({onClose,onSave,existing,user,users=[]}) {
             </div>
             <div className="ek-form-2col" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
               <FSelect label="Lead source" required value={form.leadSource} onChange={e=>set("leadSource",e.target.value)} options={LEAD_SOURCES} placeholder="Select source…" error={errs.leadSource}/>
-              <div style={{display:"flex",flexDirection:"column",gap:5}}>
-                <label style={{fontSize:12,fontWeight:500,color:T.inkSub,fontFamily:F}}>Next follow-up<span style={{color:"#DC2626",marginLeft:2}}>*</span></label>
-                <input type="date" value={form.nextFollowUp} onChange={e=>set("nextFollowUp",e.target.value)} style={{...inputSx(errs.nfu)}} onFocus={onfocus} onBlur={onblur}/>
-                {errs.nfu&&<span style={{fontSize:11,color:"#B91C1C"}}>{errs.nfu}</span>}
-              </div>
+              {/* ⑬ Hide follow-up date field for Won funnels */}
+              {!isWon && (
+                <div style={{display:"flex",flexDirection:"column",gap:5}}>
+                  <label style={{fontSize:12,fontWeight:500,color:T.inkSub,fontFamily:F}}>Next follow-up<span style={{color:"#DC2626",marginLeft:2}}>*</span></label>
+                  <input type="date" value={form.nextFollowUp} onChange={e=>set("nextFollowUp",e.target.value)} style={{...inputSx(errs.nfu)}} onFocus={onfocus} onBlur={onblur}/>
+                  {errs.nfu&&<span style={{fontSize:11,color:"#B91C1C"}}>{errs.nfu}</span>}
+                </div>
+              )}
+              {isWon && (
+                <div style={{display:"flex",flexDirection:"column",gap:5}}>
+                  <label style={{fontSize:12,fontWeight:500,color:T.inkMuted,fontFamily:F}}>Next follow-up</label>
+                  <div style={{padding:"8px 11px",background:"#F0FDF4",border:`1px solid ${T.won.dot}33`,borderRadius:T.r.md,fontSize:13,color:T.won.text,fontFamily:F,display:"flex",alignItems:"center",gap:6}}>
+                    <Dot color={T.won.dot} size={6}/> Not required for Won deals
+                  </div>
+                </div>
+              )}
             </div>
           </section>
 
-          {/* ⑧ Assign to CRE — CEO/Manager only */}
           {FULL.includes(user?.role)&&creUsers.length>0&&(
             <section>
               <SL>Assign to</SL>
@@ -1139,7 +1190,6 @@ function FunnelForm({onClose,onSave,existing,user,users=[]}) {
 }
 
 // ─── CRE EDIT MODAL ───────────────────────────────────────────────────────────
-// ⑨ CRE can only edit: Product/item, Category, Qty, Unit price, Quote Qty, Quote Amount
 function CREEditModal({funnel, onClose, onSave}) {
   const [products, setProducts] = useState(
     funnel.products?.length ? funnel.products.map(p=>({...p})) : [{desc:"",category:"",qty:"",price:""}]
@@ -1171,8 +1221,6 @@ function CREEditModal({funnel, onClose, onSave}) {
   return (
     <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.35)",zIndex:2000,display:"flex",alignItems:"center",justifyContent:"center",padding:16,backdropFilter:"blur(2px)"}} onClick={onClose}>
       <div style={{background:T.surface,borderRadius:T.r["2xl"],width:"100%",maxWidth:680,maxHeight:"85vh",overflowY:"auto",boxShadow:T.shadowXl,animation:"fadeUp .2s ease"}} onClick={e=>e.stopPropagation()}>
-
-        {/* Header */}
         <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"18px 24px 14px",borderBottom:`1px solid ${T.line}`,position:"sticky",top:0,background:T.surface,zIndex:1,borderRadius:`${T.r["2xl"]} ${T.r["2xl"]} 0 0`}}>
           <div>
             <h2 style={{fontSize:15,fontWeight:700,color:T.ink,fontFamily:F,margin:"0 0 2px"}}>Edit Products & Quote</h2>
@@ -1182,10 +1230,7 @@ function CREEditModal({funnel, onClose, onSave}) {
             <Ic d={P.close} sz={13} color={T.inkSub}/>
           </button>
         </div>
-
         <div style={{padding:"20px 24px",display:"flex",flexDirection:"column",gap:20}}>
-
-          {/* Read-only info banner */}
           <div style={{background:T.brandSubtle,border:`1px solid rgba(91,59,232,.15)`,borderRadius:T.r.lg,padding:"12px 16px",display:"flex",gap:24,flexWrap:"wrap"}}>
             {[["Customer",funnel.name],["Phone",funnel.phone],["Status",funnel.status],["Follow-up",funnel.nextFollowUp]].map(([l,v])=>(
               <div key={l}>
@@ -1194,8 +1239,6 @@ function CREEditModal({funnel, onClose, onSave}) {
               </div>
             ))}
           </div>
-
-          {/* Products table */}
           <section>
             <SL>Customer requirements</SL>
             <div style={{border:`1px solid ${T.line}`,borderRadius:T.r.lg,overflow:"hidden"}}>
@@ -1231,8 +1274,6 @@ function CREEditModal({funnel, onClose, onSave}) {
               </div>
             </div>
           </section>
-
-          {/* Quote qty and amount */}
           <section>
             <SL>Quote details</SL>
             <div className="ek-form-2col" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
@@ -1240,14 +1281,11 @@ function CREEditModal({funnel, onClose, onSave}) {
               <FInput label="Amount (₹)" type="number" value={quoteAmount} onChange={e=>setQuoteAmount(e.target.value)} placeholder="0"/>
             </div>
           </section>
-
-          {/* Locked notice */}
           <div style={{background:"#F9FAFB",border:`1px solid ${T.line}`,borderRadius:T.r.md,padding:"10px 14px",fontSize:12,color:T.inkMuted,fontFamily:F,display:"flex",alignItems:"center",gap:8}}>
             <span style={{fontSize:14}}>🔒</span>
             Other fields (contact, remarks, delivery, payment terms) can only be edited by Manager or CEO.
           </div>
         </div>
-
         <div style={{display:"flex",justifyContent:"flex-end",gap:10,padding:"14px 24px 20px",borderTop:`1px solid ${T.line}`,position:"sticky",bottom:0,background:T.surface,borderRadius:`0 0 ${T.r["2xl"]} ${T.r["2xl"]}`}}>
           <Btn ghost label="Cancel" onClick={onClose}/>
           <Btn primary icon={P.check} label={saving?"Saving…":"Save changes"} onClick={submit} disabled={saving}/>
@@ -1380,6 +1418,8 @@ function ViewDrawer({funnel,onClose,onEdit,onCreEdit,onStatusChange,user,comment
   const roleColor={"CEO":T.high,"Manager":T.won,"CRE":T.pending};
   const outcomeColors={"Interested":T.won,"Order Confirmed":T.won,"Needs Time":T.pending,"Callback Requested":T.pending,"Rescheduled":T.pending,"Not Interested":T.lost,"Other":T.drop};
   const canCreEdit=!FULL.includes(user.role)&&(funnel.createdBy===user.name||funnel.assignedTo===user.name);
+  // ⑭ Won funnels don't show Log Follow-up button in drawer either
+  const isWon = status === "Won";
 
   return (
     <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.3)",zIndex:2000,display:"flex",justifyContent:"flex-end",backdropFilter:"blur(1px)"}} onClick={onClose}>
@@ -1433,7 +1473,14 @@ function ViewDrawer({funnel,onClose,onEdit,onCreEdit,onStatusChange,user,comment
             <Row l="Enquiry type"   v={funnel.enquiryType}/>
             <Row l="Funnel type"    v={funnel.funnelType}/>
             <Row l="Lead source"    v={funnel.leadSource}/>
-            <Row l="Next follow-up" v={funnel.nextFollowUp}/>
+            {/* ⑬ Only show follow-up date if not Won */}
+            {!isWon && <Row l="Next follow-up" v={funnel.nextFollowUp}/>}
+            {isWon && (
+              <div style={{display:"grid",gridTemplateColumns:"140px 1fr",gap:8,padding:"8px 0",borderBottom:`1px solid ${T.line}`}}>
+                <dt style={{fontSize:11,fontWeight:500,color:T.inkMuted,fontFamily:F}}>Follow-up</dt>
+                <dd><span style={{fontSize:12,color:T.won.text,fontWeight:500,display:"flex",alignItems:"center",gap:5}}><Dot color={T.won.dot} size={5}/>Deal closed — no follow-up needed</span></dd>
+              </div>
+            )}
           </dl>
           <div style={{height:18}}/>
 
@@ -1473,7 +1520,7 @@ function ViewDrawer({funnel,onClose,onEdit,onCreEdit,onStatusChange,user,comment
             {funnel.quoteDesc&&<Row l="Description" v={funnel.quoteDesc}/>}
           </dl>
 
-          {/* Follow-up History */}
+          {/* Follow-up History — ⑭ hidden for Won funnels */}
           <div style={{height:24}}/>
           <div style={{borderTop:`2px solid ${T.line}`,paddingTop:20,marginBottom:24}}>
             <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:16}}>
@@ -1482,7 +1529,13 @@ function ViewDrawer({funnel,onClose,onEdit,onCreEdit,onStatusChange,user,comment
                 <span style={{fontSize:13,fontWeight:600,color:T.ink,fontFamily:F}}>Follow-up History</span>
                 {followupLogs.length>0&&<span style={{fontSize:11,fontWeight:500,background:T.brandSubtle,color:T.brand,padding:"1px 8px",borderRadius:10,fontFamily:F}}>{followupLogs.length}</span>}
               </div>
-              <Btn primary sm label="+ Log Follow-up" onClick={onLogFollowup}/>
+              {/* ⑭ Only show Log button if NOT Won */}
+              {!isWon && <Btn primary sm label="+ Log Follow-up" onClick={onLogFollowup}/>}
+              {isWon && (
+                <span style={{fontSize:11,color:T.won.text,fontWeight:500,background:T.won.bg,padding:"4px 10px",borderRadius:20,border:`1px solid ${T.won.dot}44`,display:"flex",alignItems:"center",gap:5}}>
+                  <Dot color={T.won.dot} size={5}/> Deal Won ✓
+                </span>
+              )}
             </div>
             {followupLogs.length===0
               ? <div style={{textAlign:"center",padding:"16px 0",fontSize:12,color:T.inkMuted,fontFamily:F}}>No follow-ups logged yet.</div>
@@ -1564,6 +1617,8 @@ function Shell({user,users,onLogout,onUsersChange}) {
   const [view,setView]=useState("dashboard");
   const [search,setSearch]=useState("");
   const [sidebarOpen,setSidebarOpen]=useState(false);
+  // ⑫ Active stat card filter
+  const [statFilter,setStatFilter]=useState(null);
 
   useEffect(()=>{
     const fetchFunnels=async()=>{
@@ -1617,7 +1672,6 @@ function Shell({user,users,onLogout,onUsersChange}) {
     catch(err){ console.error("Failed to add comment:",err); }
   };
 
-  // Follow-up logs
   const [followupLogs,setFollowupLogs]=useState({});
   const [logModalFunnel,setLogModalFunnel]=useState(null);
 
@@ -1649,25 +1703,33 @@ function Shell({user,users,onLogout,onUsersChange}) {
   const [fil,setFil]=useState({ status:"",funnelType:"",enquiryType:"", leadSource:"",descFilter:"",cre:"", missed:false,todayF:false,upcoming:false, });
   const [addOpen,setAddOpen]=useState(false);
   const [editT,setEditT]=useState(null);
-  const [creEditT,setCreEditT]=useState(null); // ⑨ CRE restricted edit
+  const [creEditT,setCreEditT]=useState(null);
 
   const {list:toasts,push}=useToast();
   const TODAY=today();
 
   const sf=(k,v)=>setFil(f=>({...f,[k]:v}));
-  const rf=()=>setFil({status:"",funnelType:"",enquiryType:"",leadSource:"",descFilter:"",cre:"",missed:false,todayF:false,upcoming:false});
+  const rf=()=>{ setFil({status:"",funnelType:"",enquiryType:"",leadSource:"",descFilter:"",cre:"",missed:false,todayF:false,upcoming:false}); setStatFilter(null); };
 
-  // ⑧ scoped includes assigned funnels for CRE
+  // ⑫ Handle stat card click — toggle filter
+  const handleStatClick = (filterKey) => {
+    setStatFilter(prev => prev === filterKey ? null : filterKey);
+    // Also clear the status filter bar if a stat card is clicked
+    setFil(f=>({...f, status:""}));
+  };
+
   const scoped=useMemo(()=>
     FULL.includes(user.role)?funnels:funnels.filter(f=>f.createdBy===user.name||f.assignedTo===user.name),
   [funnels,user]);
 
   const filtered=useMemo(()=>scoped.filter(f=>{
+    // ⑫ Stat card filter takes priority over status filter bar
+    if(statFilter && f.status !== statFilter) return false;
     if(search){
       const q=search.toLowerCase();
       if(!(f.name||"").toLowerCase().includes(q)&&!(f.email||"").toLowerCase().includes(q)&&!(f.phone||"").toLowerCase().includes(q)&&!(f.orderNumber||"").toLowerCase().includes(q)) return false;
     }
-    if(fil.status      && f.status     !==fil.status)      return false;
+    if(!statFilter && fil.status && f.status!==fil.status) return false;
     if(fil.funnelType  && f.funnelType !==fil.funnelType)  return false;
     if(fil.enquiryType && f.enquiryType!==fil.enquiryType) return false;
     if(fil.leadSource  && f.leadSource !==fil.leadSource)  return false;
@@ -1680,7 +1742,7 @@ function Shell({user,users,onLogout,onUsersChange}) {
     if(fil.todayF   && f.nextFollowUp!==TODAY)                  return false;
     if(fil.upcoming && f.nextFollowUp<=TODAY)                   return false;
     return true;
-  }),[scoped,search,fil,TODAY]);
+  }),[scoped,search,fil,statFilter,TODAY]);
 
   const save=async(form)=>{
     try{
@@ -1691,7 +1753,6 @@ function Shell({user,users,onLogout,onUsersChange}) {
     } catch(err){ console.error("Failed to save funnel:",err); push(`Error: ${err.message||"Could not save lead"}`,"error"); }
   };
 
-  // ⑨ CRE restricted save
   const creEditSave=async(form)=>{
     try{
       const saved=await crmService.saveFunnel(form,user);
@@ -1718,7 +1779,7 @@ function Shell({user,users,onLogout,onUsersChange}) {
 
   return (
     <div style={{display:"flex",minHeight:"100vh",background:T.bg,fontFamily:F}}>
-      <Sidebar active={view} set={setView} user={user} onLogout={onLogout} open={sidebarOpen} onClose={()=>setSidebarOpen(false)}/>
+      <Sidebar active={view} set={v=>{setView(v);setStatFilter(null);}} user={user} onLogout={onLogout} open={sidebarOpen} onClose={()=>setSidebarOpen(false)}/>
       <div style={{flex:1,display:"flex",flexDirection:"column",minWidth:0,minHeight:"100vh"}}>
         <Topbar
           title={titles[view]}
@@ -1729,7 +1790,13 @@ function Shell({user,users,onLogout,onUsersChange}) {
           fLen={filtered.length} aLen={scoped.length}
           onMenuToggle={()=>setSidebarOpen(x=>!x)}
         />
-        {showStats&&<Stats funnels={scoped}/>}
+        {showStats&&(
+          <Stats
+            funnels={scoped}
+            activeStatFilter={statFilter}
+            onStatClick={handleStatClick}
+          />
+        )}
         {showFilters&&<div style={{marginTop:16}}><FilterBar fil={fil} setF={sf} reset={rf} users={users} user={user}/></div>}
         {showStats&&!showFilters&&<div style={{height:16}}/>}
         <div style={{flex:1,background:showFilters?T.surface:"transparent",borderTop:showFilters?`1px solid ${T.line}`:"none"}}>
@@ -1766,7 +1833,6 @@ function Shell({user,users,onLogout,onUsersChange}) {
         />
       )}
 
-      {/* ⑨ CRE restricted edit modal */}
       {creEditT&&(
         <CREEditModal
           funnel={creEditT}
