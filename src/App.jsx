@@ -830,7 +830,7 @@ function FilterBar({fil,setF,reset,users=[],user,T}) {
 
 // ─── TABLE ────────────────────────────────────────────────────────────────────
 // ⑳ Row click opens view drawer
-function Table({rows,user,onView,onEdit,onCreEdit,onDelete,onLogFollowup,loading,T}) {
+function Table({rows,user,onView,onEdit,onCreEdit,onDelete,onLogFollowup,loading,T,selectedIds=new Set(),toggleSelect,toggleSelectAll}) {
   const [isMobile,setIsMobile]=useState(typeof window!=="undefined"?window.innerWidth<768:false);
   useEffect(()=>{const h=()=>setIsMobile(window.innerWidth<768);window.addEventListener("resize",h);return()=>window.removeEventListener("resize",h);},[]);
 
@@ -862,10 +862,14 @@ function Table({rows,user,onView,onEdit,onCreEdit,onDelete,onLogFollowup,loading
         const cats=[...new Set((f.products||[]).map(p=>p.category).filter(Boolean))].join(", ")||"—";
         const canCreEdit=!FULL.includes(user.role)&&(f.createdBy===user.name||f.assignedTo===user.name);
         return (
-          <div key={f.id} onClick={()=>onView(f)} style={{padding:"14px 16px",borderBottom:`1px solid ${T.line}`,background:i%2===0?T.surface:T.surfaceEl,cursor:"pointer"}}
+          <div key={f.id} style={{padding:"14px 16px",borderBottom:`1px solid ${T.line}`,background:selectedIds.has(f.id)?T.brandSubtle:i%2===0?T.surface:T.surfaceEl,cursor:"pointer",position:"relative"}}
+            onClick={()=>onView(f)}
             onMouseEnter={e=>e.currentTarget.style.background=T.brandSubtle}
             onMouseLeave={e=>e.currentTarget.style.background=i%2===0?T.surface:T.surfaceEl}>
             <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",marginBottom:8}}>
+  <div onClick={e=>e.stopPropagation()} style={{paddingTop:2,marginRight:8}}>
+    <input type="checkbox" checked={selectedIds.has(f.id)} onChange={()=>toggleSelect(f.id)} style={{accentColor:"#5B3BE8",width:15,height:15,cursor:"pointer"}}/>
+  </div>
               <div style={{flex:1,minWidth:0,marginRight:10}}>
                 <div style={{fontSize:14,fontWeight:700,color:T.ink,fontFamily:F,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{f.name||"—"}</div>
                 <div style={{display:"flex",alignItems:"center",gap:5,marginTop:3,flexWrap:"wrap"}}>
@@ -892,8 +896,13 @@ function Table({rows,user,onView,onEdit,onCreEdit,onDelete,onLogFollowup,loading
   return (
     <div style={{overflowX:"auto"}}>
       <table style={{width:"100%",borderCollapse:"collapse",fontFamily:F,tableLayout:"fixed"}}>
-        <colgroup><col style={{width:"3%"}}/><col style={{width:"18%"}}/><col style={{width:"12%"}}/><col style={{width:"10%"}}/><col style={{width:"11%"}}/><col style={{width:"10%"}}/><col style={{width:"11%"}}/><col style={{width:"10%"}}/><col style={{width:"15%"}}/></colgroup>
-        <thead><tr><TH ch="#"/><TH ch="Name"/><TH ch="Category"/><TH ch="Type"/><TH ch="Follow-up"/><TH ch="Status"/><TH ch="Order No."/><TH ch="Quote"/><TH ch=""/></tr></thead>
+        <colgroup><col style={{width:"3%"}}/><col style={{width:"3%"}}/><col style={{width:"17%"}}/><col style={{width:"11%"}}/><col style={{width:"10%"}}/><col style={{width:"11%"}}/><col style={{width:"10%"}}/><col style={{width:"10%"}}/><col style={{width:"10%"}}/><col style={{width:"15%"}}/></colgroup>
+<thead><tr>
+  <th style={{padding:"0 12px",height:34,background:T.surfaceEl,borderBottom:`1px solid ${T.line}`}}>
+    <input type="checkbox" checked={rows.length>0&&selectedIds.size===rows.length} onChange={toggleSelectAll} style={{accentColor:"#5B3BE8",width:14,height:14,cursor:"pointer"}}/>
+  </th>
+  <TH ch="#"/><TH ch="Name"/><TH ch="Category"/><TH ch="Type"/><TH ch="Follow-up"/><TH ch="Status"/><TH ch="Order No."/><TH ch="Quote"/><TH ch=""/>
+</tr></thead>
         <tbody>
           {rows.map((f,i)=>{
             const over=f.nextFollowUp&&f.nextFollowUp<todayV&&f.status==="Pending";
@@ -907,6 +916,9 @@ function Table({rows,user,onView,onEdit,onCreEdit,onDelete,onLogFollowup,loading
                 style={{borderBottom:`1px solid ${T.line}`,transition:"background .1s",cursor:"pointer",background:i%2===0?T.surface:T.surfaceEl}}
                 onMouseEnter={e=>e.currentTarget.style.background=T.brandSubtle}
                 onMouseLeave={e=>e.currentTarget.style.background=i%2===0?T.surface:T.surfaceEl}>
+                <td style={{padding:"0 12px",height:48,verticalAlign:"middle"}} onClick={e=>e.stopPropagation()}>
+  <input type="checkbox" checked={selectedIds.has(f.id)} onChange={()=>toggleSelect(f.id)} style={{accentColor:"#5B3BE8",width:14,height:14,cursor:"pointer"}}/>
+</td>
                 <td style={{padding:"0 12px",height:48,fontSize:11,color:T.inkMuted,fontWeight:600,verticalAlign:"middle"}}>{i+1}</td>
                 <td style={{padding:"0 12px",verticalAlign:"middle",overflow:"hidden"}}>
                   <div style={{fontSize:13,fontWeight:600,color:T.ink,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{f.name||"—"}</div>
@@ -1578,6 +1590,10 @@ function Shell({user,users,onLogout,onUsersChange,T,dark,onToggleDark}) {
   };
 
   const [fil,setFil]=useState({status:"",funnelType:"",enquiryType:"",leadSource:"",descFilter:"",cre:"",missed:false,todayF:false,upcoming:false});
+  const [selectedIds, setSelectedIds] = useState(new Set());
+const toggleSelect = (id) => setSelectedIds(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
+const toggleSelectAll = () => setSelectedIds(prev => prev.size === filtered.length ? new Set() : new Set(filtered.map(f => f.id)));
+const selectedFunnels = filtered.filter(f => selectedIds.has(f.id));
   const [addOpen,setAddOpen]=useState(false);
   const [editT,setEditT]=useState(null);
   const [creEditT,setCreEditT]=useState(null);
@@ -1632,6 +1648,13 @@ return true;
     <div style={{display:"flex",minHeight:"100vh",background:T.bg,fontFamily:F}}>
       <Sidebar active={view} set={v=>{setView(v);setStatFilter(null);}} user={user} onLogout={onLogout} open={sidebarOpen} onClose={()=>setSidebarOpen(false)} T={T} dark={dark} onToggleDark={onToggleDark} collapsed={sidebarCollapsed} onToggleCollapse={()=>setSidebarCollapsed(x=>!x)}/>
       <div style={{flex:1,display:"flex",flexDirection:"column",minWidth:0,minHeight:"100vh"}}>
+{selectedIds.size > 0 && (
+  <div style={{background: T.brandSubtle, borderBottom: `1px solid rgba(91,59,232,.2)`, padding: "8px 16px", display: "flex", alignItems: "center", gap: 12}}>
+    <span style={{fontSize: 13, fontWeight: 600, color: "#5B3BE8", fontFamily: F}}>{selectedIds.size} selected</span>
+    <Btn primary sm icon={P.dl} label={`Export selected (${selectedIds.size})`} onClick={() => { xls(selectedFunnels, `Ekanta_Selected_${TODAY}.xls`); push(`Exported ${selectedIds.size} funnels`, "info"); }} T={T}/>
+    <Btn ghost sm label="Clear" onClick={() => setSelectedIds(new Set())} T={T}/>
+  </div>
+)}
 <Topbar title={titles[view]} search={search} setSearch={setSearch} user={user} onAdd={()=>setAddOpen(true)}
   onExportAll={()=>{xls(scoped,`Ekanta_All_${TODAY}.xls`);push(`Exported ${scoped.length} funnels`,"info");}}
   onExportFiltered={()=>{xls(filtered,`Ekanta_Filtered_${TODAY}.xls`);push(`Exported ${filtered.length} funnels`,"info");}}
@@ -1656,7 +1679,7 @@ return true;
         {showFilters&&<div style={{marginTop:16}}><FilterBar fil={fil} setF={sf} reset={rf} users={users} user={user} T={T}/></div>}
 
         <div style={{flex:1,background:showFilters?T.surface:"transparent",borderTop:showFilters?`1px solid ${T.line}`:"none"}}>
-          {(view==="dashboard"||view==="funnels")&&<Table rows={filtered} user={user} onView={setViewT} onEdit={f=>setEditT(f)} onCreEdit={f=>setCreEditT(f)} onDelete={del} onLogFollowup={f=>setLogModalFunnel(f)} loading={loading} T={T}/>}
+          {(view==="dashboard"||view==="funnels")&&<Table rows={filtered} user={user} onView={setViewT} onEdit={f=>setEditT(f)} onCreEdit={f=>setCreEditT(f)} onDelete={del} onLogFollowup={f=>setLogModalFunnel(f)} loading={loading} T={T} selectedIds={selectedIds} toggleSelect={toggleSelect} toggleSelectAll={toggleSelectAll}/>}
           {view==="analytics"&&<Analytics funnels={FULL.includes(user.role)?funnels:scoped} T={T}/>}
           {view==="team"&&FULL.includes(user.role)&&<Team users={users} onSave={onUsersChange} T={T}/>}
         </div>
