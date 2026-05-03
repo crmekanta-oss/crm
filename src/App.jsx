@@ -891,43 +891,267 @@ function Table({rows,user,onView,onEdit,onCreEdit,onDelete,onLogFollowup,loading
 }
 
 // ─── ANALYTICS ────────────────────────────────────────────────────────────────
-function Analytics({funnels,T}) {
-  const won=funnels.filter(f=>f.status==="Won");
-  const totalRevenue=won.reduce((a,f)=>a+(Number(f.quoteAmount)||0),0);
-  const wr=funnels.length?Math.round(won.length/funnels.length*100):0;
-  const Row=({label,val,pct,color})=>(
-    <div style={{marginBottom:14}}>
-      <div style={{display:"flex",justifyContent:"space-between",marginBottom:5}}><span style={{fontSize:12,color:T.ink,fontFamily:F}}>{label}</span><span style={{fontSize:12,fontWeight:600,color:T.ink,fontFamily:F}}>{val} <span style={{color:T.inkMuted,fontWeight:400}}>({pct}%)</span></span></div>
-      <div style={{height:4,background:T.surfaceEl,borderRadius:2,overflow:"hidden"}}><div style={{width:`${pct}%`,height:"100%",background:color,borderRadius:2}}/></div>
+function Analytics({funnels, T}) {
+  const todayV = today();
+  const won     = funnels.filter(f => f.status === "Won");
+  const pending = funnels.filter(f => f.status === "Pending");
+  const lost    = funnels.filter(f => f.status === "Lost");
+  const totalRevenue = won.reduce((a, f) => a + (Number(f.quoteAmount) || 0), 0);
+  const wr = funnels.length ? Math.round(won.length / funnels.length * 100) : 0;
+
+  // ── Follow-up health ──────────────────────────────────────────
+  const overdue       = pending.filter(f => f.nextFollowUp && f.nextFollowUp < todayV).length;
+  const todayFollowups= pending.filter(f => f.nextFollowUp === todayV).length;
+  const upcoming      = pending.filter(f => f.nextFollowUp && f.nextFollowUp > todayV).length;
+  const withOrder     = funnels.filter(f => f.orderNumber).length;
+  const totalUnitsQuoted   = funnels.reduce((a, f) => a + (Number(f.quoteQty) || 0), 0);
+  const totalProductUnits  = funnels.flatMap(f => f.products || []).reduce((a, p) => a + (Number(p.qty) || 0), 0);
+
+  // ── City / region ─────────────────────────────────────────────
+  const byCityRaw = {};
+  funnels.forEach(f => { if (f.cityRegion) byCityRaw[f.cityRegion] = (byCityRaw[f.cityRegion] || 0) + 1; });
+  const byCity   = Object.entries(byCityRaw).sort((a, b) => b[1] - a[1]).slice(0, 8);
+  const maxCity  = Math.max(...byCity.map(x => x[1]), 1);
+
+  // ── Revenue by category ───────────────────────────────────────
+  const catRev = {};
+  funnels.forEach(f => (f.products || []).forEach(p => {
+    if (p.category) catRev[p.category] = (catRev[p.category] || 0) + (Number(p.qty) * Number(p.price) || 0);
+  }));
+  const byCatRevenue = Object.entries(catRev).sort((a, b) => b[1] - a[1]);
+  const maxCatRev    = Math.max(...byCatRevenue.map(x => x[1]), 1);
+
+  // ── Team performance ──────────────────────────────────────────
+  const teamPerf = {};
+  funnels.forEach(f => {
+    const person = f.assignedTo || f.createdBy;
+    if (!person) return;
+    if (!teamPerf[person]) teamPerf[person] = { total: 0, won: 0, revenue: 0 };
+    teamPerf[person].total++;
+    if (f.status === "Won") { teamPerf[person].won++; teamPerf[person].revenue += Number(f.quoteAmount) || 0; }
+  });
+  const teamList = Object.entries(teamPerf).sort((a, b) => b[1].total - a[1].total);
+
+  // ── Top customers ─────────────────────────────────────────────
+  const topCustomers = [...funnels]
+    .filter(f => f.quoteAmount)
+    .sort((a, b) => (Number(b.quoteAmount) || 0) - (Number(a.quoteAmount) || 0))
+    .slice(0, 5);
+
+  // ── Units by category (existing) ─────────────────────────────
+  const byCat   = CATS.map(c => ({ c, n: (funnels.flatMap(f => f.products || [])).filter(p => p.category === c).reduce((a, p) => a + (Number(p.qty) || 0), 0) })).sort((a, b) => b.n - a.n);
+  const maxCat  = Math.max(...byCat.map(x => x.n), 1);
+
+  const typeColors = ["#5B3BE8", T.won.dot, T.pending.dot, T.premium.dot, T.new.dot];
+  const enqColors  = [T.new.dot, T.won.dot, T.bulk.dot, T.high.dot, T.premium.dot, T.drop.dot];
+
+  // ── Sub-components ────────────────────────────────────────────
+  const Row = ({ label, val, pct, color }) => (
+    <div style={{ marginBottom: 14 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 5 }}>
+        <span style={{ fontSize: 12, color: T.ink, fontFamily: F }}>{label}</span>
+        <span style={{ fontSize: 12, fontWeight: 600, color: T.ink, fontFamily: F }}>{val} <span style={{ color: T.inkMuted, fontWeight: 400 }}>({pct}%)</span></span>
+      </div>
+      <div style={{ height: 4, background: T.surfaceEl, borderRadius: 2, overflow: "hidden" }}>
+        <div style={{ width: `${pct}%`, height: "100%", background: color, borderRadius: 2 }}/>
+      </div>
     </div>
   );
-  const Card=({title,children})=>(
-    <div style={{background:T.surface,border:`1px solid ${T.line}`,borderRadius:T.r.lg,padding:"20px 22px",boxShadow:T.shadowSm}}>
-      <div style={{fontSize:11,fontWeight:600,color:T.inkMuted,textTransform:"uppercase",letterSpacing:"0.07em",marginBottom:18,fontFamily:F}}>{title}</div>
+
+  const Card = ({ title, children, col2 }) => (
+    <div style={{ background: T.surface, border: `1px solid ${T.line}`, borderRadius: T.r.lg, padding: "20px 22px", boxShadow: T.shadowSm, ...(col2 ? { gridColumn: "span 2" } : {}) }}>
+      <div style={{ fontSize: 11, fontWeight: 600, color: T.inkMuted, textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 18, fontFamily: F }}>{title}</div>
       {children}
     </div>
   );
-  const byCat=CATS.map(c=>({c,n:(funnels.flatMap(f=>f.products||[])).filter(p=>p.category===c).reduce((a,p)=>a+(Number(p.qty)||0),0)})).sort((a,b)=>b.n-a.n);
-  const maxCat=Math.max(...byCat.map(x=>x.n),1);
-  const typeColors=["#5B3BE8",T.won.dot,T.pending.dot,T.premium.dot,T.new.dot];
-  const enqColors=[T.new.dot,T.won.dot,T.bulk.dot,T.high.dot,T.premium.dot,T.drop.dot];
+
+  const MiniStat = ({ label, value, color, bg }) => (
+    <div style={{ flex: 1, textAlign: "center", padding: "12px 8px", background: bg, borderRadius: T.r.md, border: `1px solid ${T.line}` }}>
+      <div style={{ fontSize: 22, fontWeight: 700, color, fontFamily: F, letterSpacing: "-0.5px" }}>{value}</div>
+      <div style={{ fontSize: 10, color: T.inkMuted, marginTop: 4, fontFamily: F }}>{label}</div>
+    </div>
+  );
+
   return (
-    <div style={{padding:"20px 24px",display:"grid",gap:16}}>
-      <div className="ek-analytics-3col" style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:16}}>
-        <Card title="Win rate"><div style={{textAlign:"center",padding:"8px 0"}}><div style={{fontSize:52,fontWeight:700,color:wr>=50?T.won.dot:T.pending.dot,fontFamily:F,letterSpacing:"-2px",lineHeight:1}}>{wr}%</div><div style={{fontSize:12,color:T.inkSub,marginTop:10,fontFamily:F}}>{won.length} of {funnels.length} deals won</div><div style={{height:6,background:T.surfaceEl,borderRadius:3,overflow:"hidden",marginTop:16}}><div style={{width:`${wr}%`,height:"100%",background:wr>=50?T.won.dot:T.pending.dot,borderRadius:3}}/></div></div></Card>
-        <Card title="Status breakdown">{STATUS.map(s=>{const n=funnels.filter(f=>f.status===s).length;const pct=funnels.length?Math.round(n/funnels.length*100):0;const c=T[s.toLowerCase()]||T.drop;return <Row key={s} label={s} val={n} pct={pct} color={c.dot}/>;})}</Card>
+    <div style={{ padding: "20px 24px", display: "flex", flexDirection: "column", gap: 16 }}>
+
+      {/* ── Row 1: Win rate · Status · Revenue ── */}
+      <div className="ek-analytics-3col" style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 16 }}>
+
+        <Card title="Win rate">
+          <div style={{ textAlign: "center", padding: "8px 0" }}>
+            <div style={{ fontSize: 52, fontWeight: 700, color: wr >= 50 ? T.won.dot : T.pending.dot, fontFamily: F, letterSpacing: "-2px", lineHeight: 1 }}>{wr}%</div>
+            <div style={{ fontSize: 12, color: T.inkSub, marginTop: 10, fontFamily: F }}>{won.length} of {funnels.length} deals won</div>
+            <div style={{ height: 6, background: T.surfaceEl, borderRadius: 3, overflow: "hidden", marginTop: 16 }}>
+              <div style={{ width: `${wr}%`, height: "100%", background: wr >= 50 ? T.won.dot : T.pending.dot, borderRadius: 3 }}/>
+            </div>
+          </div>
+        </Card>
+
+        <Card title="Status breakdown">
+          {STATUS.map(s => {
+            const n = funnels.filter(f => f.status === s).length;
+            const pct = funnels.length ? Math.round(n / funnels.length * 100) : 0;
+            const c = T[s.toLowerCase()] || T.drop;
+            return <Row key={s} label={s} val={n} pct={pct} color={c.dot}/>;
+          })}
+        </Card>
+
         <Card title="Revenue">
-          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 0",borderBottom:`1px solid ${T.line}`}}><span style={{fontSize:12,color:T.inkSub,fontFamily:F}}>Won Revenue</span><span style={{fontSize:15,fontWeight:700,color:T.won.dot,fontFamily:F}}>{big(totalRevenue)}</span></div>
-          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 0",borderBottom:`1px solid ${T.line}`}}><span style={{fontSize:12,color:T.inkSub,fontFamily:F}}>Pending potential</span><span style={{fontSize:15,fontWeight:700,color:T.pending.dot,fontFamily:F}}>{big(funnels.filter(f=>f.status==="Pending").reduce((a,f)=>a+(Number(f.quoteAmount)||0),0))}</span></div>
-          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 0"}}><span style={{fontSize:12,color:T.inkSub,fontFamily:F}}>Avg deal size</span><span style={{fontSize:15,fontWeight:700,color:"#5B3BE8",fontFamily:F}}>{big(funnels.length?funnels.reduce((a,f)=>a+(Number(f.quoteAmount)||0),0)/funnels.length:0)}</span></div>
+          {[
+            ["Won revenue",       big(totalRevenue),                                                                             T.won.dot],
+            ["Pending pipeline",  big(pending.reduce((a, f) => a + (Number(f.quoteAmount) || 0), 0)),                           T.pending.dot],
+            ["Lost revenue",      big(lost.reduce((a, f) => a + (Number(f.quoteAmount) || 0), 0)),                              T.lost.dot],
+            ["Avg deal size",     big(funnels.length ? funnels.reduce((a, f) => a + (Number(f.quoteAmount) || 0), 0) / funnels.length : 0), "#5B3BE8"],
+          ].map(([label, val, color], i, arr) => (
+            <div key={label} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 0", borderBottom: i < arr.length - 1 ? `1px solid ${T.line}` : "none" }}>
+              <span style={{ fontSize: 12, color: T.inkSub, fontFamily: F }}>{label}</span>
+              <span style={{ fontSize: 15, fontWeight: 700, color, fontFamily: F }}>{val}</span>
+            </div>
+          ))}
         </Card>
       </div>
-      <div className="ek-analytics-3col" style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:16}}>
-        <Card title="Leads by funnel type"><div style={{display:"flex",gap:8,flexWrap:"wrap"}}>{FTYPES.map((t,i)=>{const n=funnels.filter(f=>f.funnelType===t).length;return(<div key={t} style={{flex:1,minWidth:60,textAlign:"center",padding:"12px 8px",background:T.surfaceEl,borderRadius:T.r.md,border:`1px solid ${T.line}`}}><div style={{fontSize:22,fontWeight:700,color:typeColors[i]||"#5B3BE8",fontFamily:F}}>{n}</div><div style={{fontSize:10,color:T.inkMuted,marginTop:4,fontFamily:F,lineHeight:1.3}}>{t}</div></div>);})}</div></Card>
-        <Card title="Leads by source">{LEAD_SOURCES.map(s=>{const n=funnels.filter(f=>f.leadSource===s).length;if(!n)return null;const pct=funnels.length?Math.round(n/funnels.length*100):0;return<Row key={s} label={s} val={n} pct={pct} color="#5B3BE8"/>;})}{!funnels.some(f=>f.leadSource)&&<div style={{fontSize:12,color:T.inkMuted,fontFamily:F}}>No source data yet.</div>}</Card>
-        <Card title="Leads by enquiry type">{ENQS.map((e,i)=>{const n=funnels.filter(f=>f.enquiryType===e).length;if(!n)return null;const pct=funnels.length?Math.round(n/funnels.length*100):0;return<Row key={e} label={e} val={n} pct={pct} color={enqColors[i]||"#5B3BE8"}/>;})}{!funnels.some(f=>f.enquiryType)&&<div style={{fontSize:12,color:T.inkMuted,fontFamily:F}}>No enquiry data yet.</div>}</Card>
+
+      {/* ── Row 2: Follow-up health · Funnel type · Enquiry type ── */}
+      <div className="ek-analytics-3col" style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 16 }}>
+
+        <Card title="Follow-up health & pipeline">
+          <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
+            <MiniStat label="Overdue"  value={overdue}        color={T.lost.text}    bg={T.lost.bg}/>
+            <MiniStat label="Today"    value={todayFollowups} color={T.pending.text} bg={T.pending.bg}/>
+            <MiniStat label="Upcoming" value={upcoming}       color={T.new.text}     bg={T.new.bg}/>
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 9 }}>
+            {[
+              ["With order number",    withOrder,          "#5B3BE8"],
+              ["Without order number", funnels.length - withOrder, T.inkMuted],
+              ["Total units quoted",   totalUnitsQuoted,   T.ink],
+              ["Total product units",  totalProductUnits,  T.ink],
+            ].map(([label, val, color]) => (
+              <div key={label} style={{ display: "flex", justifyContent: "space-between", fontSize: 12, fontFamily: F }}>
+                <span style={{ color: T.inkSub }}>{label}</span>
+                <span style={{ fontWeight: 600, color }}>{val}</span>
+              </div>
+            ))}
+          </div>
+        </Card>
+
+        <Card title="Leads by funnel type">
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            {FTYPES.map((t, i) => {
+              const n = funnels.filter(f => f.funnelType === t).length;
+              return (
+                <div key={t} style={{ flex: 1, minWidth: 60, textAlign: "center", padding: "12px 8px", background: T.surfaceEl, borderRadius: T.r.md, border: `1px solid ${T.line}` }}>
+                  <div style={{ fontSize: 22, fontWeight: 700, color: typeColors[i] || "#5B3BE8", fontFamily: F }}>{n}</div>
+                  <div style={{ fontSize: 10, color: T.inkMuted, marginTop: 4, fontFamily: F, lineHeight: 1.3 }}>{t}</div>
+                </div>
+              );
+            })}
+          </div>
+        </Card>
+
+        <Card title="Leads by enquiry type">
+          {ENQS.map((e, i) => {
+            const n = funnels.filter(f => f.enquiryType === e).length;
+            if (!n) return null;
+            const pct = funnels.length ? Math.round(n / funnels.length * 100) : 0;
+            return <Row key={e} label={e} val={n} pct={pct} color={enqColors[i] || "#5B3BE8"}/>;
+          })}
+          {!funnels.some(f => f.enquiryType) && <div style={{ fontSize: 12, color: T.inkMuted, fontFamily: F }}>No enquiry data yet.</div>}
+        </Card>
       </div>
-      <Card title="Units ordered by category"><div style={{display:"grid",gridTemplateColumns:"repeat(2,1fr)",gap:"0 32px"}}>{byCat.map(({c,n})=>(<div key={c} style={{marginBottom:10}}><div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}><span style={{fontSize:12,color:T.ink,fontFamily:F}}>{c}</span><span style={{fontSize:12,fontWeight:600,color:T.ink,fontFamily:F}}>{n}</span></div><div style={{height:4,background:T.surfaceEl,borderRadius:2,overflow:"hidden"}}><div style={{width:`${Math.round(n/maxCat*100)}%`,height:"100%",background:"#5B3BE8",borderRadius:2,opacity:.7}}/></div></div>))}</div></Card>
+
+      {/* ── Row 3: Lead source · City/Region · Team performance ── */}
+      <div className="ek-analytics-3col" style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 16 }}>
+
+        <Card title="Leads by source">
+          {LEAD_SOURCES.map(s => {
+            const n = funnels.filter(f => f.leadSource === s).length;
+            if (!n) return null;
+            const pct = funnels.length ? Math.round(n / funnels.length * 100) : 0;
+            return <Row key={s} label={s} val={n} pct={pct} color="#5B3BE8"/>;
+          })}
+          {!funnels.some(f => f.leadSource) && <div style={{ fontSize: 12, color: T.inkMuted, fontFamily: F }}>No source data yet.</div>}
+        </Card>
+
+        <Card title="Leads by city / region">
+          {byCity.length === 0
+            ? <div style={{ fontSize: 12, color: T.inkMuted, fontFamily: F }}>No city data yet.</div>
+            : byCity.map(([city, n]) => <Row key={city} label={city} val={n} pct={Math.round(n / maxCity * 100)} color="#5B3BE8"/>)
+          }
+        </Card>
+
+        <Card title="Team performance">
+          {teamList.length === 0
+            ? <div style={{ fontSize: 12, color: T.inkMuted, fontFamily: F }}>No data yet.</div>
+            : <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                {teamList.map(([name, d]) => {
+                  const winRate = d.total ? Math.round(d.won / d.total * 100) : 0;
+                  return (
+                    <div key={name} style={{ padding: "10px 12px", background: T.surfaceEl, borderRadius: T.r.md, border: `1px solid ${T.line}` }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
+                        <span style={{ fontSize: 12, fontWeight: 600, color: T.ink, fontFamily: F }}>{name}</span>
+                        <span style={{ fontSize: 11, color: T.inkSub, fontFamily: F }}>{d.total} leads · {big(d.revenue)}</span>
+                      </div>
+                      <div style={{ height: 4, background: T.line, borderRadius: 2, overflow: "hidden" }}>
+                        <div style={{ width: `${winRate}%`, height: "100%", background: T.won.dot, borderRadius: 2 }}/>
+                      </div>
+                      <div style={{ fontSize: 10, color: T.inkMuted, fontFamily: F, marginTop: 4 }}>{winRate}% win rate · {d.won} won</div>
+                    </div>
+                  );
+                })}
+              </div>
+          }
+        </Card>
+      </div>
+
+      {/* ── Row 4: Top customers · Revenue by category ── */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+
+        <Card title="Top customers by quote value">
+          {topCustomers.length === 0
+            ? <div style={{ fontSize: 12, color: T.inkMuted, fontFamily: F }}>No data yet.</div>
+            : topCustomers.map((f, i) => (
+                <div key={f.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 0", borderBottom: i < topCustomers.length - 1 ? `1px solid ${T.line}` : "none" }}>
+                  <div style={{ width: 24, height: 24, borderRadius: "50%", background: T.brandSubtle, color: "#5B3BE8", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, fontFamily: F, flexShrink: 0 }}>{i + 1}</div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: T.ink, fontFamily: F, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{f.name}</div>
+                    <div style={{ fontSize: 11, color: T.inkMuted, fontFamily: F }}>{f.cityRegion || f.phone || "—"}</div>
+                  </div>
+                  <div style={{ textAlign: "right", flexShrink: 0 }}>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: "#5B3BE8", fontFamily: F, marginBottom: 3 }}>{inr(f.quoteAmount)}</div>
+                    <StatusPill status={f.status} sm T={T}/>
+                  </div>
+                </div>
+              ))
+          }
+        </Card>
+
+        <Card title="Revenue by product category">
+          {byCatRevenue.length === 0
+            ? <div style={{ fontSize: 12, color: T.inkMuted, fontFamily: F }}>No product data yet.</div>
+            : byCatRevenue.map(([cat, rev]) => <Row key={cat} label={cat} val={big(rev)} pct={Math.round(rev / maxCatRev * 100)} color="#5B3BE8"/>)
+          }
+        </Card>
+      </div>
+
+      {/* ── Row 5: Units ordered by category (existing) ── */}
+      <Card title="Units ordered by category">
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: "0 32px" }}>
+          {byCat.map(({ c, n }) => (
+            <div key={c} style={{ marginBottom: 10 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+                <span style={{ fontSize: 12, color: T.ink, fontFamily: F }}>{c}</span>
+                <span style={{ fontSize: 12, fontWeight: 600, color: T.ink, fontFamily: F }}>{n}</span>
+              </div>
+              <div style={{ height: 4, background: T.surfaceEl, borderRadius: 2, overflow: "hidden" }}>
+                <div style={{ width: `${Math.round(n / maxCat * 100)}%`, height: "100%", background: "#5B3BE8", borderRadius: 2, opacity: .7 }}/>
+              </div>
+            </div>
+          ))}
+        </div>
+      </Card>
+
     </div>
   );
 }
