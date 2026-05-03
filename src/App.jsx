@@ -1438,9 +1438,12 @@ const areaPath = (points, maxV) => {
     <div style={{ height: svgH, display: "flex", alignItems: "center", justifyContent: "center", gap: 48 }}>
       <div style={{ textAlign: "center" }}>
         <div style={{ fontSize: 56, fontWeight: 700, color: "#5B3BE8", fontFamily: F, letterSpacing: "-2px", lineHeight: 1 }}>{currSeries[0].count}</div>
-        <div style={{ fontSize: 12, color: T.inkMuted, fontFamily: F, marginTop: 8 }}>leads in {currSeries[0].label}</div>
-        <div style={{ fontSize: 11, color: T.inkSub, fontFamily: F, marginTop: 4 }}>Add more data across months to see a trend chart</div>
-      </div>
+        <div style={{ fontSize: 13, color: T.inkSub, fontFamily: F, marginTop: 8 }}>
+  leads this month
+</div>
+<div style={{ fontSize: 11, color: T.inkMuted, fontFamily: F, marginTop: 4 }}>
+  Trend chart appears when data spans multiple months
+</div>
       {compareOn && cmpSeries[0] && (
         <div style={{ textAlign: "center", opacity: 0.7 }}>
           <div style={{ fontSize: 56, fontWeight: 700, color: "#D97706", fontFamily: F, letterSpacing: "-2px", lineHeight: 1 }}>{cmpSeries[0].count}</div>
