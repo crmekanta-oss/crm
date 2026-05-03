@@ -114,13 +114,18 @@ function FontLoader({ dark }) {
 
 // ─── RBAC ─────────────────────────────────────────────────────────────────────
 const FULL  = ["CEO","Manager"];
-const can   = (u, a) => FULL.includes(u?.role) || a === "create" || a === "export";
+const VIEWER = ["Viewer"];
+const can   = (u, a) => {
+  if (VIEWER.includes(u?.role)) return false;
+  return FULL.includes(u?.role) || a === "create" || a === "export";
+};
 
 // ─── CONSTANTS ────────────────────────────────────────────────────────────────
 const CATS         = ["Dresses","Sarees","Half Sarees","Kurtis","Lehengas","Mom & Me","999 Deals","kids","Padava Sattai","Mens","Blouses","Others"];
 const ENQS         = ["New Customer","Repeat Customer","Bulk Order","Custom Design","Wholesale","Others"];
 const FTYPES       = ["Normal","High Value","Bulk","priority","Others"];
-const ROLES        = ["CEO","Manager","CRE"];
+const ROLES        = ["CEO","Manager","CRE","Viewer"];
+const VIEWER       = ["Viewer"];
 const STATUS       = ["Pending","Won","Lost","Drop"];
 const LEAD_SOURCES = ["WhatsApp","Email","Website","Call","Abandoned Cart","Social media","Other","Owner"];
 
