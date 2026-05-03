@@ -1428,51 +1428,67 @@ const areaPath = (points, maxV) => {
                 </div>
               </div>
               {/* Leads Count Chart */}
-              <div style={{ overflowX: "auto", padding: "0 20px 16px" }}>
-                <svg width="100%" viewBox={`0 0 ${svgW} ${svgH}`} style={{ display: "block", minWidth: 300 }}>
-                  <defs>
-                    <linearGradient id="areaGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#5B3BE8" stopOpacity="0.18"/>
-                      <stop offset="100%" stopColor="#5B3BE8" stopOpacity="0"/>
-                    </linearGradient>
-                    <linearGradient id="cmpGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#D97706" stopOpacity="0.15"/>
-                      <stop offset="100%" stopColor="#D97706" stopOpacity="0"/>
-                    </linearGradient>
-                  </defs>
-                  {/* Grid lines */}
-                  {[0, 0.25, 0.5, 0.75, 1].map(r => (
-                    <g key={r}>
-                      <line x1={pad.l} y1={pad.t + innerH * (1-r)} x2={pad.l + innerW} y2={pad.t + innerH * (1-r)} stroke={T.line} strokeWidth="1"/>
-                      <text x={pad.l - 4} y={pad.t + innerH*(1-r) + 4} textAnchor="end" fontSize="9" fill={T.inkMuted} fontFamily={F}>{Math.round(seriesCountMax * r)}</text>
-                    </g>
-                  ))}
-                  {/* Compare area */}
-                  {compareOn && cmpSeries.length > 1 && (
-                    <>
-                      <path d={areaPath(cmpSeries.map(p => p.count), seriesCountMax)} fill="url(#cmpGrad)"/>
-                      <polyline points={polyline(cmpSeries.map(p => p.count), seriesCountMax)} fill="none" stroke="#D97706" strokeWidth="1.5" strokeDasharray="5,3"/>
-                    </>
-                  )}
-                  {/* Current area */}
-                  {currSeries.length > 1 && (
-                    <>
-                      <path d={areaPath(currSeries.map(p => p.count), seriesCountMax)} fill="url(#areaGrad)"/>
-                      <polyline points={polyline(currSeries.map(p => p.count), seriesCountMax)} fill="none" stroke="#5B3BE8" strokeWidth="2"/>
-                    </>
-                  )}
-                  {/* X labels */}
-                  {currSeries.map((p, i) => (
-                    <text key={i} x={pad.l + (i / (currSeries.length - 1 || 1)) * innerW} y={svgH - 6} textAnchor="middle" fontSize="9" fill={T.inkMuted} fontFamily={F}>{p.label}</text>
-                  ))}
-                  {/* Data dots */}
-                  {currSeries.map((p, i) => {
-                    const x = pad.l + (i / (currSeries.length - 1 || 1)) * innerW;
-                    const y = pad.t + innerH - (p.count / seriesCountMax) * innerH;
-                    return <circle key={i} cx={x} cy={y} r="3" fill="#5B3BE8" stroke={T.surface} strokeWidth="1.5"/>;
-                  })}
-                </svg>
-              </div>
+<div style={{ overflowX: "auto", padding: "0 20px 16px" }}>
+  {currSeries.length === 0 ? (
+    <div style={{ height: svgH, display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 8 }}>
+      <div style={{ fontSize: 32 }}>📊</div>
+      <div style={{ fontSize: 12, color: T.inkMuted, fontFamily: F }}>No data for selected period</div>
+    </div>
+  ) : currSeries.length === 1 ? (
+    <div style={{ height: svgH, display: "flex", alignItems: "center", justifyContent: "center", gap: 48 }}>
+      <div style={{ textAlign: "center" }}>
+        <div style={{ fontSize: 56, fontWeight: 700, color: "#5B3BE8", fontFamily: F, letterSpacing: "-2px", lineHeight: 1 }}>{currSeries[0].count}</div>
+        <div style={{ fontSize: 12, color: T.inkMuted, fontFamily: F, marginTop: 8 }}>leads in {currSeries[0].label}</div>
+        <div style={{ fontSize: 11, color: T.inkSub, fontFamily: F, marginTop: 4 }}>Add more data across months to see a trend chart</div>
+      </div>
+      {compareOn && cmpSeries[0] && (
+        <div style={{ textAlign: "center", opacity: 0.7 }}>
+          <div style={{ fontSize: 56, fontWeight: 700, color: "#D97706", fontFamily: F, letterSpacing: "-2px", lineHeight: 1 }}>{cmpSeries[0].count}</div>
+          <div style={{ fontSize: 12, color: T.inkMuted, fontFamily: F, marginTop: 8 }}>leads in {cmpSeries[0].label} (prev)</div>
+        </div>
+      )}
+    </div>
+  ) : (
+    <svg width="100%" viewBox={`0 0 ${svgW} ${svgH}`} style={{ display: "block", minWidth: 300 }}>
+      <defs>
+        <linearGradient id="areaGrad" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#5B3BE8" stopOpacity="0.18"/>
+          <stop offset="100%" stopColor="#5B3BE8" stopOpacity="0"/>
+        </linearGradient>
+        <linearGradient id="cmpGrad" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#D97706" stopOpacity="0.15"/>
+          <stop offset="100%" stopColor="#D97706" stopOpacity="0"/>
+        </linearGradient>
+      </defs>
+      {[0, 0.25, 0.5, 0.75, 1].map(r => (
+        <g key={r}>
+          <line x1={pad.l} y1={pad.t + innerH * (1-r)} x2={pad.l + innerW} y2={pad.t + innerH * (1-r)} stroke={T.line} strokeWidth="1"/>
+          <text x={pad.l - 4} y={pad.t + innerH*(1-r) + 4} textAnchor="end" fontSize="9" fill={T.inkMuted} fontFamily={F}>{Math.round(seriesCountMax * r)}</text>
+        </g>
+      ))}
+      {compareOn && cmpSeries.length > 1 && (
+        <>
+          <path d={areaPath(cmpSeries.map(p => p.count), seriesCountMax)} fill="url(#cmpGrad)"/>
+          <polyline points={polyline(cmpSeries.map(p => p.count), seriesCountMax)} fill="none" stroke="#D97706" strokeWidth="1.5" strokeDasharray="5,3"/>
+        </>
+      )}
+      {currSeries.length > 1 && (
+        <>
+          <path d={areaPath(currSeries.map(p => p.count), seriesCountMax)} fill="url(#areaGrad)"/>
+          <polyline points={polyline(currSeries.map(p => p.count), seriesCountMax)} fill="none" stroke="#5B3BE8" strokeWidth="2"/>
+        </>
+      )}
+      {currSeries.map((p, i) => (
+        <text key={i} x={pad.l + (i / (currSeries.length - 1 || 1)) * innerW} y={svgH - 6} textAnchor="middle" fontSize="9" fill={T.inkMuted} fontFamily={F}>{p.label}</text>
+      ))}
+      {currSeries.map((p, i) => {
+        const x = pad.l + (i / (currSeries.length - 1 || 1)) * innerW;
+        const y = pad.t + innerH - (p.count / seriesCountMax) * innerH;
+        return <circle key={i} cx={x} cy={y} r="3" fill="#5B3BE8" stroke={T.surface} strokeWidth="1.5"/>;
+      })}
+    </svg>
+  )}
+</div>
             </Card>
 
             {/* Status Donut + Revenue Breakdown */}
