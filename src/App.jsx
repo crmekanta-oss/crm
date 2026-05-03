@@ -969,14 +969,14 @@ function Analytics({ funnels, T }) {
   const todayV = today();
 
   // ─── DATE FILTER STATE ──────────────────────────────────────────────────────
-  const [preset, setPreset]           = React.useState("all");
-  const [customFrom, setCustomFrom]   = React.useState("");
-  const [customTo, setCustomTo]       = React.useState("");
-  const [compareOn, setCompareOn]     = React.useState(false);
-  const [cmpFrom, setCmpFrom]         = React.useState("");
-  const [cmpTo, setCmpTo]             = React.useState("");
-  const [granularity, setGranularity] = React.useState("monthly"); // daily | weekly | monthly
-  const [activeTab, setActiveTab]     = React.useState("overview"); // overview | pipeline | team | products
+  const [preset, setPreset]           = useState("all");
+  const [customFrom, setCustomFrom]   = useState("");
+  const [customTo, setCustomTo]       = useState("");
+  const [compareOn, setCompareOn]     = useState(false);
+  const [cmpFrom, setCmpFrom]         = useState("");
+  const [cmpTo, setCmpTo]             = useState("");
+  const [granularity, setGranularity] = useState("monthly"); // daily | weekly | monthly
+  const [activeTab, setActiveTab]     = useState("overview"); // overview | pipeline | team | products
 
   // ─── PRESET RANGES ──────────────────────────────────────────────────────────
   const getRange = (p) => {
@@ -1014,7 +1014,7 @@ function Analytics({ funnels, T }) {
   const activeFrom = preset === "custom" ? customFrom : getRange(preset).from;
   const activeTo   = preset === "custom" ? customTo   : getRange(preset).to;
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (compareOn && activeFrom && activeTo) {
       const auto = getAutoCompare(activeFrom, activeTo);
       setCmpFrom(auto.from); setCmpTo(auto.to);
@@ -1022,7 +1022,7 @@ function Analytics({ funnels, T }) {
   }, [preset, activeFrom, activeTo, compareOn]);
 
   // Auto granularity
-  React.useEffect(() => {
+  useEffect(() => {
     if (!activeFrom || !activeTo) { setGranularity("monthly"); return; }
     const diff = (new Date(activeTo) - new Date(activeFrom)) / 86400000;
     if (diff <= 14)  setGranularity("daily");
@@ -1265,14 +1265,14 @@ function Analytics({ funnels, T }) {
     );
   };
 
-  const KpiCard = ({ label, value, cmpValue, icon, color, bg }) => (
+  const KpiCard = ({ label, value, cmpValue, rawValue, rawCmpValue, icon, color, bg }) => (
     <div style={{ background: T.surface, border: `1px solid ${T.line}`, borderRadius: T.r.lg, padding: "18px 20px", boxShadow: T.shadowSm, position: "relative", overflow: "hidden" }}>
       <div style={{ position: "absolute", top: 0, right: 0, width: 80, height: 80, borderRadius: "0 0 0 80px", background: bg || T.brandSubtle, opacity: 0.5 }} />
       <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 10 }}>
         <div style={{ width: 32, height: 32, borderRadius: 9, background: bg || T.brandSubtle, display: "flex", alignItems: "center", justifyContent: "center" }}>
           <Ic d={icon} sz={15} color={color || "#5B3BE8"} />
         </div>
-        {compareOn && cmpValue !== undefined && <DeltaBadge cur={typeof value === "number" ? value : 0} prev={typeof cmpValue === "number" ? cmpValue : 0} />}
+        {compareOn && cmpValue !== undefined && <DeltaBadge cur={rawValue !== undefined ? rawValue : (typeof value === "number" ? value : 0)} prev={rawCmpValue !== undefined ? rawCmpValue : (typeof cmpValue === "number" ? cmpValue : 0)} />}
       </div>
       <div style={{ fontSize: 26, fontWeight: 700, color: T.ink, fontFamily: F, letterSpacing: "-0.8px", lineHeight: 1.1, marginBottom: 3 }}>
         {typeof value === "number" && value > 1000 ? big(value) : value}
@@ -1400,7 +1400,7 @@ function Analytics({ funnels, T }) {
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 12 }}>
               <KpiCard label="Total Leads"   value={M.total}   cmpValue={CM?.total}   icon={P.list}  color="#5B3BE8" bg={T.brandSubtle} />
               <KpiCard label="Won Deals"     value={M.won}     cmpValue={CM?.won}     icon={P.check} color={T.won.dot} bg={T.won.bg} />
-              <KpiCard label="Win Rate"      value={`${M.wr}%`} cmpValue={CM ? `${CM.wr}%` : undefined} icon={P.chart} color={T.won.dot} bg={T.won.bg} />
+              <KpiCard label="Win Rate"      value={`${M.wr}%`} cmpValue={CM ? `${CM.wr}%` : undefined} rawValue={M.wr} rawCmpValue={CM?.wr} icon={P.chart} color={T.won.dot} bg={T.won.bg} />
               <KpiCard label="Won Revenue"   value={M.wonRev}  cmpValue={CM?.wonRev}  icon={P.layers} color="#5B3BE8" bg={T.brandSubtle} />
               <KpiCard label="Avg Deal Size" value={M.avgDeal} cmpValue={CM?.avgDeal} icon={P.tag}   color={T.pending.dot} bg={T.pending.bg} />
               <KpiCard label="Pipeline"      value={M.pendRev} cmpValue={CM?.pendRev} icon={P.filter} color={T.pending.dot} bg={T.pending.bg} />
@@ -2063,9 +2063,9 @@ function CREEditModal({funnel,onClose,onSave,T}) {
         products:products.filter(p=>p.desc||p.category||p.qty||p.price),
         quoteQty:quoteQty?Number(quoteQty):funnel.quoteQty,
         quoteAmount:quoteAmount?Number(quoteAmount):funnel.quoteAmount,
-        quoteDesc:quoteDesc.trim()||funnel.quoteDesc,
-        orderNumber:orderNumber.trim()||funnel.orderNumber,
-        remarks:remarks.trim()||funnel.remarks,
+        quoteDesc:quoteDesc.trim(),
+orderNumber:orderNumber.trim(),
+remarks:remarks.trim(),
       });
       onClose();
     }catch(err){console.error(err);}finally{setSaving(false);}
