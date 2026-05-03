@@ -1441,6 +1441,7 @@ const areaPath = (points, maxV) => {
         <div style={{ fontSize: 13, color: T.inkSub, fontFamily: F, marginTop: 8 }}>
   leads this month
 </div>
+        </div>
 <div style={{ fontSize: 11, color: T.inkMuted, fontFamily: F, marginTop: 4 }}>
   Trend chart appears when data spans multiple months
 </div>
@@ -1643,45 +1644,60 @@ const areaPath = (points, maxV) => {
                 <div style={{ fontSize: 12, color: T.inkSub, fontFamily: F, marginBottom: 12 }}>Won revenue {rangeLabel}</div>
               </div>
               <div style={{ overflowX: "auto", padding: "0 20px 16px" }}>
-                <svg width="100%" viewBox={`0 0 ${svgW} ${svgH}`} style={{ display: "block", minWidth: 300 }}>
-                  <defs>
-                    <linearGradient id="revGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor={T.won.dot} stopOpacity="0.2"/>
-                      <stop offset="100%" stopColor={T.won.dot} stopOpacity="0"/>
-                    </linearGradient>
-                    <linearGradient id="revCmpGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#D97706" stopOpacity="0.15"/>
-                      <stop offset="100%" stopColor="#D97706" stopOpacity="0"/>
-                    </linearGradient>
-                  </defs>
-                  {[0, 0.25, 0.5, 0.75, 1].map(r => (
-                    <g key={r}>
-                      <line x1={pad.l} y1={pad.t+innerH*(1-r)} x2={pad.l+innerW} y2={pad.t+innerH*(1-r)} stroke={T.line} strokeWidth="1"/>
-                      <text x={pad.l-4} y={pad.t+innerH*(1-r)+4} textAnchor="end" fontSize="9" fill={T.inkMuted} fontFamily={F}>{big(seriesRevMax*r)}</text>
-                    </g>
-                  ))}
-                  {compareOn && cmpSeries.length > 1 && (
-                    <>
-                      <path d={areaPath(cmpSeries.map(p=>p.revenue), seriesRevMax)} fill="url(#revCmpGrad)"/>
-                      <polyline points={polyline(cmpSeries.map(p=>p.revenue), seriesRevMax)} fill="none" stroke="#D97706" strokeWidth="1.5" strokeDasharray="5,3"/>
-                    </>
-                  )}
-                  {currSeries.length > 1 && (
-                    <>
-                      <path d={areaPath(currSeries.map(p=>p.revenue), seriesRevMax)} fill="url(#revGrad)"/>
-                      <polyline points={polyline(currSeries.map(p=>p.revenue), seriesRevMax)} fill="none" stroke={T.won.dot} strokeWidth="2"/>
-                    </>
-                  )}
-                  {currSeries.map((p, i) => {
-                    const x = pad.l + (i/(currSeries.length-1||1))*innerW;
-                    const y = pad.t + innerH - (p.revenue/seriesRevMax)*innerH;
-                    return <circle key={i} cx={x} cy={y} r="3" fill={T.won.dot} stroke={T.surface} strokeWidth="1.5"/>;
-                  })}
-                  {currSeries.map((p, i) => (
-                    <text key={i} x={pad.l+(i/(currSeries.length-1||1))*innerW} y={svgH-6} textAnchor="middle" fontSize="9" fill={T.inkMuted} fontFamily={F}>{p.label}</text>
-                  ))}
-                </svg>
-              </div>
+  {currSeries.length === 0 ? (
+    <div style={{ height: svgH, display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 8 }}>
+      <div style={{ fontSize: 32 }}>📊</div>
+      <div style={{ fontSize: 12, color: T.inkMuted, fontFamily: F }}>No revenue data for selected period</div>
+    </div>
+  ) : currSeries.length === 1 ? (
+    <div style={{ height: svgH, display: "flex", alignItems: "center", justifyContent: "center", gap: 48 }}>
+      <div style={{ textAlign: "center" }}>
+        <div style={{ fontSize: 56, fontWeight: 700, color: T.won.dot, fontFamily: F, letterSpacing: "-2px", lineHeight: 1 }}>{big(currSeries[0].revenue)}</div>
+        <div style={{ fontSize: 13, color: T.inkSub, fontFamily: F, marginTop: 8 }}>won revenue this month</div>
+        <div style={{ fontSize: 11, color: T.inkMuted, fontFamily: F, marginTop: 4 }}>Trend chart appears when data spans multiple months</div>
+      </div>
+    </div>
+  ) : (
+    <svg width="100%" viewBox={`0 0 ${svgW} ${svgH}`} style={{ display: "block", minWidth: 300 }}>
+      <defs>
+        <linearGradient id="revGrad" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor={T.won.dot} stopOpacity="0.2"/>
+          <stop offset="100%" stopColor={T.won.dot} stopOpacity="0"/>
+        </linearGradient>
+        <linearGradient id="revCmpGrad" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#D97706" stopOpacity="0.15"/>
+          <stop offset="100%" stopColor="#D97706" stopOpacity="0"/>
+        </linearGradient>
+      </defs>
+      {[0, 0.25, 0.5, 0.75, 1].map(r => (
+        <g key={r}>
+          <line x1={pad.l} y1={pad.t+innerH*(1-r)} x2={pad.l+innerW} y2={pad.t+innerH*(1-r)} stroke={T.line} strokeWidth="1"/>
+          <text x={pad.l-4} y={pad.t+innerH*(1-r)+4} textAnchor="end" fontSize="9" fill={T.inkMuted} fontFamily={F}>{big(seriesRevMax*r)}</text>
+        </g>
+      ))}
+      {compareOn && cmpSeries.length > 1 && (
+        <>
+          <path d={areaPath(cmpSeries.map(p=>p.revenue), seriesRevMax)} fill="url(#revCmpGrad)"/>
+          <polyline points={polyline(cmpSeries.map(p=>p.revenue), seriesRevMax)} fill="none" stroke="#D97706" strokeWidth="1.5" strokeDasharray="5,3"/>
+        </>
+      )}
+      {currSeries.length > 1 && (
+        <>
+          <path d={areaPath(currSeries.map(p=>p.revenue), seriesRevMax)} fill="url(#revGrad)"/>
+          <polyline points={polyline(currSeries.map(p=>p.revenue), seriesRevMax)} fill="none" stroke={T.won.dot} strokeWidth="2"/>
+        </>
+      )}
+      {currSeries.map((p, i) => {
+        const x = pad.l + (i/(currSeries.length-1||1))*innerW;
+        const y = pad.t + innerH - (p.revenue/seriesRevMax)*innerH;
+        return <circle key={i} cx={x} cy={y} r="3" fill={T.won.dot} stroke={T.surface} strokeWidth="1.5"/>;
+      })}
+      {currSeries.map((p, i) => (
+        <text key={i} x={pad.l+(i/(currSeries.length-1||1))*innerW} y={svgH-6} textAnchor="middle" fontSize="9" fill={T.inkMuted} fontFamily={F}>{p.label}</text>
+      ))}
+    </svg>
+  )}
+</div>
             </Card>
 
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
