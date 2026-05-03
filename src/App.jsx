@@ -637,43 +637,96 @@ function Sidebar({active,set,user,onLogout,open,onClose,T,dark,onToggleDark,coll
 
 // ─── TOPBAR ───────────────────────────────────────────────────────────────────
 // ㉒ Notification bell for today's follow-ups
-function Topbar({title,search,setSearch,user,onAdd,onExportAll,onExportFiltered,fLen,aLen,onMenuToggle,T,todayCount}) {
-  const [bellHov,setBellHov]=useState(false);
+function Topbar({title, search, setSearch, user, onAdd, onExportAll, onExportFiltered, fLen, aLen, onMenuToggle, T, todayCount, dateFilter, setDateFilter, dateType, setDateType}) {
+  const [bellHov, setBellHov] = useState(false);
+
   return (
-    <div style={{background:T.surface,borderBottom:`1px solid ${T.line}`,padding:"0 16px"}}>
-      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",height:56}}>
-        <div style={{display:"flex",alignItems:"center",gap:10,flex:1}}>
+    <div style={{background: T.surface, borderBottom: `1px solid ${T.line}`, padding: "0 16px"}}>
+      <div style={{display: "flex", alignItems: "center", justifyContent: "space-between", height: 56, gap: 8}}>
+
+        {/* ── Left: menu + title + search ── */}
+        <div style={{display: "flex", alignItems: "center", gap: 10, flex: 1, minWidth: 0}}>
           <button onClick={onMenuToggle} className="ek-mobile-menu"
-            style={{background:"none",border:"none",cursor:"pointer",color:T.inkSub,display:"none",padding:4,borderRadius:6}}>
+            style={{background: "none", border: "none", cursor: "pointer", color: T.inkSub, display: "none", padding: 4, borderRadius: 6}}>
             <Ic d={P.menu} sz={18} color="currentColor"/>
           </button>
-          <h1 style={{fontSize:15,fontWeight:600,color:T.ink,letterSpacing:"-0.2px",margin:0,fontFamily:F}}>{title}</h1>
-          <div className="ek-topbar-search" style={{display:"flex",alignItems:"center",gap:8,background:T.surfaceEl,border:`1px solid ${T.line}`,borderRadius:T.r.md,padding:"6px 11px",minWidth:220,maxWidth:320,flex:1}}>
+          <h1 style={{fontSize: 15, fontWeight: 600, color: T.ink, letterSpacing: "-0.2px", margin: 0, fontFamily: F, whiteSpace: "nowrap"}}>{title}</h1>
+          <div className="ek-topbar-search" style={{display: "flex", alignItems: "center", gap: 8, background: T.surfaceEl, border: `1px solid ${T.line}`, borderRadius: T.r.md, padding: "6px 11px", minWidth: 180, maxWidth: 260, flex: 1}}>
             <Ic d={P.search} sz={13} color={T.inkMuted}/>
-            <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search funnels…"
-              style={{border:"none",background:"transparent",outline:"none",fontSize:13,color:T.ink,fontFamily:F,width:"100%"}}/>
-            {search&&<button onClick={()=>setSearch("")} style={{background:"none",border:"none",cursor:"pointer",color:T.inkMuted,display:"flex",padding:0}}><Ic d={P.close} sz={12} color="currentColor"/></button>}
+            <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search funnels…"
+              style={{border: "none", background: "transparent", outline: "none", fontSize: 13, color: T.ink, fontFamily: F, width: "100%"}}/>
+            {search && (
+              <button onClick={() => setSearch("")} style={{background: "none", border: "none", cursor: "pointer", color: T.inkMuted, display: "flex", padding: 0}}>
+                <Ic d={P.close} sz={12} color="currentColor"/>
+              </button>
+            )}
           </div>
         </div>
-        <div style={{display:"flex",gap:6,alignItems:"center",marginLeft:12}}>
+
+        {/* ── Middle: date type toggle + date picker ── */}
+        <div style={{display: "flex", alignItems: "center", gap: 6, flexShrink: 0}}>
+          {/* Toggle pill */}
+          <div style={{display: "flex", background: T.surfaceEl, border: `1px solid ${T.line}`, borderRadius: T.r.md, overflow: "hidden", flexShrink: 0}}>
+            {[["followup", "Follow-up"], ["created", "Created"]].map(([val, label]) => (
+              <button key={val} onClick={() => setDateType(val)}
+                style={{padding: "5px 10px", fontSize: 11, fontWeight: 500, fontFamily: F, border: "none", cursor: "pointer",
+                  background: dateType === val ? "#5B3BE8" : "transparent",
+                  color:      dateType === val ? "#fff"    : T.inkSub,
+                  transition: "all .15s", whiteSpace: "nowrap"}}>
+                {label}
+              </button>
+            ))}
+          </div>
+
+          {/* Date input */}
+          <div style={{display: "flex", alignItems: "center", gap: 4, background: dateFilter ? T.brandSubtle : T.surface, border: `1px solid ${dateFilter ? "#5B3BE8" : T.line}`, borderRadius: T.r.md, padding: "4px 8px", transition: "all .15s"}}>
+            <Ic d={P.bell} sz={12} color={dateFilter ? "#5B3BE8" : T.inkMuted}/>
+            <input type="date" value={dateFilter} onChange={e => setDateFilter(e.target.value)}
+              style={{border: "none", background: "transparent", outline: "none", fontSize: 12, fontFamily: F, color: dateFilter ? "#5B3BE8" : T.ink, cursor: "pointer", fontWeight: dateFilter ? 600 : 400, width: 120}}/>
+            {dateFilter && (
+              <button onClick={() => setDateFilter("")}
+                style={{background: "none", border: "none", cursor: "pointer", color: "#5B3BE8", display: "flex", padding: 0, marginLeft: 2}}>
+                <Ic d={P.close} sz={11} color="currentColor"/>
+              </button>
+            )}
+          </div>
+
+          {/* Active label */}
+          {dateFilter && (
+            <span style={{fontSize: 11, fontWeight: 500, color: "#5B3BE8", background: T.brandSubtle, padding: "3px 8px", borderRadius: 20, fontFamily: F, whiteSpace: "nowrap", border: `1px solid rgba(91,59,232,.2)`}}>
+              {dateType === "followup" ? "Follow-up" : "Created"}: {dateFilter}
+            </span>
+          )}
+        </div>
+
+        {/* ── Right: bell + exports + add ── */}
+        <div style={{display: "flex", gap: 6, alignItems: "center", flexShrink: 0}}>
           {/* Bell */}
-          <div style={{position:"relative"}}>
-            <button onMouseEnter={()=>setBellHov(true)} onMouseLeave={()=>setBellHov(false)}
-              style={{width:34,height:34,borderRadius:T.r.md,background:bellHov?T.surfaceEl:"transparent",border:`1px solid ${bellHov?T.line:"transparent"}`,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",transition:"all .12s"}}
-              title={todayCount?`${todayCount} follow-up${todayCount>1?"s":""} due today`:undefined}>
-              <Ic d={P.bell} sz={15} color={todayCount>0?"#D97706":T.inkSub}/>
+          <div style={{position: "relative"}}>
+            <button onMouseEnter={() => setBellHov(true)} onMouseLeave={() => setBellHov(false)}
+              style={{width: 34, height: 34, borderRadius: T.r.md, background: bellHov ? T.surfaceEl : "transparent", border: `1px solid ${bellHov ? T.line : "transparent"}`, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", transition: "all .12s"}}
+              title={todayCount ? `${todayCount} follow-up${todayCount > 1 ? "s" : ""} due today` : undefined}>
+              <Ic d={P.bell} sz={15} color={todayCount > 0 ? "#D97706" : T.inkSub}/>
             </button>
-            {todayCount>0&&(
-              <div style={{position:"absolute",top:2,right:2,width:16,height:16,borderRadius:"50%",background:"#D97706",color:"#fff",fontSize:9,fontWeight:700,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:F,border:`2px solid ${T.surface}`}}>
-                {todayCount>9?"9+":todayCount}
+            {todayCount > 0 && (
+              <div style={{position: "absolute", top: 2, right: 2, width: 16, height: 16, borderRadius: "50%", background: "#D97706", color: "#fff", fontSize: 9, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: F, border: `2px solid ${T.surface}`}}>
+                {todayCount > 9 ? "9+" : todayCount}
               </div>
             )}
           </div>
-          {FULL.includes(user.role)&&(
-            <><Btn ghost sm icon={P.dl} label={`Filtered (${fLen})`} onClick={onExportFiltered} T={T}/><Btn ghost sm icon={P.dl} label={`All (${aLen})`} onClick={onExportAll} T={T}/></>
+
+          {FULL.includes(user.role) && (
+            <>
+              <Btn ghost sm icon={P.dl} label={`Filtered (${fLen})`} onClick={onExportFiltered} T={T}/>
+              <Btn ghost sm icon={P.dl} label={`All (${aLen})`}      onClick={onExportAll}      T={T}/>
+            </>
           )}
-          {!FULL.includes(user.role)&&can(user,"export")&&<Btn ghost sm icon={P.dl} label="Export" onClick={onExportFiltered} T={T}/>}
-          {can(user,"create")&&<Btn primary sm icon={P.plus} label="Add funnel" onClick={onAdd} T={T}/>}
+          {!FULL.includes(user.role) && can(user, "export") && (
+            <Btn ghost sm icon={P.dl} label="Export" onClick={onExportFiltered} T={T}/>
+          )}
+          {can(user, "create") && (
+            <Btn primary sm icon={P.plus} label="Add funnel" onClick={onAdd} T={T}/>
+          )}
         </div>
       </div>
     </div>
@@ -1471,6 +1524,9 @@ function Shell({user,users,onLogout,onUsersChange,T,dark,onToggleDark}) {
   const [sidebarOpen,setSidebarOpen]=useState(false);
   const [sidebarCollapsed,setSidebarCollapsed]=useState(false);
   const [statFilter,setStatFilter]=useState(null);
+  // ── Date filter ──────────────────────────────────
+  const [dateFilter, setDateFilter] = useState("");
+  const [dateType, setDateType]     = useState("followup");
 
   useEffect(()=>{
     const fetch=async()=>{try{const data=await crmService.getAllFunnels();setFunnels(data);}catch(err){console.error(err);}finally{setLoading(false);}};
@@ -1544,7 +1600,18 @@ function Shell({user,users,onLogout,onUsersChange,T,dark,onToggleDark}) {
     if(fil.missed&&(!f.nextFollowUp||f.nextFollowUp>=TODAY))return false;
     if(fil.todayF&&f.nextFollowUp!==TODAY)return false;
     if(fil.upcoming&&f.nextFollowUp<=TODAY)return false;
-    return true;
+if (dateFilter) {
+  if (dateType === "followup") {
+    if (f.nextFollowUp !== dateFilter) return false;
+  } else {
+    // created date filter
+    try {
+      const d = new Date(f.createdAt);
+      if (isNaN(d) || d.toISOString().split("T")[0] !== dateFilter) return false;
+    } catch { return false; }
+  }
+}
+return true;
   }),[scoped,search,fil,statFilter,TODAY]);
 
   const save=async(form)=>{try{const cleanedForm={...form,products:(form.products||[]).filter(p=>p.desc||p.category||p.qty||p.price)};const saved=await crmService.saveFunnel(cleanedForm,user);if(editT){setFunnels(p=>p.map(f=>f.id===saved.id?saved:f));setEditT(null);push("Funnel updated");}else{setFunnels(p=>[saved,...p]);setAddOpen(false);push("Funnel added");}}catch(err){console.error(err);push(`Error: ${err.message||"Could not save lead"}`,"error");}};
@@ -1560,10 +1627,11 @@ function Shell({user,users,onLogout,onUsersChange,T,dark,onToggleDark}) {
     <div style={{display:"flex",minHeight:"100vh",background:T.bg,fontFamily:F}}>
       <Sidebar active={view} set={v=>{setView(v);setStatFilter(null);}} user={user} onLogout={onLogout} open={sidebarOpen} onClose={()=>setSidebarOpen(false)} T={T} dark={dark} onToggleDark={onToggleDark} collapsed={sidebarCollapsed} onToggleCollapse={()=>setSidebarCollapsed(x=>!x)}/>
       <div style={{flex:1,display:"flex",flexDirection:"column",minWidth:0,minHeight:"100vh"}}>
-        <Topbar title={titles[view]} search={search} setSearch={setSearch} user={user} onAdd={()=>setAddOpen(true)}
-          onExportAll={()=>{xls(scoped,`Ekanta_All_${TODAY}.xls`);push(`Exported ${scoped.length} funnels`,"info");}}
-          onExportFiltered={()=>{xls(filtered,`Ekanta_Filtered_${TODAY}.xls`);push(`Exported ${filtered.length} funnels`,"info");}}
-          fLen={filtered.length} aLen={scoped.length} onMenuToggle={()=>setSidebarOpen(x=>!x)} T={T} todayCount={todayCount}/>
+<Topbar title={titles[view]} search={search} setSearch={setSearch} user={user} onAdd={()=>setAddOpen(true)}
+  onExportAll={()=>{xls(scoped,`Ekanta_All_${TODAY}.xls`);push(`Exported ${scoped.length} funnels`,"info");}}
+  onExportFiltered={()=>{xls(filtered,`Ekanta_Filtered_${TODAY}.xls`);push(`Exported ${filtered.length} funnels`,"info");}}
+  fLen={filtered.length} aLen={scoped.length} onMenuToggle={()=>setSidebarOpen(x=>!x)} T={T} todayCount={todayCount}
+  dateFilter={dateFilter} setDateFilter={setDateFilter} dateType={dateType} setDateType={setDateType}/>
 
         {/* ⑲ Greeting on dashboard */}
         {showStats&&(
