@@ -1088,7 +1088,7 @@ function Analytics({ funnels, T }) {
           const key = new Date(f.createdAt).toISOString().slice(0, 7);
           if (!buckets[key]) buckets[key] = { count: 0, revenue: 0 };
           buckets[key].count++;
-          buckets[key].revenue += Number(f.quoteAmount) || 0;
+          if (f.status === "Won") buckets[key].revenue += Number(f.quoteAmount) || 0;
         } catch {}
       });
       return Object.entries(buckets).sort((a, b) => a[0].localeCompare(b[0])).slice(-8).map(([k, v]) => ({ label: new Date(k + "-01").toLocaleString("en-IN", { month: "short", year: "2-digit" }), ...v }));
@@ -1121,7 +1121,7 @@ function Analytics({ funnels, T }) {
           return dk >= key && dk < next.toISOString().split("T")[0];
         } catch { return false; }
       });
-      points.push({ label, count: bucket.length, revenue: bucket.reduce((a,f) => a+(Number(f.quoteAmount)||0), 0) });
+      points.push({ label, count: bucket.length, revenue: bucket.filter(f=>f.status==="Won").reduce((a,f) => a+(Number(f.quoteAmount)||0), 0) });
       cur = next;
       if (points.length > 24) break;
     }
