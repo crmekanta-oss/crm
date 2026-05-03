@@ -1937,13 +1937,50 @@ function Analytics({ funnels, T }) {
   );
 }
 
-} ← closing brace of Analytics function
-                          ← blank line
-// ─── TEAM ────────────  ← paste Team here
-function Team(...) { ... }
-                          ← blank line  
-// ─── FUNNEL FORM ────── ← existing line
-function FunnelForm(...) { ... }
+// ─── TEAM ─────────────────────────────────────────────────────────────────────
+function Team({users,onSave,T}) {
+  const [list,setList]=useState(users);
+  const [form,setForm]=useState({name:"",username:"",password:"",role:"CRE"});
+  const [err,setErr]=useState("");
+  useEffect(()=>setList(users),[users]);
+  const add=()=>{if(!form.name||!form.username||!form.password){setErr("All fields required.");return;}if(list.find(u=>u.username===form.username)){setErr("Username taken.");return;}const u=[...list,{...form,id:Date.now()}];setList(u);onSave(u);setForm({name:"",username:"",password:"",role:"CRE"});setErr("");};
+  const rm=id=>{const u=list.filter(x=>x.id!==id);setList(u);onSave(u);};
+  const rc={"CEO":T.high,"Manager":T.won,"CRE":T.pending};
+  return (
+    <div className="ek-team-grid" style={{padding:"20px 24px",display:"grid",gridTemplateColumns:"360px 1fr",gap:20}}>
+      <div style={{background:T.surface,border:`1px solid ${T.line}`,borderRadius:T.r.lg,padding:22,boxShadow:T.shadowSm}}>
+        <div style={{fontSize:14,fontWeight:600,color:T.ink,marginBottom:3,fontFamily:F}}>Add team member</div>
+        <div style={{fontSize:12,color:T.inkSub,marginBottom:18,fontFamily:F}}>Access granted immediately upon creation</div>
+        <div style={{display:"flex",flexDirection:"column",gap:12}}>
+          <FInput label="Full name" value={form.name} onChange={e=>setForm(f=>({...f,name:e.target.value}))} placeholder="Jane Doe" T={T}/>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+            <FInput label="Username" value={form.username} onChange={e=>setForm(f=>({...f,username:e.target.value}))} placeholder="janedoe" T={T}/>
+            <FInput label="Password" value={form.password} onChange={e=>setForm(f=>({...f,password:e.target.value}))} placeholder="Password" type="password" T={T}/>
+          </div>
+          <FSelect label="Role" value={form.role} onChange={e=>setForm(f=>({...f,role:e.target.value}))} options={ROLES} T={T}/>
+          {err&&<div style={{fontSize:12,color:"#B91C1C",background:"#FEF2F2",border:"1px solid #FECACA",padding:"8px 11px",borderRadius:T.r.md}}>{err}</div>}
+          <Btn primary full icon={P.plus} label="Add member" onClick={add} T={T}/>
+        </div>
+        <div style={{marginTop:18,padding:"12px 14px",background:T.brandSubtle,borderRadius:T.r.md,fontSize:12,color:"#5B3BE8",lineHeight:1.7,fontFamily:F}}>
+          <strong>CEO & Manager</strong> — full access<br/><strong>CRE</strong> — create + export + limited edit
+        </div>
+      </div>
+      <div style={{background:T.surface,border:`1px solid ${T.line}`,borderRadius:T.r.lg,padding:22,boxShadow:T.shadowSm}}>
+        <div style={{fontSize:14,fontWeight:600,color:T.ink,marginBottom:18,fontFamily:F}}>Team members ({list.length})</div>
+        <div style={{display:"flex",flexDirection:"column",gap:8}}>
+          {list.map(u=>{const c=rc[u.role]||T.drop;return(
+            <div key={u.id} style={{display:"flex",alignItems:"center",gap:12,padding:"12px 14px",border:`1px solid ${T.line}`,borderRadius:T.r.md,transition:"background .1s"}} onMouseEnter={e=>e.currentTarget.style.background=T.surfaceEl} onMouseLeave={e=>e.currentTarget.style.background=T.surface}>
+              <Avatar name={u.name} size={36}/>
+              <div style={{flex:1}}><div style={{fontSize:13,fontWeight:600,color:T.ink,fontFamily:F}}>{u.name}</div><div style={{fontSize:11,color:T.inkMuted,fontFamily:F}}>@{u.username}</div></div>
+              <span style={{fontSize:11,fontWeight:500,padding:"3px 9px",borderRadius:20,background:c.bg,color:c.text,fontFamily:F}}>{u.role}</span>
+              {u.id!==1&&<Btn danger sm label="Remove" onClick={()=>rm(u.id)} T={T}/>}
+            </div>
+          );})}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 // ─── FUNNEL FORM ──────────────────────────────────────────────────────────────
 function FunnelForm({onClose,onSave,existing,user,users=[],T}) {
