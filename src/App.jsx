@@ -125,7 +125,6 @@ const CATS         = ["Dresses","Sarees","Half Sarees","Kurtis","Lehengas","Mom 
 const ENQS         = ["New Customer","Repeat Customer","Bulk Order","Custom Design","Wholesale","Others"];
 const FTYPES       = ["Normal","High Value","Bulk","priority","Others"];
 const ROLES        = ["CEO","Manager","CRE","Viewer"];
-const VIEWER       = ["Viewer"];
 const STATUS       = ["Pending","Won","Lost","Drop"];
 const LEAD_SOURCES = ["WhatsApp","Email","Website","Call","Abandoned Cart","Social media","Other","Owner"];
 
