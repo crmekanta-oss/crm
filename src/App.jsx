@@ -93,15 +93,20 @@ function FontLoader({ dark }) {
       ::-webkit-scrollbar-thumb{background:rgba(128,128,128,.2);border-radius:4px}
       @media(max-width:767px){
         .ek-sidebar{display:none!important}.ek-sidebar.open{display:flex!important}
-        .ek-stats-grid{grid-template-columns:repeat(2,1fr)!important}
+        .ek-stats-grid{grid-template-columns:repeat(2,1fr)!important;gap:8px!important}
         .ek-topbar-search{display:none!important}
         .ek-form-3col{grid-template-columns:1fr!important}
         .ek-form-2col{grid-template-columns:1fr!important}
-        .ek-analytics-3col{grid-template-columns:1fr!important}
+.ek-analytics-3col{grid-template-columns:1fr!important}
+.ek-analytics-2col{grid-template-columns:1fr!important}
+.ek-topbar-date{display:none!important}
         .ek-team-grid{grid-template-columns:1fr!important}
         .ek-mobile-menu{display:flex!important}
         .ek-login-left{display:none!important}
       }
+      @media(max-width:1100px){
+  .ek-topbar-date span{display:none}
+}
     `;
   }, [dark]);
   return null;
@@ -664,7 +669,7 @@ function Topbar({title, search, setSearch, user, onAdd, onExportAll, onExportFil
         </div>
 
         {/* ── Middle: date type toggle + date picker ── */}
-        <div style={{display: "flex", alignItems: "center", gap: 6, flexShrink: 0}}>
+        <div className="ek-topbar-date" style={{display: "flex", alignItems: "center", gap: 6, flexShrink: 0}}>
           {/* Toggle pill */}
           <div style={{display: "flex", background: T.surfaceEl, border: `1px solid ${T.line}`, borderRadius: T.r.md, overflow: "hidden", flexShrink: 0}}>
             {[["followup", "Follow-up"], ["created", "Created"]].map(([val, label]) => (
@@ -1159,7 +1164,7 @@ function Analytics({funnels, T}) {
       </div>
 
       {/* ── Row 4: Top customers · Revenue by category ── */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+      <div className="ek-analytics-2col" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
 
         <Card title="Top customers by quote value">
           {topCustomers.length === 0
