@@ -1614,7 +1614,7 @@ function Shell({user,users,onLogout,onUsersChange,T,dark,onToggleDark}) {
     if(fil.leadSource&&f.leadSource!==fil.leadSource)return false;
     if(fil.descFilter){const q=fil.descFilter.toLowerCase();if(!(f.remarks||"").toLowerCase().includes(q)&&!(f.quoteDesc||"").toLowerCase().includes(q))return false;}
     if(fil.cre&&f.createdBy!==fil.cre&&f.assignedTo!==fil.cre)return false;
-    if(fil.missed&&(!f.nextFollowUp||f.nextFollowUp>=TODAY))return false;
+    if(fil.missed&&(!f.nextFollowUp||f.nextFollowUp>=TODAY||f.status!=="Pending"))return false;
     if(fil.todayF&&f.nextFollowUp!==TODAY)return false;
     if(fil.upcoming&&f.nextFollowUp<=TODAY)return false;
 if (dateFilter) {
