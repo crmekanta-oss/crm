@@ -90,11 +90,11 @@ export const crmService = {
   // =========================
   // UPDATE STATUS
   // =========================
-  async updateStatus(id, status) {
+  async updateStatus(id, status, lostDropReason = "") {
     try {
       const { error } = await supabase
         .from('funnels')
-        .update({ status })
+        .update({ status, lost_drop_reason: lostDropReason || null })
         .eq('id', id);
 
       if (error) throw error;
@@ -284,7 +284,8 @@ async updateNextFollowup(funnelId, date) {
       quote_qty: isNum(f.quoteQty) ? Number(f.quoteQty) : null,
       quote_amount: isNum(f.quoteAmount) ? Number(f.quoteAmount) : null,
       quote_desc: f.quoteDesc || null,
-      status: f.status || 'Pending'
+      status: f.status || 'Pending',
+      lost_drop_reason: f.lostDropReason || null,
     };
   },
 
@@ -318,7 +319,6 @@ async updateNextFollowup(funnelId, date) {
       }),
       createdBy: f.created_by,
       assignedTo: f.assigned_to || null,
-      assignedTo: f.assigned_to || null,
+      lostDropReason: f.lost_drop_reason || "",
     };
   }
-};
