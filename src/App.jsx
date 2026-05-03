@@ -1612,7 +1612,7 @@ if (dateFilter) {
   }
 }
 return true;
-  }),[scoped,search,fil,statFilter,TODAY]);
+  }),[scoped,search,fil,statFilter,TODAY,dateFilter,dateType]);
 
   const save=async(form)=>{try{const cleanedForm={...form,products:(form.products||[]).filter(p=>p.desc||p.category||p.qty||p.price)};const saved=await crmService.saveFunnel(cleanedForm,user);if(editT){setFunnels(p=>p.map(f=>f.id===saved.id?saved:f));setEditT(null);push("Funnel updated");}else{setFunnels(p=>[saved,...p]);setAddOpen(false);push("Funnel added");}}catch(err){console.error(err);push(`Error: ${err.message||"Could not save lead"}`,"error");}};
   const creEditSave=async(form)=>{try{const saved=await crmService.saveFunnel(form,user);setFunnels(p=>p.map(f=>f.id===saved.id?saved:f));setCreEditT(null);push("Updated ✓");}catch(err){console.error(err);push("Error saving","error");}};
