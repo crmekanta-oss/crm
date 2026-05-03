@@ -1544,6 +1544,7 @@ function Shell({user,users,onLogout,onUsersChange,T,dark,onToggleDark}) {
   // ── Date filter ──────────────────────────────────
   const [dateFilter, setDateFilter] = useState("");
   const [dateType, setDateType]     = useState("followup");
+  const [monthFilter, setMonthFilter] = useState("");
 
   useEffect(()=>{
     const fetch=async()=>{try{const data=await crmService.getAllFunnels();setFunnels(data);}catch(err){console.error(err);}finally{setLoading(false);}};
@@ -1617,6 +1618,12 @@ function Shell({user,users,onLogout,onUsersChange,T,dark,onToggleDark}) {
     if(fil.missed&&(!f.nextFollowUp||f.nextFollowUp>=TODAY||f.status!=="Pending"))return false;
     if(fil.todayF&&f.nextFollowUp!==TODAY)return false;
     if(fil.upcoming&&f.nextFollowUp<=TODAY)return false;
+    if (monthFilter) {
+  try {
+    const d = new Date(f.createdAt);
+    if (isNaN(d) || d.toISOString().slice(0, 7) !== monthFilter) return false;
+  } catch { return false; }
+}
 if (dateFilter) {
   if (dateType === "followup") {
     if (f.nextFollowUp !== dateFilter) return false;
@@ -1629,7 +1636,7 @@ if (dateFilter) {
   }
 }
 return true;
-  }),[scoped,search,fil,statFilter,TODAY,dateFilter,dateType]);
+  }),[scoped,search,fil,statFilter,TODAY,dateFilter,dateType,monthFilter]);
   const [selectedIds, setSelectedIds] = useState(new Set());
   const toggleSelect = (id) => setSelectedIds(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
   const toggleSelectAll = () => setSelectedIds(prev => prev.size === filtered.length ? new Set() : new Set(filtered.map(f => f.id)));
@@ -1675,7 +1682,33 @@ return true;
           </div>
         )}
 
-        {showStats&&<Stats funnels={scoped} activeStatFilter={statFilter} onStatClick={handleStatClick} T={T}/>}
+        {showStats&&(
+  <div style={{padding:"12px 24px 0"}}>
+    <div style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}>
+      <span style={{fontSize:11,fontWeight:600,color:T.inkMuted,fontFamily:F,letterSpacing:"0.06em",textTransform:"uppercase",marginRight:4}}>Month</span>
+      {["01","02","03","04","05","06","07","08","09","10","11","12"].map((m,i)=>{
+        const year = new Date().getFullYear();
+        const val = `${year}-${m}`;
+        const label = new Date(year,i,1).toLocaleString("en-IN",{month:"short"});
+        const count = scoped.filter(f=>{
+          try { return new Date(f.createdAt).toISOString().slice(0,7)===val; } catch { return false; }
+        }).length;
+        const isActive = monthFilter === val;
+        return (
+          <button key={m} onClick={()=>setMonthFilter(isActive?"":val)}
+            style={{padding:"5px 12px",borderRadius:20,border:`1px solid ${isActive?"#5B3BE8":T.line}`,background:isActive?"#5B3BE8":T.surface,color:isActive?"#fff":count>0?T.ink:T.inkMuted,fontSize:12,fontWeight:isActive?600:400,fontFamily:F,cursor:"pointer",transition:"all .15s",display:"flex",alignItems:"center",gap:5,opacity:count===0?0.4:1}}>
+            {label}
+            {count>0&&<span style={{fontSize:10,fontWeight:600,background:isActive?"rgba(255,255,255,0.2)":T.brandSubtle,color:isActive?"#fff":"#5B3BE8",padding:"0px 5px",borderRadius:8,fontFamily:F}}>{count}</span>}
+          </button>
+        );
+      })}
+      {monthFilter&&(
+        <button onClick={()=>setMonthFilter("")} style={{fontSize:12,color:"#5B3BE8",background:"none",border:"none",cursor:"pointer",fontFamily:F,fontWeight:500,textDecoration:"underline",padding:"0 4px"}}>Clear</button>
+      )}
+    </div>
+  </div>
+)}
+{showStats&&<Stats funnels={scoped} activeStatFilter={statFilter} onStatClick={handleStatClick} T={T}/>}
         {showFilters&&<div style={{marginTop:16}}><FilterBar fil={fil} setF={sf} reset={rf} users={users} user={user} T={T}/></div>}
 
         <div style={{flex:1,background:showFilters?T.surface:"transparent",borderTop:showFilters?`1px solid ${T.line}`:"none"}}>
