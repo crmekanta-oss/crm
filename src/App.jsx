@@ -939,7 +939,12 @@ function Table({rows,user,onView,onEdit,onCreEdit,onDelete,onLogFollowup,loading
                     {over&&<span style={{fontSize:10,color:T.lost.text,fontWeight:500}}>Overdue</span>}
                   </>}
                 </td>
-                <td style={{padding:"0 12px",verticalAlign:"middle"}}><StatusPill status={f.status} sm T={T}/></td>
+<td style={{padding:"0 12px",verticalAlign:"middle"}}>
+  <StatusPill status={f.status} sm T={T}/>
+  {(f.status==="Lost"||f.status==="Drop")&&f.lostDropReason&&(
+    <div style={{fontSize:10,color:f.status==="Lost"?T.lost.text:T.drop.text,marginTop:2,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",maxWidth:90,fontFamily:F}}>{f.lostDropReason}</div>
+  )}
+</td>
                 <td style={{padding:"0 12px",fontSize:12,color:T.inkSub,verticalAlign:"middle",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{f.orderNumber||"—"}</td>
                 <td style={{padding:"0 12px",fontSize:12,fontWeight:600,color:"#5B3BE8",verticalAlign:"middle",whiteSpace:"nowrap"}}>{inr(f.quoteAmount)||<span style={{color:T.inkMuted,fontWeight:400}}>—</span>}</td>
                 <td style={{padding:"0 8px",verticalAlign:"middle"}} onClick={e=>e.stopPropagation()}>
@@ -2018,7 +2023,7 @@ function Team({users,onSave,T}) {
 
 // ─── FUNNEL FORM ──────────────────────────────────────────────────────────────
 function FunnelForm({onClose,onSave,existing,user,users=[],T}) {
-  const blank={name:"",phone:"",email:"",enquiryType:"",funnelType:"",leadSource:"",cityRegion:"",nextFollowUp:"",products:[{desc:"",category:"",qty:"",price:""}],remarks:"",deliveryDetails:"",paymentTerms:"",orderNumber:"",quoteQty:"",quoteAmount:"",quoteDesc:"",status:"Pending",assignedTo:""};
+  const blank={name:"",phone:"",email:"",enquiryType:"",funnelType:"",leadSource:"",cityRegion:"",nextFollowUp:"",products:[{desc:"",category:"",qty:"",price:""}],remarks:"",deliveryDetails:"",paymentTerms:"",orderNumber:"",quoteQty:"",quoteAmount:"",quoteDesc:"",status:"Pending",assignedTo:"",lostDropReason:""};
   const [form,setForm]=useState(existing?{...blank,...existing,products:existing.products?.length?existing.products:blank.products}:blank);
   const [errs,setErrs]=useState({});
   const set=(k,v)=>setForm(f=>({...f,[k]:v}));
@@ -2072,6 +2077,23 @@ function FunnelForm({onClose,onSave,existing,user,users=[],T}) {
               <FSelect label="Lead source" required value={form.leadSource} onChange={e=>set("leadSource",e.target.value)} options={LEAD_SOURCES} placeholder="Select source…" error={errs.leadSource} T={T}/>
               {!isWon?(<div style={{display:"flex",flexDirection:"column",gap:5}}><label style={{fontSize:12,fontWeight:500,color:T.inkSub,fontFamily:F}}>Next follow-up<span style={{color:"#DC2626",marginLeft:2}}>*</span></label><input type="date" value={form.nextFollowUp} onChange={e=>set("nextFollowUp",e.target.value)} style={{...inpSx(errs.nfu)}} onFocus={fo} onBlur={bl}/>{errs.nfu&&<span style={{fontSize:11,color:"#B91C1C"}}>{errs.nfu}</span>}</div>):(<div style={{display:"flex",flexDirection:"column",gap:5}}><label style={{fontSize:12,fontWeight:500,color:T.inkMuted,fontFamily:F}}>Next follow-up</label><div style={{padding:"8px 11px",background:T.won.bg,border:`1px solid ${T.won.dot}33`,borderRadius:T.r.md,fontSize:13,color:T.won.text,fontFamily:F,display:"flex",alignItems:"center",gap:6}}><Dot color={T.won.dot} size={6}/> Not required for Won deals</div></div>)}
             </div>
+            {(form.status==="Lost"||form.status==="Drop")&&(
+              <div style={{marginTop:10,padding:"14px 16px",background:form.status==="Lost"?T.lost.bg:T.drop.bg,border:`1px solid ${form.status==="Lost"?T.lost.dot:T.drop.dot}44`,borderRadius:T.r.lg,display:"flex",flexDirection:"column",gap:8}}>
+                <div style={{display:"flex",alignItems:"center",gap:7}}>
+                  <Dot color={form.status==="Lost"?T.lost.dot:T.drop.dot} size={7}/>
+                  <span style={{fontSize:12,fontWeight:600,color:form.status==="Lost"?T.lost.text:T.drop.text,fontFamily:F}}>
+                    {form.status==="Lost"?"Why was this lead lost?":"Why was this lead dropped?"}
+                  </span>
+                </div>
+                <textarea
+                  value={form.lostDropReason}
+                  onChange={e=>set("lostDropReason",e.target.value)}
+                  placeholder={form.status==="Lost"?"e.g. Price too high, went to competitor…":"e.g. Duplicate entry, wrong number…"}
+                  rows={3}
+                  style={{...inpSx(),padding:"9px 11px",resize:"vertical",lineHeight:1.6,fontSize:13}}
+                  onFocus={fo} onBlur={bl}/>
+              </div>
+            )}
           </section>
           {FULL.includes(user?.role)&&creUsers.length>0&&(<section><SL T={T}>Assign to</SL><FSelect label="Assign to CRE" value={form.assignedTo} onChange={e=>set("assignedTo",e.target.value)} options={creUsers.map(u=>u.name)} placeholder="Select team member…" T={T}/>{form.assignedTo&&<div style={{marginTop:8,fontSize:12,color:T.inkSub,fontFamily:F}}>📋 This funnel will appear in <strong style={{color:"#5B3BE8"}}>{form.assignedTo}</strong>'s dashboard</div>}</section>)}
           <section>
@@ -2296,9 +2318,20 @@ function FollowupLogModal({funnel,user,onClose,onSave,T}) {
 
 // ─── VIEW DRAWER ──────────────────────────────────────────────────────────────
 function ViewDrawer({funnel,onClose,onEdit,onCreEdit,onStatusChange,user,comments,onAddComment,followupLogs=[],onLogFollowup,T}) {
-  const [status,setStatus]=useState(funnel.status);
+const [status,setStatus]=useState(funnel.status);
+const [showReasonPicker,setShowReasonPicker]=useState(false);
+const [pendingStatus,setPendingStatus]=useState("");
+const [reason,setReason]=useState(funnel.lostDropReason||"");
   const tot=(funnel.products||[]).reduce((a,p)=>a+(Number(p.qty)*Number(p.price)||0),0);
-  const doStatus=s=>{setStatus(s);onStatusChange(funnel.id,s);};
+  const doStatus=s=>{
+  if((s==="Lost"||s==="Drop")&&s!==status){setPendingStatus(s);setShowReasonPicker(true);}
+  else{setStatus(s);onStatusChange(funnel.id,s);}
+};
+const confirmStatus=()=>{
+  setStatus(pendingStatus);
+  onStatusChange(funnel.id,pendingStatus,reason);
+  setShowReasonPicker(false);
+};
   const [commentText,setCommentText]=useState("");
   const canComment=FULL.includes(user.role);
   const fo=mkFocus(T); const bl=mkBlur(T);
@@ -2338,7 +2371,7 @@ function ViewDrawer({funnel,onClose,onEdit,onCreEdit,onStatusChange,user,comment
           <dl><Row l="Name" v={funnel.name}/><Row l="Phone" v={funnel.phone}/><Row l="Email" v={funnel.email}/>{funnel.cityRegion&&<Row l="City / Region" v={funnel.cityRegion}/>}{funnel.assignedTo&&<Row l="Assigned to" v={funnel.assignedTo}/>}</dl>
           <div style={{height:18}}/>
           <Sec t="Funnel"/>
-          <dl><Row l="Enquiry type" v={funnel.enquiryType}/><Row l="Funnel type" v={funnel.funnelType}/><Row l="Lead source" v={funnel.leadSource}/>{!isWon&&<Row l="Next follow-up" v={funnel.nextFollowUp}/>}{isWon&&(<div style={{display:"grid",gridTemplateColumns:"140px 1fr",gap:8,padding:"8px 0",borderBottom:`1px solid ${T.line}`}}><dt style={{fontSize:11,fontWeight:500,color:T.inkMuted,fontFamily:F}}>Follow-up</dt><dd><span style={{fontSize:12,color:T.won.text,fontWeight:500,display:"flex",alignItems:"center",gap:5}}><Dot color={T.won.dot} size={5}/>Deal closed — no follow-up needed</span></dd></div>)}</dl>
+          <dl><Row l="Enquiry type" v={funnel.enquiryType}/><Row l="Funnel type" v={funnel.funnelType}/><Row l="Lead source" v={funnel.leadSource}/>{!isWon&&<Row l="Next follow-up" v={funnel.nextFollowUp}/>}{(funnel.status==="Lost"||funnel.status==="Drop")&&funnel.lostDropReason&&<Row l={funnel.status==="Lost"?"Lost reason":"Drop reason"} v={funnel.lostDropReason}/>}{isWon&&(<div style={{display:"grid",gridTemplateColumns:"140px 1fr",gap:8,padding:"8px 0",borderBottom:`1px solid ${T.line}`}}><dt style={{fontSize:11,fontWeight:500,color:T.inkMuted,fontFamily:F}}>Follow-up</dt><dd><span style={{fontSize:12,color:T.won.text,fontWeight:500,display:"flex",alignItems:"center",gap:5}}><Dot color={T.won.dot} size={5}/>Deal closed — no follow-up needed</span></dd></div>)}</dl>
           <div style={{height:18}}/>
           <Sec t="Products"/>
           <div style={{border:`1px solid ${T.line}`,borderRadius:T.r.lg,overflow:"hidden",marginBottom:18}}>
@@ -2379,6 +2412,34 @@ function ViewDrawer({funnel,onClose,onEdit,onCreEdit,onStatusChange,user,comment
           </div>
         </div>
       </div>
+      </div>
+      {showReasonPicker&&(
+        <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.4)",zIndex:3000,display:"flex",alignItems:"center",justifyContent:"center",padding:16}} onClick={()=>setShowReasonPicker(false)}>
+          <div style={{background:T.surface,borderRadius:T.r["2xl"],width:"100%",maxWidth:440,boxShadow:T.shadowXl,animation:"fadeUp .2s ease"}} onClick={e=>e.stopPropagation()}>
+            <div style={{padding:"18px 22px 14px",borderBottom:`1px solid ${T.line}`,display:"flex",alignItems:"center",gap:10}}>
+              <Dot color={pendingStatus==="Lost"?T.lost.dot:T.drop.dot} size={8}/>
+              <div>
+                <div style={{fontSize:14,fontWeight:700,color:T.ink,fontFamily:F}}>{pendingStatus==="Lost"?"Why was this lead lost?":"Why was this lead dropped?"}</div>
+                <div style={{fontSize:11,color:T.inkSub,fontFamily:F,marginTop:2}}>This will be saved with the lead record</div>
+              </div>
+            </div>
+            <div style={{padding:"16px 22px",display:"flex",flexDirection:"column",gap:8}}>
+              <textarea
+                value={reason}
+                onChange={e=>setReason(e.target.value)}
+                placeholder={pendingStatus==="Lost"?"e.g. Price too high, went to competitor…":"e.g. Duplicate entry, wrong number…"}
+                rows={3}
+                autoFocus
+                style={{...inputSx(T),padding:"9px 11px",resize:"vertical",fontSize:13,lineHeight:1.6}}
+                onFocus={mkFocus(T)} onBlur={mkBlur(T)}/>
+            </div>
+            <div style={{padding:"12px 22px 18px",borderTop:`1px solid ${T.line}`,display:"flex",justifyContent:"flex-end",gap:8}}>
+              <Btn ghost label="Cancel" onClick={()=>setShowReasonPicker(false)} T={T}/>
+              <Btn primary label={`Mark as ${pendingStatus}`} onClick={confirmStatus} T={T}/>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -2496,7 +2557,7 @@ return true;
   const save=async(form)=>{try{const cleanedForm={...form,products:(form.products||[]).filter(p=>p.desc||p.category||p.qty||p.price)};const saved=await crmService.saveFunnel(cleanedForm,user);if(editT){setFunnels(p=>p.map(f=>f.id===saved.id?saved:f));setEditT(null);push("Funnel updated");}else{setFunnels(p=>[saved,...p]);setAddOpen(false);push("Funnel added");}}catch(err){console.error(err);push(`Error: ${err.message||"Could not save lead"}`,"error");}};
   const creEditSave=async(form)=>{try{const saved=await crmService.saveFunnel(form,user);setFunnels(p=>p.map(f=>f.id===saved.id?saved:f));setCreEditT(null);push("Updated ✓");}catch(err){console.error(err);push("Error saving","error");}};
   const del=async(id)=>{if(!window.confirm("Are you sure you want to delete this lead?"))return;try{await crmService.deleteFunnel(id);setFunnels(p=>p.filter(f=>f.id!==id));push("Deleted","info");}catch(err){console.error(err);push("Error deleting funnel","error");}};
-  const upStatus=async(id,s)=>{try{await crmService.updateStatus(id,s);setFunnels(p=>p.map(f=>f.id===id?{...f,status:s}:f));push(`Status → ${s}`);}catch(err){console.error(err);push("Error updating status","error");}};
+  const upStatus=async(id,s,reason="")=>{try{await crmService.updateStatus(id,s,reason);setFunnels(p=>p.map(f=>f.id===id?{...f,status:s,lostDropReason:reason}:f));push(`Status → ${s}`);}catch(err){console.error(err);push("Error updating status","error");}};
 
   const titles={dashboard:"Dashboard",funnels:"Funnels",analytics:"Analytics",team:"Team"};
   const showFilters=view==="dashboard"||view==="funnels";
