@@ -236,14 +236,19 @@ async updateNextFollowup(funnelId, date) {
   async saveUsers(users) {
     try {
       for (const user of users) {
+        // Strip local numeric id (Date.now()) — Supabase needs UUID, not a number
+        const { id, ...rest } = user;
+        const isUuid = typeof id === 'string' && id.length > 20;
+        const payload = isUuid ? { id, ...rest } : rest;
         const { error } = await supabase
           .from('users')
-          .upsert(user, { onConflict: 'username' });
+          .upsert(payload, { onConflict: 'username' });
 
         if (error) throw error;
       }
     } catch (error) {
       console.error('Error saving users:', error.message);
+      throw error;
     }
   },
 
