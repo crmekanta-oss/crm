@@ -102,8 +102,12 @@ function FontLoader({ dark }) {
 .ek-topbar-date{display:none!important}
         .ek-team-grid{grid-template-columns:1fr!important}
         .ek-mobile-menu{display:flex!important}
+        .ek-hide-mobile{display:none!important}
+        .ek-show-mobile{display:flex!important}
         .ek-login-left{display:none!important}
       }
+      .ek-hide-mobile{display:inline-flex}
+      .ek-show-mobile{display:none}
       @media(max-width:1100px){
   .ek-topbar-date span{display:none}
 }
@@ -723,7 +727,7 @@ function Topbar({title, search, setSearch, user, onAdd, onExportAll, onExportFil
               </div>
             )}
             {bellOpen && (
-              <div style={{position: "absolute", top: "calc(100% + 8px)", right: 0, width: 320, background: T.surface, border: `1px solid ${T.line}`, borderRadius: T.r.lg, boxShadow: T.shadowXl, zIndex: 999, animation: "fadeUp .15s ease", overflow: "hidden"}}>
+              <div style={{position: "absolute", top: "calc(100% + 8px)", right: 0, width: 300, maxWidth: "90vw", background: T.surface, border: `1px solid ${T.line}`, borderRadius: T.r.lg, boxShadow: T.shadowXl, zIndex: 999, animation: "fadeUp .15s ease", overflow: "hidden"}}>
                 <div style={{padding: "12px 16px", borderBottom: `1px solid ${T.line}`, display: "flex", alignItems: "center", justifyContent: "space-between"}}>
                   <div style={{display: "flex", alignItems: "center", gap: 8}}>
                     <Ic d={P.bell} sz={13} color="#D97706"/>
@@ -756,7 +760,7 @@ function Topbar({title, search, setSearch, user, onAdd, onExportAll, onExportFil
                       </div>
                       <div style={{flexShrink: 0, textAlign: "right"}}>
                         <div style={{fontSize: 10, fontWeight: 600, color: T.pending.text, fontFamily: F}}>Today</div>
-                        {f.quoteAmount && <div style={{fontSize: 11, fontWeight: 700, color: "#5B3BE8", fontFamily: F}}>₹{Number(f.quoteAmount).toLocaleString("en-IN")}</div>}
+                        {f.quoteAmount && <div style={{fontSize: 11, fontWeight: 700, color: "#5B3BE8", fontFamily: F}}>&#x20B9;{Number(f.quoteAmount).toLocaleString("en-IN")}</div>}
                       </div>
                     </div>
                   ))}
@@ -770,17 +774,27 @@ function Topbar({title, search, setSearch, user, onAdd, onExportAll, onExportFil
             )}
           </div>
 
+          {/* Export buttons — hidden on mobile */}
           {FULL.includes(user.role) && (
             <>
-              <Btn ghost sm icon={P.dl} label={`Filtered (${fLen})`} onClick={onExportFiltered} T={T}/>
-              <Btn ghost sm icon={P.dl} label={`All (${aLen})`} onClick={onExportAll} T={T}/>
+              <span className="ek-hide-mobile"><Btn ghost sm icon={P.dl} label={`Filtered (${fLen})`} onClick={onExportFiltered} T={T}/></span>
+              <span className="ek-hide-mobile"><Btn ghost sm icon={P.dl} label={`All (${aLen})`} onClick={onExportAll} T={T}/></span>
             </>
           )}
           {!FULL.includes(user.role) && can(user, "export") && (
-            <Btn ghost sm icon={P.dl} label="Export" onClick={onExportFiltered} T={T}/>
+            <span className="ek-hide-mobile"><Btn ghost sm icon={P.dl} label="Export" onClick={onExportFiltered} T={T}/></span>
           )}
+
+          {/* Add funnel — icon only on mobile, full label on desktop */}
           {can(user, "create") && (
-            <Btn primary sm icon={P.plus} label="Add funnel" onClick={onAdd} T={T}/>
+            <>
+              <span className="ek-hide-mobile"><Btn primary sm icon={P.plus} label="Add funnel" onClick={onAdd} T={T}/></span>
+              <span className="ek-show-mobile">
+                <button onClick={onAdd} style={{width:34,height:34,borderRadius:T.r.md,background:"#5B3BE8",border:"none",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"0 2px 8px rgba(91,59,232,.3)"}}>
+                  <Ic d={P.plus} sz={16} color="#fff" sw={2.5}/>
+                </button>
+              </span>
+            </>
           )}
         </div>
       </div>
@@ -1255,11 +1269,12 @@ const areaPath = (points, maxV) => {
   curr.forEach(f => {
     const p = f.assignedTo || f.createdBy;
     if (!p) return;
-    if (!teamMap[p]) teamMap[p] = { total: 0, won: 0, revenue: 0, pending: 0, lost: 0 };
+    if (!teamMap[p]) teamMap[p] = { total: 0, won: 0, revenue: 0, pending: 0, lost: 0, drop: 0 };
     teamMap[p].total++;
     if (f.status === "Won")     { teamMap[p].won++;     teamMap[p].revenue += Number(f.quoteAmount) || 0; }
     if (f.status === "Pending") teamMap[p].pending++;
     if (f.status === "Lost")    teamMap[p].lost++;
+    if (f.status === "Drop")    teamMap[p].drop++;
   });
   const cmpTeamMap = {};
   cmp.forEach(f => {
@@ -1974,7 +1989,7 @@ const areaPath = (points, maxV) => {
                         <div style={{ width: `${(d.drop/maxTotal)*100}%`, background: T.drop.dot, transition: "width .6s" }} />
                       </div>
                       <div style={{ display: "flex", gap: 12, marginTop: 4 }}>
-                        {[["Won", d.won, T.won.dot], ["Pending", d.pending, T.pending.dot], ["Lost", d.lost, T.lost.dot]].map(([l,n,c]) => n > 0 && (
+                        {[["Won", d.won, T.won.dot], ["Pending", d.pending, T.pending.dot], ["Lost", d.lost, T.lost.dot], ["Drop", d.drop, T.drop.dot]].map(([l,n,c]) => n > 0 && (
                           <span key={l} style={{ fontSize: 10, color: c, fontFamily: F, fontWeight: 600 }}>{l}: {n}</span>
                         ))}
                       </div>
