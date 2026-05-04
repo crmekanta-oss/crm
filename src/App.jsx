@@ -1059,7 +1059,7 @@ function FilterBar({fil,setF,reset,users=[],user,T,funnels=[]}) {
 
 // ─── TABLE ────────────────────────────────────────────────────────────────────
 // ⑳ Row click opens view drawer
-function Table({rows,user,onView,onEdit,onCreEdit,onDelete,onLogFollowup,loading,T,selectedIds=new Set(),toggleSelect,toggleSelectAll}) {
+function Table({rows,user,onView,onEdit,onCreEdit,onDelete,onLogFollowup,onAddProof,loading,T,selectedIds=new Set(),toggleSelect,toggleSelectAll}) {
   const [isMobile,setIsMobile]=useState(typeof window!=="undefined"?window.innerWidth<768:false);
   useEffect(()=>{const h=()=>setIsMobile(window.innerWidth<768);window.addEventListener("resize",h);return()=>window.removeEventListener("resize",h);},[]);
 
@@ -1112,6 +1112,7 @@ function Table({rows,user,onView,onEdit,onCreEdit,onDelete,onLogFollowup,loading
             </div>
             <div style={{display:"flex",gap:8,flexWrap:"wrap"}} onClick={e=>e.stopPropagation()}>
               {showLog&&<button onClick={()=>onLogFollowup(f)} style={{background:T.pending.bg,border:`1px solid ${T.pending.dot}`,borderRadius:T.r.md,padding:"7px 14px",fontSize:12,fontWeight:600,color:T.pending.text,cursor:"pointer",fontFamily:F}}>📋 Log</button>}
+              {f.status==="Won"&&<button onClick={()=>onAddProof(f)} style={{background:f.wonProofUrl?T.won.bg:"transparent",border:`1px solid ${f.wonProofUrl?T.won.dot:T.line}`,borderRadius:T.r.md,padding:"7px 14px",fontSize:12,fontWeight:600,color:f.wonProofUrl?T.won.text:T.inkSub,cursor:"pointer",fontFamily:F}}>{f.wonProofUrl?"🏆 Proof":"+ Proof"}</button>}
               {FULL.includes(user.role)&&<button onClick={()=>onEdit(f)} style={{background:T.surface,border:`1px solid ${T.line}`,borderRadius:T.r.md,padding:"7px 12px",cursor:"pointer",display:"flex",alignItems:"center",gap:5,fontSize:12,color:T.inkSub,fontFamily:F}}><Ic d={P.edit} sz={13} color={T.inkSub}/> Edit</button>}
               {canCreEdit&&<button onClick={()=>onCreEdit(f)} style={{background:T.surface,border:`1px solid #5B3BE8`,borderRadius:T.r.md,padding:"7px 12px",cursor:"pointer",fontSize:12,color:"#5B3BE8",fontFamily:F}}>Edit</button>}
               {FULL.includes(user.role)&&<button onClick={()=>onDelete(f.id)} style={{background:"#FEF2F2",border:`1px solid #FECACA`,borderRadius:T.r.md,padding:"7px 12px",cursor:"pointer",display:"flex",alignItems:"center",gap:5,fontSize:12,color:"#B91C1C",fontFamily:F}}><Ic d={P.trash} sz={13} color="#DC2626"/> Delete</button>}
@@ -1181,6 +1182,7 @@ function Table({rows,user,onView,onEdit,onCreEdit,onDelete,onLogFollowup,loading
                 <td style={{padding:"0 8px",verticalAlign:"middle"}} onClick={e=>e.stopPropagation()}>
                   <div style={{display:"flex",gap:4,justifyContent:"flex-end"}}>
                     {showLog&&<button onClick={()=>onLogFollowup(f)} style={{background:T.pending.bg,border:`1px solid ${T.pending.dot}`,borderRadius:T.r.sm,padding:"3px 8px",fontSize:11,fontWeight:600,color:T.pending.text,cursor:"pointer",fontFamily:F,whiteSpace:"nowrap"}} onMouseEnter={e=>{e.currentTarget.style.background=T.pending.dot;e.currentTarget.style.color="#fff";}} onMouseLeave={e=>{e.currentTarget.style.background=T.pending.bg;e.currentTarget.style.color=T.pending.text;}}>📋 Log</button>}
+                    {f.status==="Won"&&<button onClick={()=>onAddProof(f)} style={{background:f.wonProofUrl?T.won.bg:"transparent",border:`1px solid ${f.wonProofUrl?T.won.dot:T.line}`,borderRadius:T.r.sm,padding:"3px 8px",fontSize:11,fontWeight:600,color:f.wonProofUrl?T.won.text:T.inkSub,cursor:"pointer",fontFamily:F,whiteSpace:"nowrap"}} onMouseEnter={e=>{e.currentTarget.style.background=T.won.bg;e.currentTarget.style.borderColor=T.won.dot;e.currentTarget.style.color=T.won.text;}} onMouseLeave={e=>{e.currentTarget.style.background=f.wonProofUrl?T.won.bg:"transparent";e.currentTarget.style.borderColor=f.wonProofUrl?T.won.dot:T.line;e.currentTarget.style.color=f.wonProofUrl?T.won.text:T.inkSub;}}>{f.wonProofUrl?"🏆 Proof":"+ Proof"}</button>}
                     <button onClick={()=>onView(f)} style={{background:"transparent",border:`1px solid ${T.line}`,borderRadius:T.r.sm,padding:"3px 10px",fontSize:11,fontWeight:500,color:T.inkSub,cursor:"pointer",fontFamily:F}} onMouseEnter={e=>{e.currentTarget.style.background=T.brandSubtle;e.currentTarget.style.color="#5B3BE8";e.currentTarget.style.borderColor="#5B3BE8";}} onMouseLeave={e=>{e.currentTarget.style.background="transparent";e.currentTarget.style.color=T.inkSub;e.currentTarget.style.borderColor=T.line;}}>View</button>
                     {FULL.includes(user.role)&&<button onClick={()=>onEdit(f)} style={{background:"transparent",border:`1px solid ${T.line}`,borderRadius:T.r.sm,padding:"3px 6px",cursor:"pointer",display:"flex"}} onMouseEnter={e=>e.currentTarget.style.background=T.surfaceEl} onMouseLeave={e=>e.currentTarget.style.background="transparent"}><Ic d={P.edit} sz={12} color={T.inkSub}/></button>}
                     {canCreEdit&&<button onClick={()=>onCreEdit(f)} style={{background:"transparent",border:`1px solid ${T.line}`,borderRadius:T.r.sm,padding:"3px 6px",cursor:"pointer",display:"flex"}} onMouseEnter={e=>{e.currentTarget.style.background=T.brandSubtle;e.currentTarget.style.borderColor="#5B3BE8";}} onMouseLeave={e=>{e.currentTarget.style.background="transparent";e.currentTarget.style.borderColor=T.line;}}><Ic d={P.edit} sz={12} color="#5B3BE8"/></button>}
@@ -2630,6 +2632,124 @@ remarks:remarks.trim(),
 // ─── FOLLOW-UP OUTCOMES ───────────────────────────────────────────────────────
 const OUTCOMES=["Interested","Needs Time","Callback Requested","Not Interested","Rescheduled","Order Confirmed","Other"];
 
+// ─── WON PROOF MODAL ─────────────────────────────────────────────────────────
+function WonProofModal({funnel,onClose,onSave,T}) {
+  const [url, setUrl] = useState(funnel.wonProofUrl || "");
+  const [preview, setPreview] = useState(!!funnel.wonProofUrl);
+  const [saving, setSaving] = useState(false);
+  const [imgErr, setImgErr] = useState(false);
+  const fo = mkFocus(T); const bl = mkBlur(T);
+
+  const handleUrlChange = (v) => {
+    setUrl(v);
+    setPreview(false);
+    setImgErr(false);
+  };
+
+  const previewUrl = () => {
+    if (!url.trim()) return;
+    setPreview(true);
+    setImgErr(false);
+  };
+
+  const submit = async () => {
+    setSaving(true);
+    try {
+      await onSave(url.trim());
+      onClose();
+    } catch(e) { console.error(e); }
+    finally { setSaving(false); }
+  };
+
+  const clear = async () => {
+    setSaving(true);
+    try { await onSave(""); onClose(); }
+    catch(e) { console.error(e); }
+    finally { setSaving(false); }
+  };
+
+  return (
+    <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.4)",zIndex:3000,display:"flex",alignItems:"center",justifyContent:"center",padding:16,backdropFilter:"blur(2px)"}} onClick={onClose}>
+      <div style={{background:T.surface,borderRadius:T.r["2xl"],width:"100%",maxWidth:480,boxShadow:T.shadowXl,animation:"fadeUp .2s ease"}} onClick={e=>e.stopPropagation()}>
+
+        {/* Header */}
+        <div style={{padding:"18px 22px 14px",borderBottom:`1px solid ${T.line}`,display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+          <div style={{display:"flex",alignItems:"center",gap:10}}>
+            <div style={{width:32,height:32,borderRadius:"50%",background:T.won.bg,border:`2px solid ${T.won.dot}`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:16}}>🏆</div>
+            <div>
+              <div style={{fontSize:14,fontWeight:700,color:T.ink,fontFamily:F}}>Won Proof</div>
+              <div style={{fontSize:11,color:T.inkSub,fontFamily:F}}>{funnel.name}</div>
+            </div>
+          </div>
+          <button onClick={onClose} style={{width:28,height:28,border:`1px solid ${T.line}`,borderRadius:T.r.md,background:T.surfaceEl,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>
+            <Ic d={P.close} sz={12} color={T.inkSub}/>
+          </button>
+        </div>
+
+        <div style={{padding:"20px 22px",display:"flex",flexDirection:"column",gap:14}}>
+          <div style={{fontSize:12,color:T.inkSub,fontFamily:F,lineHeight:1.6,background:T.won.bg,padding:"10px 14px",borderRadius:T.r.md,border:`1px solid ${T.won.dot}33`}}>
+            📌 Paste the image URL below — payment screenshot, order confirmation, WhatsApp screenshot link, Google Drive link, etc.
+          </div>
+
+          {/* URL Input */}
+          <div style={{display:"flex",flexDirection:"column",gap:6}}>
+            <label style={{fontSize:12,fontWeight:500,color:T.inkSub,fontFamily:F}}>Image URL</label>
+            <div style={{display:"flex",gap:8}}>
+              <input
+                value={url}
+                onChange={e=>handleUrlChange(e.target.value)}
+                placeholder="https://drive.google.com/... or any image link"
+                style={{...inputSx(T),flex:1}}
+                onFocus={fo} onBlur={bl}
+                onKeyDown={e=>e.key==="Enter"&&previewUrl()}
+              />
+              <button onClick={previewUrl}
+                style={{padding:"8px 14px",background:T.surfaceEl,border:`1px solid ${T.line}`,borderRadius:T.r.md,fontSize:12,fontWeight:500,color:T.inkSub,cursor:"pointer",fontFamily:F,flexShrink:0,whiteSpace:"nowrap"}}>
+                Preview
+              </button>
+            </div>
+          </div>
+
+          {/* Image preview */}
+          {preview && url && (
+            <div style={{border:`1px solid ${T.line}`,borderRadius:T.r.lg,overflow:"hidden",background:T.surfaceEl}}>
+              {imgErr ? (
+                <div style={{padding:"24px",textAlign:"center",color:T.lost.text,fontSize:12,fontFamily:F}}>
+                  ⚠️ Could not load image. Check the URL and make sure it's publicly accessible.
+                </div>
+              ) : (
+                <img
+                  src={url}
+                  alt="Proof"
+                  onError={()=>setImgErr(true)}
+                  style={{width:"100%",maxHeight:260,objectFit:"contain",display:"block",background:"#000"}}
+                />
+              )}
+            </div>
+          )}
+
+          {/* Current proof notice */}
+          {funnel.wonProofUrl && (
+            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"8px 12px",background:T.won.bg,borderRadius:T.r.md,border:`1px solid ${T.won.dot}33`}}>
+              <span style={{fontSize:12,color:T.won.text,fontFamily:F,fontWeight:500}}>✅ Proof already saved</span>
+              <button onClick={clear} disabled={saving}
+                style={{fontSize:11,color:T.lost.text,background:"none",border:"none",cursor:"pointer",fontFamily:F,textDecoration:"underline"}}>
+                Remove
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div style={{padding:"12px 22px 18px",borderTop:`1px solid ${T.line}`,display:"flex",justifyContent:"flex-end",gap:8}}>
+          <Btn ghost label="Cancel" onClick={onClose} T={T}/>
+          <Btn primary icon={P.check} label={saving?"Saving…":"Save Proof"} onClick={submit} disabled={saving||!url.trim()} T={T}/>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function FollowupLogModal({funnel,user,onClose,onSave,T}) {
   const [form,setForm]=useState({customerResponse:"",outcome:"",nextFollowUp:""});
   const [err,setErr]=useState({}); const [saving,setSaving]=useState(false);
@@ -2656,7 +2776,7 @@ function FollowupLogModal({funnel,user,onClose,onSave,T}) {
 }
 
 // ─── VIEW DRAWER ──────────────────────────────────────────────────────────────
-function ViewDrawer({funnel,onClose,onEdit,onCreEdit,onStatusChange,user,comments,onAddComment,followupLogs=[],onLogFollowup,T}) {
+function ViewDrawer({funnel,onClose,onEdit,onCreEdit,onStatusChange,user,comments,onAddComment,followupLogs=[],onLogFollowup,onAddProof,T}) {
 const [status,setStatus]=useState(funnel.status);
 const [showReasonPicker,setShowReasonPicker]=useState(false);
 const [pendingStatus,setPendingStatus]=useState("");
@@ -2725,12 +2845,44 @@ const confirmStatus=()=>{
           <Sec t="Quotation"/>
           <dl><Row l="Order Number" v={funnel.orderNumber} mono/><Row l="Quantity" v={funnel.quoteQty}/><Row l="Amount" v={inr(funnel.quoteAmount)}/>{funnel.quoteDesc&&<Row l="Description" v={funnel.quoteDesc}/>}</dl>
 
+          {/* Won Proof */}
+          {funnel.wonProofUrl && (
+            <div style={{marginTop:16,marginBottom:8}}>
+              <Sec t="Won Proof"/>
+              <div style={{border:`1px solid ${T.won.dot}44`,borderRadius:T.r.lg,overflow:"hidden",background:T.won.bg}}>
+                <div style={{padding:"10px 14px",display:"flex",alignItems:"center",justifyContent:"space-between",borderBottom:`1px solid ${T.won.dot}22`}}>
+                  <div style={{display:"flex",alignItems:"center",gap:6}}>
+                    <span style={{fontSize:14}}>🏆</span>
+                    <span style={{fontSize:12,fontWeight:600,color:T.won.text,fontFamily:F}}>Payment / Order Proof</span>
+                  </div>
+                  <a href={funnel.wonProofUrl} target="_blank" rel="noreferrer"
+                    style={{fontSize:11,color:"#5B3BE8",fontFamily:F,textDecoration:"none",fontWeight:500,display:"flex",alignItems:"center",gap:4}}>
+                    Open ↗
+                  </a>
+                </div>
+                <div style={{padding:8,background:"#000",textAlign:"center"}}>
+                  <img src={funnel.wonProofUrl} alt="Won proof"
+                    style={{maxWidth:"100%",maxHeight:220,objectFit:"contain",display:"block",margin:"0 auto",borderRadius:4}}
+                    onError={e=>{e.target.style.display="none";e.target.nextSibling.style.display="block";}}
+                  />
+                  <div style={{display:"none",padding:"16px",color:"#fff",fontSize:12,fontFamily:F}}>
+                    ⚠️ Could not load image — <a href={funnel.wonProofUrl} target="_blank" rel="noreferrer" style={{color:"#60A5FA"}}>open link directly</a>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Follow-up History */}
           <div style={{height:24}}/>
           <div style={{borderTop:`2px solid ${T.line}`,paddingTop:20,marginBottom:24}}>
             <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:16}}>
               <div style={{display:"flex",alignItems:"center",gap:8}}><span style={{fontSize:16}}>📅</span><span style={{fontSize:13,fontWeight:600,color:T.ink,fontFamily:F}}>Follow-up History</span>{followupLogs.length>0&&<span style={{fontSize:11,fontWeight:500,background:T.brandSubtle,color:"#5B3BE8",padding:"1px 8px",borderRadius:10,fontFamily:F}}>{followupLogs.length}</span>}</div>
               {!isWon&&!isViewer&&<Btn primary sm label="+ Log Follow-up" onClick={onLogFollowup} T={T}/>}
+              {isWon&&!isViewer&&<button onClick={()=>onAddProof&&onAddProof(funnel)}
+                style={{padding:"5px 12px",borderRadius:T.r.md,border:`1px solid ${funnel.wonProofUrl?T.won.dot:T.line}`,background:funnel.wonProofUrl?T.won.bg:"transparent",color:funnel.wonProofUrl?T.won.text:T.inkSub,fontSize:12,fontWeight:600,cursor:"pointer",fontFamily:F,display:"flex",alignItems:"center",gap:5}}>
+                {funnel.wonProofUrl?"🏆 Update Proof":"🏆 Add Proof"}
+              </button>}
               {isWon&&<span style={{fontSize:11,color:T.won.text,fontWeight:500,background:T.won.bg,padding:"4px 10px",borderRadius:20,border:`1px solid ${T.won.dot}44`,display:"flex",alignItems:"center",gap:5}}><Dot color={T.won.dot} size={5}/> Deal Won ✓</span>}
             </div>
             {followupLogs.length===0?<div style={{textAlign:"center",padding:"16px 0",fontSize:12,color:T.inkMuted,fontFamily:F}}>No follow-ups logged yet.</div>:(
@@ -2830,6 +2982,7 @@ function Shell({user,users,onLogout,onUsersChange,T,dark,onToggleDark}) {
   const [followupLogs,setFollowupLogs]=useState({});
   const isViewerUser=VIEWER.includes(user.role);
   const [logModalFunnel,setLogModalFunnel]=useState(null);
+  const [proofModalFunnel,setProofModalFunnel]=useState(null);
 
   useEffect(()=>{if(viewT&&!followupLogs[viewT.id]){crmService.getFollowupLogs(viewT.id).then(logs=>{setFollowupLogs(prev=>({...prev,[viewT.id]:logs}));}).catch(console.error);}},[viewT]);
 
@@ -2841,6 +2994,15 @@ function Shell({user,users,onLogout,onUsersChange,T,dark,onToggleDark}) {
       setFollowupLogs(prev=>({...prev,[logModalFunnel.id]:updated}));
       setLogModalFunnel(null); push("Follow-up logged ✓");
     }catch(err){console.error(err);push("Error saving follow-up","error");}
+  };
+
+  const saveProof=async(url)=>{
+    try{
+      await crmService.updateWonProof(proofModalFunnel.id, url);
+      setFunnels(p=>p.map(f=>f.id===proofModalFunnel.id?{...f,wonProofUrl:url}:f));
+      if(viewT&&viewT.id===proofModalFunnel.id) setViewT(v=>({...v,wonProofUrl:url}));
+      push(url?"Proof saved ✓":"Proof removed","success");
+    }catch(e){console.error(e);push("Error saving proof","error");}
   };
 
   const [fil,setFil]=useState({status:"",funnelType:"",enquiryType:"",leadSource:"",descFilter:"",cre:"",missed:false,todayF:false,upcoming:false,assignedTo:"",city:"",category:"",dateFrom:"",dateTo:"",followFrom:"",followTo:"",minAmt:"",maxAmt:"",hasOrder:"",hasQuote:"",overdue:false,wonMonth:false});
@@ -2984,16 +3146,17 @@ return true;
         {showFilters&&<div style={{marginTop:16}}><FilterBar fil={fil} setF={sf} reset={rf} users={users} user={user} T={T} funnels={scoped}/></div>}
 
         <div style={{flex:1,background:showFilters?T.surface:"transparent",borderTop:showFilters?`1px solid ${T.line}`:"none"}} className="ek-table-scroll">
-          {(view==="dashboard"||view==="funnels")&&<Table rows={filtered} user={user} onView={setViewT} onEdit={f=>setEditT(f)} onCreEdit={f=>setCreEditT(f)} onDelete={del} onLogFollowup={f=>setLogModalFunnel(f)} loading={loading} T={T} selectedIds={selectedIds} toggleSelect={toggleSelect} toggleSelectAll={toggleSelectAll}/>}
+          {(view==="dashboard"||view==="funnels")&&<Table rows={filtered} user={user} onView={setViewT} onEdit={f=>setEditT(f)} onCreEdit={f=>setCreEditT(f)} onDelete={del} onLogFollowup={f=>setLogModalFunnel(f)} onAddProof={f=>setProofModalFunnel(f)} loading={loading} T={T} selectedIds={selectedIds} toggleSelect={toggleSelect} toggleSelectAll={toggleSelectAll}/>}
           {view==="analytics"&&<Analytics funnels={FULL.includes(user.role)?funnels:scoped} T={T}/>}
           {view==="team"&&FULL.includes(user.role)&&<Team users={users} onSave={onUsersChange} T={T}/>}
         </div>
       </div>
 
       {(addOpen||editT)&&<FunnelForm onClose={()=>{setAddOpen(false);setEditT(null);}} onSave={save} existing={editT} user={user} users={users} T={T}/>}
-      {viewT&&<ViewDrawer funnel={viewT} onClose={()=>setViewT(null)} onEdit={f=>setEditT(f)} onCreEdit={f=>setCreEditT(f)} onStatusChange={upStatus} user={user} comments={funnelComments[viewT.id]||[]} onAddComment={addComment} followupLogs={followupLogs[viewT.id]||[]} onLogFollowup={()=>setLogModalFunnel(viewT)} T={T}/>}
+      {viewT&&<ViewDrawer funnel={viewT} onClose={()=>setViewT(null)} onEdit={f=>setEditT(f)} onCreEdit={f=>setCreEditT(f)} onStatusChange={upStatus} user={user} comments={funnelComments[viewT.id]||[]} onAddComment={addComment} followupLogs={followupLogs[viewT.id]||[]} onLogFollowup={()=>setLogModalFunnel(viewT)} onAddProof={f=>{setProofModalFunnel(f);}} T={T}/>}
       {creEditT&&<CREEditModal funnel={creEditT} onClose={()=>setCreEditT(null)} onSave={creEditSave} T={T}/>}
-      {logModalFunnel&&!isViewerUser&&<FollowupLogModal funnel={logModalFunnel} user={user} onClose={()=>setLogModalFunnel(null)} onSave={saveFollowupLog} T={T}/>}
+      {logModalFunnel&&!isViewerUser&&<FollowupLogModal funnel={logModalFunnel} user={user} onClose={()=>setLogModalFunnel(null)} onSave={saveFollowupLog} T={T}/>
+      }{proofModalFunnel&&<WonProofModal funnel={proofModalFunnel} onClose={()=>setProofModalFunnel(null)} onSave={saveProof} T={T}/>}
       <Toaster list={toasts} T={T}/>
     </div>
   );
