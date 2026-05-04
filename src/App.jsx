@@ -769,6 +769,19 @@ function Topbar({title, search, setSearch, user, onAdd, onExportAll, onExportFil
               </div>
             )}
           </div>
+
+          {FULL.includes(user.role) && (
+            <>
+              <Btn ghost sm icon={P.dl} label={`Filtered (${fLen})`} onClick={onExportFiltered} T={T}/>
+              <Btn ghost sm icon={P.dl} label={`All (${aLen})`} onClick={onExportAll} T={T}/>
+            </>
+          )}
+          {!FULL.includes(user.role) && can(user, "export") && (
+            <Btn ghost sm icon={P.dl} label="Export" onClick={onExportFiltered} T={T}/>
+          )}
+          {can(user, "create") && (
+            <Btn primary sm icon={P.plus} label="Add funnel" onClick={onAdd} T={T}/>
+          )}
         </div>
       </div>
     </div>
@@ -895,9 +908,10 @@ function Table({rows,user,onView,onEdit,onCreEdit,onDelete,onLogFollowup,loading
       {rows.map((f,i)=>{
         const over=f.nextFollowUp&&f.nextFollowUp<todayV&&f.status==="Pending";
         const tod=f.nextFollowUp===todayV&&f.status==="Pending";
-        const showLog=(over||tod)&&f.status!=="Won";
+        const isViewer=VIEWER.includes(user.role);
+        const showLog=(over||tod)&&f.status!=="Won"&&!isViewer;
         const cats=[...new Set((f.products||[]).map(p=>p.category).filter(Boolean))].join(", ")||"—";
-        const canCreEdit=!FULL.includes(user.role)&&(f.createdBy===user.name||f.assignedTo===user.name);
+        const canCreEdit=!FULL.includes(user.role)&&!isViewer&&(f.createdBy===user.name||f.assignedTo===user.name);
         return (
           <div key={f.id} style={{padding:"14px 16px",borderBottom:`1px solid ${T.line}`,background:selectedIds.has(f.id)?T.brandSubtle:i%2===0?T.surface:T.surfaceEl,cursor:"pointer",position:"relative"}}
             onClick={()=>onView(f)}
@@ -944,9 +958,10 @@ function Table({rows,user,onView,onEdit,onCreEdit,onDelete,onLogFollowup,loading
           {rows.map((f,i)=>{
             const over=f.nextFollowUp&&f.nextFollowUp<todayV&&f.status==="Pending";
             const tod=f.nextFollowUp===todayV&&f.status==="Pending";
-            const showLog=(over||tod)&&f.status!=="Won";
+            const isViewer=VIEWER.includes(user.role);
+            const showLog=(over||tod)&&f.status!=="Won"&&!isViewer;
             const cats=[...new Set((f.products||[]).map(p=>p.category).filter(Boolean))].join(", ")||"—";
-            const canCreEdit=!FULL.includes(user.role)&&(f.createdBy===user.name||f.assignedTo===user.name);
+            const canCreEdit=!FULL.includes(user.role)&&!isViewer&&(f.createdBy===user.name||f.assignedTo===user.name);
             return (
               // ⑳ entire row is clickable
               <tr key={f.id} onClick={()=>onView(f)}
@@ -2370,14 +2385,15 @@ const confirmStatus=()=>{
   setShowReasonPicker(false);
 };
   const [commentText,setCommentText]=useState("");
-  const canComment=FULL.includes(user.role);
+  const isViewer=VIEWER.includes(user.role);
+  const canComment=FULL.includes(user.role)&&!isViewer;
   const fo=mkFocus(T); const bl=mkBlur(T);
   const submitComment=()=>{if(!commentText.trim())return;onAddComment(funnel.id,{text:commentText.trim(),author:user.name,role:user.role,time:stamp()});setCommentText("");};
   const Row=({l,v,mono})=>(<div style={{display:"grid",gridTemplateColumns:"140px 1fr",gap:8,padding:"8px 0",borderBottom:`1px solid ${T.line}`}}><dt style={{fontSize:11,fontWeight:500,color:T.inkMuted,fontFamily:F}}>{l}</dt><dd style={{fontSize:13,color:T.ink,fontFamily:mono?"'SF Mono',monospace":F,wordBreak:"break-all"}}>{v||"—"}</dd></div>);
   const Sec=({t})=><div style={{fontSize:10,fontWeight:600,color:T.inkMuted,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:10,marginTop:4,fontFamily:F}}>{t}</div>;
   const roleColor={"CEO":T.high,"Manager":T.won,"CRE":T.pending};
   const outcomeColors={"Interested":T.won,"Order Confirmed":T.won,"Needs Time":T.pending,"Callback Requested":T.pending,"Rescheduled":T.pending,"Not Interested":T.lost,"Other":T.drop};
-  const canCreEdit=!FULL.includes(user.role)&&(funnel.createdBy===user.name||funnel.assignedTo===user.name);
+  const canCreEdit=!FULL.includes(user.role)&&!isViewer&&(funnel.createdBy===user.name||funnel.assignedTo===user.name);
   const isWon=status==="Won";
 
   return (
@@ -2394,13 +2410,14 @@ const confirmStatus=()=>{
               </div>
             </div>
             <div style={{display:"flex",gap:8,alignItems:"center"}}>
-              {FULL.includes(user.role)&&<Btn ghost sm icon={P.edit} label="Edit" onClick={()=>{onClose();onEdit(funnel);}} T={T}/>}
-              {canCreEdit&&<Btn ghost sm icon={P.edit} label="Edit" onClick={()=>{onClose();onCreEdit(funnel);}} T={T}/>}
+              {FULL.includes(user.role)&&!isViewer&&<Btn ghost sm icon={P.edit} label="Edit" onClick={()=>{onClose();onEdit(funnel);}} T={T}/>}
+              {canCreEdit&&!isViewer&&<Btn ghost sm icon={P.edit} label="Edit" onClick={()=>{onClose();onCreEdit(funnel);}} T={T}/>}
               <button onClick={onClose} style={{width:28,height:28,border:`1px solid ${T.line}`,borderRadius:T.r.md,background:T.surfaceEl,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}><Ic d={P.close} sz={12} color={T.inkSub}/></button>
             </div>
           </div>
           <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
-            {STATUS.map(s=>{const c=T[s.toLowerCase()]||T.drop;const a=status===s;return(<button key={s} onClick={()=>doStatus(s)} style={{padding:"5px 12px",borderRadius:20,border:`1px solid ${a?c.dot:T.line}`,background:a?c.bg:"transparent",color:a?c.text:T.inkSub,fontSize:12,fontWeight:a?600:400,cursor:"pointer",fontFamily:F,transition:"all .15s",display:"flex",alignItems:"center",gap:5}}><Dot color={a?c.dot:T.inkMuted} size={5}/>{s}</button>);})}
+            {STATUS.map(s=>{const c=T[s.toLowerCase()]||T.drop;const a=status===s;return(<button key={s} onClick={()=>isViewer?null:doStatus(s)} style={{padding:"5px 12px",borderRadius:20,border:`1px solid ${a?c.dot:T.line}`,background:a?c.bg:"transparent",color:a?c.text:T.inkSub,fontSize:12,fontWeight:a?600:400,cursor:isViewer?"default":"pointer",fontFamily:F,transition:"all .15s",display:"flex",alignItems:"center",gap:5,opacity:isViewer&&!a?0.5:1}}><Dot color={a?c.dot:T.inkMuted} size={5}/>{s}</button>);})}
+            {isViewer&&<span style={{fontSize:11,color:T.inkMuted,fontFamily:F,display:"flex",alignItems:"center",gap:4,padding:"0 4px"}}>🔒 View only</span>}
           </div>
         </div>
         <div style={{padding:"18px 22px",flex:1}}>
@@ -2426,7 +2443,7 @@ const confirmStatus=()=>{
           <div style={{borderTop:`2px solid ${T.line}`,paddingTop:20,marginBottom:24}}>
             <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:16}}>
               <div style={{display:"flex",alignItems:"center",gap:8}}><span style={{fontSize:16}}>📅</span><span style={{fontSize:13,fontWeight:600,color:T.ink,fontFamily:F}}>Follow-up History</span>{followupLogs.length>0&&<span style={{fontSize:11,fontWeight:500,background:T.brandSubtle,color:"#5B3BE8",padding:"1px 8px",borderRadius:10,fontFamily:F}}>{followupLogs.length}</span>}</div>
-              {!isWon&&<Btn primary sm label="+ Log Follow-up" onClick={onLogFollowup} T={T}/>}
+              {!isWon&&!isViewer&&<Btn primary sm label="+ Log Follow-up" onClick={onLogFollowup} T={T}/>}
               {isWon&&<span style={{fontSize:11,color:T.won.text,fontWeight:500,background:T.won.bg,padding:"4px 10px",borderRadius:20,border:`1px solid ${T.won.dot}44`,display:"flex",alignItems:"center",gap:5}}><Dot color={T.won.dot} size={5}/> Deal Won ✓</span>}
             </div>
             {followupLogs.length===0?<div style={{textAlign:"center",padding:"16px 0",fontSize:12,color:T.inkMuted,fontFamily:F}}>No follow-ups logged yet.</div>:(
@@ -2524,6 +2541,7 @@ function Shell({user,users,onLogout,onUsersChange,T,dark,onToggleDark}) {
 
   const addComment=async(funnelId,comment)=>{try{await crmService.addComment(funnelId,comment);}catch(err){console.error(err);}};
   const [followupLogs,setFollowupLogs]=useState({});
+  const isViewerUser=VIEWER.includes(user.role);
   const [logModalFunnel,setLogModalFunnel]=useState(null);
 
   useEffect(()=>{if(viewT&&!followupLogs[viewT.id]){crmService.getFollowupLogs(viewT.id).then(logs=>{setFollowupLogs(prev=>({...prev,[viewT.id]:logs}));}).catch(console.error);}},[viewT]);
@@ -2549,7 +2567,7 @@ function Shell({user,users,onLogout,onUsersChange,T,dark,onToggleDark}) {
   const rf=()=>{setFil({status:"",funnelType:"",enquiryType:"",leadSource:"",descFilter:"",cre:"",missed:false,todayF:false,upcoming:false});setStatFilter(null);};
   const handleStatClick=(filterKey)=>{setStatFilter(prev=>prev===filterKey?null:filterKey);setFil(f=>({...f,status:""}));};
 
-  const scoped=useMemo(()=>FULL.includes(user.role)?funnels:funnels.filter(f=>f.createdBy===user.name||f.assignedTo===user.name),[funnels,user]);
+  const scoped=useMemo(()=>(FULL.includes(user.role)||VIEWER.includes(user.role))?funnels:funnels.filter(f=>f.createdBy===user.name||f.assignedTo===user.name),[funnels,user]);
 
   // ㉒ today's follow-ups list + count for bell
   const todayFunnels=useMemo(()=>scoped.filter(f=>f.nextFollowUp===TODAY&&f.status==="Pending"),[scoped,TODAY]);
@@ -2670,7 +2688,7 @@ return true;
       {(addOpen||editT)&&<FunnelForm onClose={()=>{setAddOpen(false);setEditT(null);}} onSave={save} existing={editT} user={user} users={users} T={T}/>}
       {viewT&&<ViewDrawer funnel={viewT} onClose={()=>setViewT(null)} onEdit={f=>setEditT(f)} onCreEdit={f=>setCreEditT(f)} onStatusChange={upStatus} user={user} comments={funnelComments[viewT.id]||[]} onAddComment={addComment} followupLogs={followupLogs[viewT.id]||[]} onLogFollowup={()=>setLogModalFunnel(viewT)} T={T}/>}
       {creEditT&&<CREEditModal funnel={creEditT} onClose={()=>setCreEditT(null)} onSave={creEditSave} T={T}/>}
-      {logModalFunnel&&<FollowupLogModal funnel={logModalFunnel} user={user} onClose={()=>setLogModalFunnel(null)} onSave={saveFollowupLog} T={T}/>}
+      {logModalFunnel&&!isViewerUser&&<FollowupLogModal funnel={logModalFunnel} user={user} onClose={()=>setLogModalFunnel(null)} onSave={saveFollowupLog} T={T}/>}
       <Toaster list={toasts} T={T}/>
     </div>
   );
