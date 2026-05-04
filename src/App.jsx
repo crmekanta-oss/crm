@@ -854,10 +854,12 @@ function Stats({funnels, activeStatFilter, onStatClick, T}) {
 }
 
 // ─── FILTER BAR ───────────────────────────────────────────────────────────────
-function FilterBar({fil,setF,reset,users=[],user,T}) {
+function FilterBar({fil,setF,reset,users=[],user,T,funnels=[]}) {
+  const [showMore, setShowMore] = useState(false);
+
   const sel=(val,key,opts,ph)=>(
     <select value={val} onChange={e=>setF(key,e.target.value)}
-      style={{padding:"5px 24px 5px 9px",border:`1px solid ${T.line}`,borderRadius:T.r.md,fontSize:12,fontFamily:F,color:val?T.ink:T.inkSub,background:val?`${T.brandSubtle} ${selectBg}`:`${T.surface} ${selectBg}`,cursor:"pointer",outline:"none",appearance:"none",fontWeight:val?500:400}}>
+      style={{padding:"5px 24px 5px 9px",border:`1px solid ${val?"#5B3BE8":T.line}`,borderRadius:T.r.md,fontSize:12,fontFamily:F,color:val?T.ink:T.inkSub,background:val?`${T.brandSubtle} ${selectBg}`:`${T.surface} ${selectBg}`,cursor:"pointer",outline:"none",appearance:"none",fontWeight:val?500:400}}>
       <option value="">{ph}</option>
       {opts.map(o=><option key={o}>{o}</option>)}
     </select>
@@ -868,32 +870,167 @@ function FilterBar({fil,setF,reset,users=[],user,T}) {
       {label}
     </label>
   );
-  const any=fil.status||fil.funnelType||fil.enquiryType||fil.leadSource||fil.descFilter||fil.missed||fil.todayF||fil.upcoming;
+  const dateInp=(key,ph)=>(
+    <input type="date" value={fil[key]} onChange={e=>setF(key,e.target.value)}
+      style={{padding:"5px 8px",border:`1px solid ${fil[key]?"#5B3BE8":T.line}`,borderRadius:T.r.md,fontSize:12,fontFamily:F,color:fil[key]?T.ink:T.inkSub,background:fil[key]?T.brandSubtle:T.surface,outline:"none",cursor:"pointer",width:130}}
+      title={ph}/>
+  );
+  const numInp=(key,ph)=>(
+    <input type="number" value={fil[key]} onChange={e=>setF(key,e.target.value)} placeholder={ph}
+      style={{padding:"5px 8px",border:`1px solid ${fil[key]?"#5B3BE8":T.line}`,borderRadius:T.r.md,fontSize:12,fontFamily:F,color:T.ink,background:fil[key]?T.brandSubtle:T.surface,outline:"none",width:90}}/>
+  );
+
+  // Dynamic city list from data
+  const cities=[...new Set(funnels.map(f=>f.cityRegion).filter(Boolean))].sort();
+  // Dynamic assigned-to list
+  const assignees=[...new Set(funnels.map(f=>f.assignedTo).filter(Boolean))].sort();
+
+  const anyBasic=fil.status||fil.funnelType||fil.enquiryType||fil.leadSource||fil.descFilter||fil.missed||fil.todayF||fil.upcoming||fil.cre;
+  const anyExtra=fil.assignedTo||fil.city||fil.category||fil.dateFrom||fil.dateTo||fil.followFrom||fil.followTo||fil.minAmt||fil.maxAmt||fil.hasOrder||fil.hasQuote||fil.overdue||fil.wonMonth;
+  const any=anyBasic||anyExtra;
+
+  const Div=()=><div style={{width:1,height:14,background:T.line,flexShrink:0}}/>;
+  const Label=({t})=><span style={{fontSize:10,fontWeight:600,color:T.inkMuted,letterSpacing:"0.06em",textTransform:"uppercase",fontFamily:F,flexShrink:0}}>{t}</span>;
+
   return (
-    <div style={{display:"flex",alignItems:"center",gap:12,padding:"10px 24px",borderBottom:`1px solid ${T.line}`,background:T.surface,flexWrap:"wrap"}}>
-      <div style={{display:"flex",alignItems:"center",gap:6}}><Ic d={P.filter} sz={12} color={T.inkMuted}/><span style={{fontSize:12,fontWeight:500,color:T.inkSub,fontFamily:F}}>Filter</span></div>
-      <div style={{width:1,height:14,background:T.line}}/>
-      {chk("missed","Missed")} {chk("todayF","Today")} {chk("upcoming","Upcoming")}
-      <div style={{width:1,height:14,background:T.line}}/>
-      {sel(fil.status,"status",STATUS,"All status")}
-      {sel(fil.funnelType,"funnelType",FTYPES,"All types")}
-      {sel(fil.enquiryType,"enquiryType",ENQS,"All enquiries")}
-      {sel(fil.leadSource,"leadSource",LEAD_SOURCES,"All sources")}
-      {FULL.includes(user?.role)&&users.filter(u=>u.role==="CRE").length>0&&(
-        <select value={fil.cre||""} onChange={e=>setF("cre",e.target.value)}
-          style={{padding:"5px 24px 5px 9px",border:`1px solid ${T.line}`,borderRadius:T.r.md,fontSize:12,fontFamily:F,color:fil.cre?T.ink:T.inkSub,background:fil.cre?`${T.brandSubtle} ${selectBg}`:`${T.surface} ${selectBg}`,cursor:"pointer",outline:"none",appearance:"none",fontWeight:fil.cre?500:400}}>
-          <option value="">All CRE</option>
-          {users.filter(u=>u.role==="CRE").map(u=><option key={u.name} value={u.name}>{u.name}</option>)}
-        </select>
-      )}
-      <div style={{width:1,height:14,background:T.line}}/>
-      <div style={{display:"flex",alignItems:"center",gap:7,background:T.surfaceEl,border:`1px solid ${T.line}`,borderRadius:T.r.md,padding:"4px 10px",minWidth:180}}>
-        <Ic d={P.search} sz={12} color={T.inkMuted}/>
-        <input value={fil.descFilter} onChange={e=>setF("descFilter",e.target.value)} placeholder="Search description…"
-          style={{border:"none",background:"transparent",outline:"none",fontSize:12,color:T.ink,fontFamily:F,width:"100%"}}/>
-        {fil.descFilter&&<button onClick={()=>setF("descFilter","")} style={{background:"none",border:"none",cursor:"pointer",color:T.inkMuted,display:"flex",padding:0}}><Ic d={P.close} sz={11} color="currentColor"/></button>}
+    <div style={{borderBottom:`1px solid ${T.line}`,background:T.surface}}>
+      {/* ── Row 1: Basic filters ── */}
+      <div style={{display:"flex",alignItems:"center",gap:10,padding:"10px 24px",flexWrap:"wrap"}}>
+        <div style={{display:"flex",alignItems:"center",gap:6}}>
+          <Ic d={P.filter} sz={12} color={T.inkMuted}/>
+          <span style={{fontSize:12,fontWeight:500,color:T.inkSub,fontFamily:F}}>Filter</span>
+        </div>
+        <Div/>
+        {chk("missed","Missed")}
+        {chk("todayF","Today")}
+        {chk("upcoming","Upcoming")}
+        {chk("overdue","Overdue")}
+        {chk("wonMonth","Won this month")}
+        <Div/>
+        {sel(fil.status,"status",STATUS,"All status")}
+        {sel(fil.funnelType,"funnelType",FTYPES,"All types")}
+        {sel(fil.enquiryType,"enquiryType",ENQS,"All enquiries")}
+        {sel(fil.leadSource,"leadSource",LEAD_SOURCES,"All sources")}
+        {FULL.includes(user?.role)&&users.filter(u=>u.role==="CRE").length>0&&(
+          <select value={fil.cre||""} onChange={e=>setF("cre",e.target.value)}
+            style={{padding:"5px 24px 5px 9px",border:`1px solid ${fil.cre?"#5B3BE8":T.line}`,borderRadius:T.r.md,fontSize:12,fontFamily:F,color:fil.cre?T.ink:T.inkSub,background:fil.cre?`${T.brandSubtle} ${selectBg}`:`${T.surface} ${selectBg}`,cursor:"pointer",outline:"none",appearance:"none",fontWeight:fil.cre?500:400}}>
+            <option value="">All CRE</option>
+            {users.filter(u=>u.role==="CRE").map(u=><option key={u.name} value={u.name}>{u.name}</option>)}
+          </select>
+        )}
+        <Div/>
+        <div style={{display:"flex",alignItems:"center",gap:7,background:T.surfaceEl,border:`1px solid ${T.line}`,borderRadius:T.r.md,padding:"4px 10px",minWidth:160,flex:1,maxWidth:220}}>
+          <Ic d={P.search} sz={12} color={T.inkMuted}/>
+          <input value={fil.descFilter} onChange={e=>setF("descFilter",e.target.value)} placeholder="Search description…"
+            style={{border:"none",background:"transparent",outline:"none",fontSize:12,color:T.ink,fontFamily:F,width:"100%"}}/>
+          {fil.descFilter&&<button onClick={()=>setF("descFilter","")} style={{background:"none",border:"none",cursor:"pointer",color:T.inkMuted,display:"flex",padding:0}}><Ic d={P.close} sz={11} color="currentColor"/></button>}
+        </div>
+        {/* More filters toggle */}
+        <button onClick={()=>setShowMore(x=>!x)}
+          style={{display:"flex",alignItems:"center",gap:5,padding:"5px 11px",borderRadius:T.r.md,border:`1px solid ${showMore||anyExtra?"#5B3BE8":T.line}`,background:showMore||anyExtra?T.brandSubtle:"transparent",color:showMore||anyExtra?"#5B3BE8":T.inkSub,fontSize:12,fontWeight:500,fontFamily:F,cursor:"pointer",flexShrink:0,transition:"all .15s"}}>
+          <Ic d={P.filter} sz={11} color={showMore||anyExtra?"#5B3BE8":T.inkSub}/>
+          More {anyExtra&&<span style={{background:"#5B3BE8",color:"#fff",borderRadius:10,fontSize:10,fontWeight:700,padding:"0 5px",marginLeft:2}}>●</span>}
+        </button>
+        {any&&<button onClick={reset} style={{fontSize:12,color:"#5B3BE8",background:"none",border:"none",cursor:"pointer",fontFamily:F,fontWeight:500,padding:"0 4px",textDecoration:"underline",textUnderlineOffset:2,flexShrink:0}}>Clear all</button>}
       </div>
-      {any&&<button onClick={reset} style={{fontSize:12,color:"#5B3BE8",background:"none",border:"none",cursor:"pointer",fontFamily:F,fontWeight:500,padding:"0 4px",textDecoration:"underline",textUnderlineOffset:2}}>Clear</button>}
+
+      {/* ── Row 2: Extra filters (expandable) ── */}
+      {showMore&&(
+        <div style={{display:"flex",alignItems:"center",gap:10,padding:"8px 24px 12px",flexWrap:"wrap",borderTop:`1px solid ${T.line}`,background:T.surfaceEl}}>
+
+          {/* Assigned To */}
+          <div style={{display:"flex",alignItems:"center",gap:6}}>
+            <Label t="Assigned"/>
+            <select value={fil.assignedTo} onChange={e=>setF("assignedTo",e.target.value)}
+              style={{padding:"5px 24px 5px 9px",border:`1px solid ${fil.assignedTo?"#5B3BE8":T.line}`,borderRadius:T.r.md,fontSize:12,fontFamily:F,color:fil.assignedTo?T.ink:T.inkSub,background:fil.assignedTo?`${T.brandSubtle} ${selectBg}`:`${T.surface} ${selectBg}`,cursor:"pointer",outline:"none",appearance:"none"}}>
+              <option value="">Anyone</option>
+              {assignees.map(a=><option key={a}>{a}</option>)}
+            </select>
+          </div>
+
+          <Div/>
+
+          {/* City */}
+          <div style={{display:"flex",alignItems:"center",gap:6}}>
+            <Label t="City"/>
+            {cities.length>0?(
+              <select value={fil.city} onChange={e=>setF("city",e.target.value)}
+                style={{padding:"5px 24px 5px 9px",border:`1px solid ${fil.city?"#5B3BE8":T.line}`,borderRadius:T.r.md,fontSize:12,fontFamily:F,color:fil.city?T.ink:T.inkSub,background:fil.city?`${T.brandSubtle} ${selectBg}`:`${T.surface} ${selectBg}`,cursor:"pointer",outline:"none",appearance:"none"}}>
+                <option value="">All cities</option>
+                {cities.map(c=><option key={c}>{c}</option>)}
+              </select>
+            ):(
+              <input value={fil.city} onChange={e=>setF("city",e.target.value)} placeholder="Type city…"
+                style={{padding:"5px 9px",border:`1px solid ${fil.city?"#5B3BE8":T.line}`,borderRadius:T.r.md,fontSize:12,fontFamily:F,color:T.ink,background:fil.city?T.brandSubtle:T.surface,outline:"none",width:120}}/>
+            )}
+          </div>
+
+          <Div/>
+
+          {/* Product Category */}
+          <div style={{display:"flex",alignItems:"center",gap:6}}>
+            <Label t="Category"/>
+            {sel(fil.category,"category",CATS,"All categories")}
+          </div>
+
+          <Div/>
+
+          {/* Created Date Range */}
+          <div style={{display:"flex",alignItems:"center",gap:6}}>
+            <Label t="Created"/>
+            {dateInp("dateFrom","From date")}
+            <span style={{fontSize:11,color:T.inkMuted}}>→</span>
+            {dateInp("dateTo","To date")}
+          </div>
+
+          <Div/>
+
+          {/* Follow-up Date Range */}
+          <div style={{display:"flex",alignItems:"center",gap:6}}>
+            <Label t="Follow-up"/>
+            {dateInp("followFrom","From")}
+            <span style={{fontSize:11,color:T.inkMuted}}>→</span>
+            {dateInp("followTo","To")}
+          </div>
+
+          <Div/>
+
+          {/* Quote Amount Range */}
+          <div style={{display:"flex",alignItems:"center",gap:6}}>
+            <Label t="Quote ₹"/>
+            {numInp("minAmt","Min")}
+            <span style={{fontSize:11,color:T.inkMuted}}>→</span>
+            {numInp("maxAmt","Max")}
+          </div>
+
+          <Div/>
+
+          {/* Has Order Number */}
+          <div style={{display:"flex",alignItems:"center",gap:6}}>
+            <Label t="Order No."/>
+            <select value={fil.hasOrder} onChange={e=>setF("hasOrder",e.target.value)}
+              style={{padding:"5px 24px 5px 9px",border:`1px solid ${fil.hasOrder?"#5B3BE8":T.line}`,borderRadius:T.r.md,fontSize:12,fontFamily:F,color:fil.hasOrder?T.ink:T.inkSub,background:fil.hasOrder?`${T.brandSubtle} ${selectBg}`:`${T.surface} ${selectBg}`,cursor:"pointer",outline:"none",appearance:"none"}}>
+              <option value="">Any</option>
+              <option value="yes">Has order no.</option>
+              <option value="no">No order no.</option>
+            </select>
+          </div>
+
+          <Div/>
+
+          {/* Has Quote Amount */}
+          <div style={{display:"flex",alignItems:"center",gap:6}}>
+            <Label t="Quote"/>
+            <select value={fil.hasQuote} onChange={e=>setF("hasQuote",e.target.value)}
+              style={{padding:"5px 24px 5px 9px",border:`1px solid ${fil.hasQuote?"#5B3BE8":T.line}`,borderRadius:T.r.md,fontSize:12,fontFamily:F,color:fil.hasQuote?T.ink:T.inkSub,background:fil.hasQuote?`${T.brandSubtle} ${selectBg}`:`${T.surface} ${selectBg}`,cursor:"pointer",outline:"none",appearance:"none"}}>
+              <option value="">Any</option>
+              <option value="yes">Has quote</option>
+              <option value="no">No quote</option>
+            </select>
+          </div>
+
+        </div>
+      )}
     </div>
   );
 }
@@ -2618,7 +2755,7 @@ function Shell({user,users,onLogout,onUsersChange,T,dark,onToggleDark}) {
     }catch(err){console.error(err);push("Error saving follow-up","error");}
   };
 
-  const [fil,setFil]=useState({status:"",funnelType:"",enquiryType:"",leadSource:"",descFilter:"",cre:"",missed:false,todayF:false,upcoming:false});
+  const [fil,setFil]=useState({status:"",funnelType:"",enquiryType:"",leadSource:"",descFilter:"",cre:"",missed:false,todayF:false,upcoming:false,assignedTo:"",city:"",category:"",dateFrom:"",dateTo:"",followFrom:"",followTo:"",minAmt:"",maxAmt:"",hasOrder:"",hasQuote:"",overdue:false,wonMonth:false});
   const [addOpen,setAddOpen]=useState(false);
   const [editT,setEditT]=useState(null);
   const [creEditT,setCreEditT]=useState(null);
@@ -2626,7 +2763,7 @@ function Shell({user,users,onLogout,onUsersChange,T,dark,onToggleDark}) {
   const TODAY=today();
 
   const sf=(k,v)=>setFil(f=>({...f,[k]:v}));
-  const rf=()=>{setFil({status:"",funnelType:"",enquiryType:"",leadSource:"",descFilter:"",cre:"",missed:false,todayF:false,upcoming:false});setStatFilter(null);};
+  const rf=()=>{setFil({status:"",funnelType:"",enquiryType:"",leadSource:"",descFilter:"",cre:"",missed:false,todayF:false,upcoming:false,assignedTo:"",city:"",category:"",dateFrom:"",dateTo:"",followFrom:"",followTo:"",minAmt:"",maxAmt:"",hasOrder:"",hasQuote:"",overdue:false,wonMonth:false});setStatFilter(null);};
   const handleStatClick=(filterKey)=>{setStatFilter(prev=>prev===filterKey?null:filterKey);setFil(f=>({...f,status:""}));};
 
   const scoped=useMemo(()=>(FULL.includes(user.role)||VIEWER.includes(user.role))?funnels:funnels.filter(f=>f.createdBy===user.name||f.assignedTo===user.name),[funnels,user]);
@@ -2649,6 +2786,22 @@ function Shell({user,users,onLogout,onUsersChange,T,dark,onToggleDark}) {
     if(fil.missed&&(!f.nextFollowUp||f.nextFollowUp>=TODAY||f.status!=="Pending"))return false;
     if(fil.todayF&&f.nextFollowUp!==TODAY)return false;
     if(fil.upcoming&&f.nextFollowUp<=TODAY)return false;
+    // New filters
+    if(fil.assignedTo&&f.assignedTo!==fil.assignedTo)return false;
+    if(fil.city){const q=fil.city.toLowerCase();if(!(f.cityRegion||"").toLowerCase().includes(q))return false;}
+    if(fil.category){const hascat=(f.products||[]).some(p=>p.category===fil.category);if(!hascat)return false;}
+    if(fil.dateFrom){try{const d=new Date(f.createdAt).toISOString().split("T")[0];if(d<fil.dateFrom)return false;}catch{return false;}}
+    if(fil.dateTo){try{const d=new Date(f.createdAt).toISOString().split("T")[0];if(d>fil.dateTo)return false;}catch{return false;}}
+    if(fil.followFrom&&f.nextFollowUp&&f.nextFollowUp<fil.followFrom)return false;
+    if(fil.followTo&&f.nextFollowUp&&f.nextFollowUp>fil.followTo)return false;
+    if(fil.minAmt&&(Number(f.quoteAmount)||0)<Number(fil.minAmt))return false;
+    if(fil.maxAmt&&(Number(f.quoteAmount)||0)>Number(fil.maxAmt))return false;
+    if(fil.hasOrder==="yes"&&!f.orderNumber)return false;
+    if(fil.hasOrder==="no"&&f.orderNumber)return false;
+    if(fil.hasQuote==="yes"&&!f.quoteAmount)return false;
+    if(fil.hasQuote==="no"&&f.quoteAmount)return false;
+    if(fil.overdue&&!(f.nextFollowUp&&f.nextFollowUp<TODAY&&f.status==="Pending"))return false;
+    if(fil.wonMonth){const m=new Date().toISOString().slice(0,7);try{if(f.status!=="Won"||new Date(f.createdAt).toISOString().slice(0,7)!==m)return false;}catch{return false;}}
     if (monthFilter) {
   try {
     const d = new Date(f.createdAt);
@@ -2740,7 +2893,7 @@ return true;
   </div>
 )}
 {showStats&&<Stats funnels={monthFilter?scoped.filter(f=>{try{return new Date(f.createdAt).toISOString().slice(0,7)===monthFilter;}catch{return false;}}):scoped} activeStatFilter={statFilter} onStatClick={handleStatClick} T={T}/>}
-        {showFilters&&<div style={{marginTop:16}}><FilterBar fil={fil} setF={sf} reset={rf} users={users} user={user} T={T}/></div>}
+        {showFilters&&<div style={{marginTop:16}}><FilterBar fil={fil} setF={sf} reset={rf} users={users} user={user} T={T} funnels={scoped}/></div>}
 
         <div style={{flex:1,background:showFilters?T.surface:"transparent",borderTop:showFilters?`1px solid ${T.line}`:"none"}} className="ek-table-scroll">
           {(view==="dashboard"||view==="funnels")&&<Table rows={filtered} user={user} onView={setViewT} onEdit={f=>setEditT(f)} onCreEdit={f=>setCreEditT(f)} onDelete={del} onLogFollowup={f=>setLogModalFunnel(f)} loading={loading} T={T} selectedIds={selectedIds} toggleSelect={toggleSelect} toggleSelectAll={toggleSelectAll}/>}
