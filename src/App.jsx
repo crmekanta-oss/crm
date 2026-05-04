@@ -45,9 +45,9 @@ const makeT = (dark) => ({
   brandSubtle:  dark ? "rgba(154,122,69,0.15)" : "#f2e8d5",
 
   // ── Text ──
-  ink:          dark ? "#f0ece5" : "#1a1814",
-  inkSub:       dark ? "#a09880" : "#3d3830",
-  inkMuted:     dark ? "#6a6455" : "#7a7468",
+  ink:          dark ? "#f0ece5" : "#111009",
+  inkSub:       dark ? "#c8b89a" : "#2a2520",
+  inkMuted:     dark ? "#9a8a70" : "#4a4540",
   inkInvert:    dark ? "#1a1814" : "#f5f1eb",
 
   // ── Borders ──
@@ -898,7 +898,7 @@ function Sidebar({active,set,user,onLogout,open,onClose,T,dark,onToggleDark,coll
             {!collapsed&&(
               <div style={{flex:1,minWidth:0,textAlign:"left"}}>
                 <div style={{fontSize:12,fontWeight:500,color:T.ink,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{user.name}</div>
-                <div style={{fontFamily:F_MONO,fontSize:9,color:T.inkMuted,letterSpacing:"0.06em",textTransform:"uppercase"}}>{user.role}</div>
+                <div style={{fontFamily:F_MONO,fontSize:9,color:T.inkSub,letterSpacing:"0.06em",textTransform:"uppercase"}}>{user.role}</div>
               </div>
             )}
           </button>
@@ -1114,7 +1114,7 @@ function Stats({funnels,activeStatFilter,onStatClick,T}) {
               <div style={{fontFamily:F_SERIF,fontSize:24,fontWeight:300,color:isActive?c.accent:T.ink,marginBottom:4,letterSpacing:"-0.3px"}}>{c.value}</div>
               <div style={{display:"flex",alignItems:"center",gap:5}}>
                 <Dot color={c.accent} size={4}/>
-                <span style={{fontFamily:F_MONO,fontSize:9,color:T.inkMuted,whiteSpace:"nowrap",letterSpacing:"0.04em"}}>{isActive?"Filtered":c.caption}</span>
+                <span style={{fontFamily:F_MONO,fontSize:9,color:T.inkSub,whiteSpace:"nowrap",letterSpacing:"0.04em"}}>{isActive?"Filtered":c.caption}</span>
               </div>
             </div>
           );
@@ -1171,7 +1171,7 @@ function FilterBar({fil,setF,reset,users=[],user,T,funnels=[]}) {
       <div className="ek-filter-scroll" style={{display:"flex",alignItems:"center",gap:8,padding:"8px 16px",flexWrap:"wrap"}}>
         <div style={{display:"flex",alignItems:"center",gap:5}}>
           <Ic d={P.filter} sz={11} color={T.inkMuted}/>
-          <span style={{fontFamily:F_MONO,fontSize:9,color:T.inkMuted,letterSpacing:"0.12em",textTransform:"uppercase"}}>Filter</span>
+          <span style={{fontFamily:F_MONO,fontSize:9,color:T.inkSub,letterSpacing:"0.12em",textTransform:"uppercase"}}>Filter</span>
         </div>
         <Div/>
         {chk("missed","Missed")}
@@ -1380,7 +1380,7 @@ function Table({rows,user,onView,onEdit,onCreEdit,onDelete,onLogFollowup,onAddPr
                 <td style={{padding:"0 12px",verticalAlign:"middle",overflow:"hidden"}}>
                   <div style={{fontSize:13,fontWeight:500,color:T.ink,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{f.name||"—"}</div>
                   <div style={{display:"flex",alignItems:"center",gap:4,marginTop:2,flexWrap:"nowrap",overflow:"hidden"}}>
-                    <span style={{fontFamily:F_MONO,fontSize:9,color:T.inkMuted,flexShrink:0,letterSpacing:"0.04em"}}>{f.createdBy}</span>
+                    <span style={{fontFamily:F_MONO,fontSize:9,color:T.inkSub,flexShrink:0,letterSpacing:"0.04em"}}>{f.createdBy}</span>
                     {f.assignedTo&&<span style={{fontFamily:F_MONO,fontSize:9,background:T.brandSubtle,color:T.brand,padding:"0 5px",borderRadius:2,flexShrink:0}}>→{f.assignedTo}</span>}
                     {f.leadSource&&<SourcePill source={f.leadSource} T={T}/>}
                   </div>
@@ -3372,7 +3372,7 @@ return true;
           <div style={{padding:"16px 16px 0"}}>
             <div style={{marginBottom:4}}>
               <h2 style={{fontSize:24,fontWeight:800,color:T.ink,fontFamily:F,margin:"0 0 6px",letterSpacing:"-0.6px",lineHeight:1.2}}>{greeting(user.name)}</h2>
-              <p style={{fontSize:13,color:T.inkSub,margin:0,fontFamily:F}}>
+              <p style={{fontSize:13,color:T.Sub,margin:0,fontFamily:F}}>
                 {todayCount>0
                   ? `You have ${todayCount} follow-up${todayCount>1?"s":""} due today.`
                   : "Here's your sales overview for today."}
