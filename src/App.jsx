@@ -91,34 +91,56 @@ function FontLoader({ dark }) {
       ::-webkit-scrollbar{width:4px;height:4px}
       ::-webkit-scrollbar-track{background:transparent}
       ::-webkit-scrollbar-thumb{background:rgba(128,128,128,.2);border-radius:4px}
-      @media(max-width:767px){
-        .ek-sidebar{display:none!important}.ek-sidebar.open{display:flex!important}
-        .ek-stats-grid{grid-template-columns:repeat(2,1fr)!important;gap:8px!important}
-        .ek-topbar-search{display:none!important}
-        .ek-form-3col{grid-template-columns:1fr!important}
-        .ek-form-2col{grid-template-columns:1fr!important}
-.ek-analytics-3col{grid-template-columns:1fr!important}
-.ek-analytics-2col{grid-template-columns:1fr!important}
-.ek-topbar-date{display:none!important}
-        .ek-team-grid{grid-template-columns:1fr!important}
-        .ek-mobile-menu{display:flex!important}
-        .ek-hide-mobile{display:none!important}
-        .ek-show-mobile{display:flex!important}
-        .ek-login-left{display:none!important}
-      }
+      /* ── RESPONSIVE LAYOUT ── */
       .ek-hide-mobile{display:inline-flex}
       .ek-show-mobile{display:none}
       .ek-shell{height:100vh;overflow:hidden}
       .ek-main-col{height:100vh;overflow:hidden}
       .ek-table-scroll{overflow-y:auto}
+
+      /* ── TABLET 768-1100px ── */
+      @media(max-width:1100px){
+        .ek-topbar-date span{display:none}
+        .ek-stats-grid{grid-template-columns:repeat(4,1fr)!important}
+      }
+
+      /* ── MOBILE ≤767px ── */
       @media(max-width:767px){
+        /* Layout */
         .ek-shell{height:auto!important;overflow:visible!important}
         .ek-main-col{height:auto!important;overflow:visible!important}
         .ek-table-scroll{overflow-y:visible!important}
+
+        /* Sidebar */
+        .ek-sidebar{display:none!important}
+        .ek-sidebar.open{display:flex!important;position:fixed!important;inset:0!important;width:240px!important;z-index:300!important}
+
+        /* Topbar */
+        .ek-topbar-search{display:none!important}
+        .ek-topbar-date{display:none!important}
+        .ek-mobile-menu{display:flex!important}
+        .ek-hide-mobile{display:none!important}
+        .ek-show-mobile{display:flex!important}
+
+        /* Grids */
+        .ek-stats-grid{grid-template-columns:repeat(2,1fr)!important;gap:8px!important}
+        .ek-form-3col{grid-template-columns:1fr!important}
+        .ek-form-2col{grid-template-columns:1fr!important}
+        .ek-analytics-3col{grid-template-columns:1fr!important}
+        .ek-analytics-2col{grid-template-columns:1fr!important}
+        .ek-team-grid{grid-template-columns:1fr!important}
+        .ek-analytics-pipeline{grid-template-columns:1fr!important}
+        .ek-analytics-followup{grid-template-columns:1fr!important}
+
+        /* Login */
+        .ek-login-left{display:none!important}
+
+        /* Filter bar scroll on mobile */
+        .ek-filter-scroll{overflow-x:auto;flex-wrap:nowrap!important;padding-bottom:4px}
+
+        /* Table horizontal scroll */
+        .ek-table-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
       }
-      @media(max-width:1100px){
-  .ek-topbar-date span{display:none}
-}
     `;
   }, [dark]);
   return null;
@@ -449,7 +471,7 @@ function Login({users,onLogin,T,dark,onToggleDark}) {
       </div>
 
       {/* Right panel */}
-      <div style={{flex:1,display:"flex",alignItems:"center",justifyContent:"center",padding:"40px 48px",position:"relative"}}>
+      <div style={{flex:1,display:"flex",alignItems:"center",justifyContent:"center",padding:"24px 20px",position:"relative"}}>
         {/* dark mode toggle on login */}
         <button onClick={onToggleDark} style={{position:"absolute",top:24,right:24,width:36,height:36,borderRadius:T.r.lg,background:T.surface,border:`1px solid ${T.line}`,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",boxShadow:T.shadowSm}} title={dark?"Light mode":"Dark mode"}>
           <Ic d={dark?P.sun:P.moon} sz={15} color={T.inkSub}/>
@@ -588,7 +610,7 @@ function Sidebar({active,set,user,onLogout,open,onClose,T,dark,onToggleDark,coll
         <div ref={profileRef} style={{padding:`10px ${collapsed?4:8}px 14px`,borderTop:`1px solid ${T.line}`,position:"relative"}}>
           {/* Profile popup panel */}
           {profileOpen&&(
-            <div style={{position:"absolute",bottom:"calc(100% + 8px)",left:collapsed?56:8,right:8,background:T.surface,border:`1px solid ${T.line}`,borderRadius:T.r.lg,boxShadow:T.shadowXl,overflow:"hidden",zIndex:300,animation:"fadeUp .15s ease",minWidth:collapsed?200:undefined}}>
+            <div style={{position:"absolute",bottom:"calc(100% + 8px)",left:collapsed?56:8,right:8,background:T.surface,border:`1px solid ${T.line}`,borderRadius:T.r.lg,boxShadow:T.shadowXl,overflow:"hidden",zIndex:300,animation:"fadeUp .15s ease",minWidth:200}}>
               {/* User info header */}
               <div style={{padding:"14px 16px",background:T.brandSubtle,borderBottom:`1px solid ${T.line}`}}>
                 <div style={{display:"flex",alignItems:"center",gap:10}}>
@@ -731,7 +753,7 @@ function Topbar({title, search, setSearch, user, onAdd, onExportAll, onExportFil
               </div>
             )}
             {bellOpen && (
-              <div style={{position: "absolute", top: "calc(100% + 8px)", right: 0, width: 300, maxWidth: "90vw", background: T.surface, border: `1px solid ${T.line}`, borderRadius: T.r.lg, boxShadow: T.shadowXl, zIndex: 999, animation: "fadeUp .15s ease", overflow: "hidden"}}>
+              <div style={{position: "fixed", top: 64, right: 8, width: "min(300px, calc(100vw - 16px))", background: T.surface, border: `1px solid ${T.line}`, borderRadius: T.r.lg, boxShadow: T.shadowXl, zIndex: 999, animation: "fadeUp .15s ease", overflow: "hidden"}}>
                 <div style={{padding: "12px 16px", borderBottom: `1px solid ${T.line}`, display: "flex", alignItems: "center", justifyContent: "space-between"}}>
                   <div style={{display: "flex", alignItems: "center", gap: 8}}>
                     <Ic d={P.bell} sz={13} color="#D97706"/>
@@ -827,12 +849,12 @@ function Stats({funnels, activeStatFilter, onStatClick, T}) {
   ];
   return (
     <div style={{padding:"20px 24px 0"}}>
-      <div className="ek-stats-grid" style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:10}}>
+      <div className="ek-stats-grid" style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:10,overflowX:"auto"}}>
         {cards.map((c,i)=>{
           const isActive=activeStatFilter===c.filterKey&&c.filterKey!==null;
           return (
             <div key={i} onClick={()=>onStatClick(c.filterKey)}
-              style={{background:c.bg,border:`1.5px solid ${isActive?c.accent:T.line}`,borderRadius:T.r.lg,padding:"14px 16px",boxShadow:isActive?`0 0 0 3px ${c.accent}22`:T.shadowSm,animation:`fadeUp .25s ease ${i*.04}s both`,cursor:c.filterKey?"pointer":"default",transition:"all .15s",transform:isActive?"translateY(-1px)":"none",position:"relative"}}
+              style={{background:c.bg,border:`1.5px solid ${isActive?c.accent:T.line}`,borderRadius:T.r.lg,padding:"12px 10px",boxShadow:isActive?`0 0 0 3px ${c.accent}22`:T.shadowSm,animation:`fadeUp .25s ease ${i*.04}s both`,cursor:c.filterKey?"pointer":"default",transition:"all .15s",transform:isActive?"translateY(-1px)":"none",position:"relative"}}
               onMouseEnter={e=>{if(c.filterKey){e.currentTarget.style.transform="translateY(-1px)";e.currentTarget.style.boxShadow=`0 0 0 3px ${c.accent}33`;}}}
               onMouseLeave={e=>{if(c.filterKey&&!isActive){e.currentTarget.style.transform="none";e.currentTarget.style.boxShadow=T.shadowSm;}}}>
               {isActive&&<div style={{position:"absolute",top:8,right:8,width:6,height:6,borderRadius:"50%",background:c.accent}}/>}
@@ -895,7 +917,7 @@ function FilterBar({fil,setF,reset,users=[],user,T,funnels=[]}) {
   return (
     <div style={{borderBottom:`1px solid ${T.line}`,background:T.surface}}>
       {/* ── Row 1: Basic filters ── */}
-      <div style={{display:"flex",alignItems:"center",gap:10,padding:"10px 24px",flexWrap:"wrap"}}>
+      <div className="ek-filter-scroll" style={{display:"flex",alignItems:"center",gap:10,padding:"10px 16px",flexWrap:"wrap"}}>
         <div style={{display:"flex",alignItems:"center",gap:6}}>
           <Ic d={P.filter} sz={12} color={T.inkMuted}/>
           <span style={{fontSize:12,fontWeight:500,color:T.inkSub,fontFamily:F}}>Filter</span>
@@ -936,7 +958,7 @@ function FilterBar({fil,setF,reset,users=[],user,T,funnels=[]}) {
 
       {/* ── Row 2: Extra filters (expandable) ── */}
       {showMore&&(
-        <div style={{display:"flex",alignItems:"center",gap:10,padding:"8px 24px 12px",flexWrap:"wrap",borderTop:`1px solid ${T.line}`,background:T.surfaceEl}}>
+        <div style={{display:"flex",alignItems:"center",gap:8,padding:"8px 16px 12px",flexWrap:"wrap",borderTop:`1px solid ${T.line}`,background:T.surfaceEl,overflowX:"auto"}}>
 
           {/* Assigned To */}
           <div style={{display:"flex",alignItems:"center",gap:6}}>
@@ -1070,7 +1092,7 @@ function Table({rows,user,onView,onEdit,onCreEdit,onDelete,onLogFollowup,loading
         const cats=[...new Set((f.products||[]).map(p=>p.category).filter(Boolean))].join(", ")||"—";
         const canCreEdit=!FULL.includes(user.role)&&!isViewer&&(f.createdBy===user.name||f.assignedTo===user.name);
         return (
-          <div key={f.id} style={{padding:"14px 16px",borderBottom:`1px solid ${T.line}`,background:selectedIds.has(f.id)?T.brandSubtle:i%2===0?T.surface:T.surfaceEl,cursor:"pointer",position:"relative"}}
+          <div key={f.id} style={{padding:"12px 14px",borderBottom:`1px solid ${T.line}`,background:selectedIds.has(f.id)?T.brandSubtle:i%2===0?T.surface:T.surfaceEl,cursor:"pointer",position:"relative"}}
             onClick={()=>onView(f)}
             onMouseEnter={e=>e.currentTarget.style.background=T.brandSubtle}
             onMouseLeave={e=>e.currentTarget.style.background=i%2===0?T.surface:T.surfaceEl}>
@@ -1102,7 +1124,7 @@ function Table({rows,user,onView,onEdit,onCreEdit,onDelete,onLogFollowup,loading
 
   const TH=({ch})=><th style={{padding:"0 12px",textAlign:"left",fontSize:10,fontWeight:600,color:T.inkMuted,letterSpacing:"0.06em",textTransform:"uppercase",whiteSpace:"nowrap",borderBottom:`1px solid ${T.line}`,height:34,background:T.surfaceEl}}>{ch}</th>;
   return (
-    <div style={{overflowX:"auto"}}>
+    <div className="ek-table-wrap" style={{overflowX:"auto"}}>
       <table style={{width:"100%",borderCollapse:"collapse",fontFamily:F,tableLayout:"fixed"}}>
         <colgroup><col style={{width:"3%"}}/><col style={{width:"3%"}}/><col style={{width:"17%"}}/><col style={{width:"11%"}}/><col style={{width:"10%"}}/><col style={{width:"11%"}}/><col style={{width:"10%"}}/><col style={{width:"10%"}}/><col style={{width:"10%"}}/><col style={{width:"15%"}}/></colgroup>
 <thead><tr>
@@ -1533,7 +1555,7 @@ const areaPath = (points, maxV) => {
     <div style={{ fontFamily: F, minHeight: "100%" }}>
 
       {/* ── STICKY FILTER BAR ── */}
-      <div style={{ position: "sticky", top: 0, zIndex: 100, background: T.surface, borderBottom: `1px solid ${T.line}`, padding: "10px 24px" }}>
+      <div style={{ position: "sticky", top: 0, zIndex: 100, background: T.surface, borderBottom: `1px solid ${T.line}`, padding: "10px 16px", overflowX: "auto" }}>
         {/* Row 1: Presets + granularity + compare toggle */}
         <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: compareOn || preset === "custom" ? 10 : 0 }}>
           <div style={{ display: "flex", gap: 4, flexWrap: "wrap", flex: 1 }}>
@@ -1603,7 +1625,7 @@ const areaPath = (points, maxV) => {
         </div>
       </div>
 
-      <div style={{ padding: "20px 24px", display: "flex", flexDirection: "column", gap: 16 }}>
+      <div style={{ padding: "16px", display: "flex", flexDirection: "column", gap: 16 }}>
 
         {/* ════════════════════════════════════════════════════════
             OVERVIEW TAB
@@ -1611,7 +1633,7 @@ const areaPath = (points, maxV) => {
         {activeTab === "overview" && (
           <>
             {/* KPI Strip */}
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 12 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 10 }}>
               <KpiCard label="Total Leads"   value={M.total}   cmpValue={CM?.total}   icon={P.list}  color="#5B3BE8" bg={T.brandSubtle} />
               <KpiCard label="Won Deals"     value={M.won}     cmpValue={CM?.won}     icon={P.check} color={T.won.dot} bg={T.won.bg} />
               <KpiCard label="Win Rate"      value={`${M.wr}%`} cmpValue={CM ? `${CM.wr}%` : undefined} rawValue={M.wr} rawCmpValue={CM?.wr} icon={P.chart} color={T.won.dot} bg={T.won.bg} />
@@ -1956,7 +1978,7 @@ const areaPath = (points, maxV) => {
 </div>
             </Card>
 
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+            <div className="ek-analytics-pipeline" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
               {/* Lead Source */}
               <Card title="Leads by Source">
                 {srcArr.length === 0 ? <div style={{ fontSize: 12, color: T.inkMuted, fontFamily: F }}>No source data.</div> :
@@ -2004,7 +2026,7 @@ const areaPath = (points, maxV) => {
             </div>
 
             {/* Follow-up health */}
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 16 }}>
+            <div className="ek-analytics-followup" style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 16 }}>
               <Card title="Follow-up Summary">
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginBottom: 16 }}>
                   {[
@@ -2149,7 +2171,7 @@ const areaPath = (points, maxV) => {
         ════════════════════════════════════════════════════════ */}
         {activeTab === "products" && (
           <>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+            <div className="ek-analytics-2col" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
               {/* Revenue by Category */}
               <Card title="Revenue by Product Category">
                 {catRevArr.length === 0 ? <div style={{ fontSize: 12, color: T.inkMuted, fontFamily: F }}>No product data.</div> :
@@ -2206,7 +2228,7 @@ const areaPath = (points, maxV) => {
             </Card>
 
             {/* Product summary stats */}
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12 }}>
+            <div className="ek-analytics-pipeline" style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12 }}>
               {[
                 { label: "Total Product Units",  value: curr.flatMap(f=>f.products||[]).reduce((a,p)=>a+(Number(p.qty)||0),0), color: "#5B3BE8" },
                 { label: "Total Units Quoted",   value: curr.reduce((a,f)=>a+(Number(f.quoteQty)||0),0), color: T.pending.dot },
@@ -2237,7 +2259,7 @@ function Team({users,onSave,T}) {
   const rm=id=>{const u=list.filter(x=>x.id!==id);setList(u);onSave(u);};
   const rc={"CEO":T.high,"Manager":T.won,"CRE":T.pending};
   return (
-    <div className="ek-team-grid" style={{padding:"20px 24px",display:"grid",gridTemplateColumns:"360px 1fr",gap:20}}>
+    <div className="ek-team-grid" style={{padding:"16px",display:"grid",gridTemplateColumns:"360px 1fr",gap:16}}>
       <div style={{background:T.surface,border:`1px solid ${T.line}`,borderRadius:T.r.lg,padding:22,boxShadow:T.shadowSm}}>
         <div style={{fontSize:14,fontWeight:600,color:T.ink,marginBottom:3,fontFamily:F}}>Add team member</div>
         <div style={{fontSize:12,color:T.inkSub,marginBottom:18,fontFamily:F}}>Access granted immediately upon creation</div>
@@ -2301,7 +2323,7 @@ function FunnelForm({onClose,onSave,existing,user,users=[],T}) {
 
   return (
     <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.4)",zIndex:2000,display:"flex",alignItems:"center",justifyContent:"center",padding:16,backdropFilter:"blur(2px)"}} onClick={onClose}>
-      <div style={{background:T.surface,borderRadius:T.r["2xl"],width:"100%",maxWidth:720,maxHeight:"90vh",overflowY:"auto",boxShadow:T.shadowXl,animation:"fadeUp .2s ease"}} onClick={e=>e.stopPropagation()}>
+      <div style={{background:T.surface,borderRadius:T.r["2xl"],width:"100%",maxWidth:"min(720px,100vw)",maxHeight:"95vh",overflowY:"auto",boxShadow:T.shadowXl,animation:"fadeUp .2s ease"}} onClick={e=>e.stopPropagation()}>
         <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"20px 24px 16px",borderBottom:`1px solid ${T.line}`,position:"sticky",top:0,background:T.surface,zIndex:1,borderRadius:`${T.r["2xl"]} ${T.r["2xl"]} 0 0`}}>
           <div><h2 style={{fontSize:16,fontWeight:700,color:T.ink,fontFamily:F,margin:"0 0 2px"}}>{existing?"Edit funnel":"New funnel"}</h2><p style={{margin:0,fontSize:12,color:T.inkSub,fontFamily:F}}>{existing?"Editing funnel":"Add a new sales lead"}</p></div>
           <button onClick={onClose} style={{width:30,height:30,border:`1px solid ${T.line}`,borderRadius:T.r.md,background:T.surfaceEl,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}><Ic d={P.close} sz={13} color={T.inkSub}/></button>
@@ -2597,7 +2619,7 @@ const confirmStatus=()=>{
 
   return (
     <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.3)",zIndex:2000,display:"flex",justifyContent:"flex-end",backdropFilter:"blur(1px)"}} onClick={onClose}>
-      <div style={{background:T.surface,width:"100%",maxWidth:540,height:"100%",overflowY:"auto",boxShadow:"-8px 0 40px rgba(0,0,0,.15)",animation:"slideRight .22s ease",display:"flex",flexDirection:"column"}} onClick={e=>e.stopPropagation()}>
+      <div style={{background:T.surface,width:"100%",maxWidth:"min(540px, 100vw)",height:"100%",overflowY:"auto",boxShadow:"-8px 0 40px rgba(0,0,0,.15)",animation:"slideRight .22s ease",display:"flex",flexDirection:"column"}} onClick={e=>e.stopPropagation()}>
         <div style={{padding:"20px 22px 16px",borderBottom:`1px solid ${T.line}`,position:"sticky",top:0,background:T.surface,zIndex:1}}>
           <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",marginBottom:12}}>
             <div style={{flex:1,marginRight:12}}>
@@ -2854,9 +2876,9 @@ return true;
 
         {/* ⑲ Greeting on dashboard */}
         {showStats&&(
-          <div style={{padding:"20px 24px 0"}}>
+          <div style={{padding:"16px 16px 0"}}>
             <div style={{marginBottom:4}}>
-              <h2 style={{fontSize:22,fontWeight:700,color:T.ink,fontFamily:F,margin:"0 0 4px",letterSpacing:"-0.4px"}}>{greeting(user.name)}</h2>
+              <h2 style={{fontSize:20,fontWeight:700,color:T.ink,fontFamily:F,margin:"0 0 4px",letterSpacing:"-0.4px"}}>{greeting(user.name)}</h2>
               <p style={{fontSize:13,color:T.inkSub,margin:0,fontFamily:F}}>
                 {todayCount>0
                   ? `You have ${todayCount} follow-up${todayCount>1?"s":""} due today.`
@@ -2868,8 +2890,8 @@ return true;
 
         {showStats&&(
   <div style={{padding:"12px 24px 0"}}>
-    <div style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}>
-      <span style={{fontSize:11,fontWeight:600,color:T.inkMuted,fontFamily:F,letterSpacing:"0.06em",textTransform:"uppercase",marginRight:4}}>Month</span>
+    <div style={{display:"flex",alignItems:"center",gap:6,overflowX:"auto",flexWrap:"nowrap",paddingBottom:4,WebkitOverflowScrolling:"touch"}}>
+      <span style={{fontSize:11,fontWeight:600,color:T.inkMuted,fontFamily:F,letterSpacing:"0.06em",textTransform:"uppercase",marginRight:4,flexShrink:0}}>Month</span>
       {["01","02","03","04","05","06","07","08","09","10","11","12"].map((m,i)=>{
         const year = new Date().getFullYear();
         const val = `${year}-${m}`;
