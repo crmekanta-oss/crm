@@ -721,9 +721,9 @@ function Topbar({title, search, setSearch, user, onAdd, onExportAll, onExportFil
               style={{width: 34, height: 34, borderRadius: T.r.md, background: bellOpen ? T.surfaceEl : "transparent", border: `1px solid ${bellOpen ? T.line : "transparent"}`, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", transition: "all .12s"}}>
               <Ic d={P.bell} sz={15} color={todayCount > 0 ? "#D97706" : T.inkSub}/>
             </button>
-            {todayCount > 0 && (
+            {todayFunnels.length > 0 && (
               <div style={{position: "absolute", top: 2, right: 2, width: 16, height: 16, borderRadius: "50%", background: "#D97706", color: "#fff", fontSize: 9, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: F, border: `2px solid ${T.surface}`, pointerEvents: "none"}}>
-                {todayCount > 9 ? "9+" : todayCount}
+                {todayFunnels.length > 9 ? "9+" : todayFunnels.length}
               </div>
             )}
             {bellOpen && (
