@@ -529,7 +529,7 @@ function Sidebar({active,set,user,onLogout,open,onClose,T,dark,onToggleDark,coll
     <>
       {open&&<div onClick={onClose} style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.4)",zIndex:199}}/>}
       <div className={`ek-sidebar${open?" open":""}`}
-        style={{width:w,minHeight:"100vh",background:T.sidebar,borderRight:`1px solid ${T.line}`,display:"flex",flexDirection:"column",flexShrink:0,position:"relative",zIndex:200,transition:"width .2s ease",overflow:"hidden"}}>
+        style={{width:w,height:"100vh",background:T.sidebar,borderRight:`1px solid ${T.line}`,display:"flex",flexDirection:"column",flexShrink:0,position:"relative",zIndex:200,transition:"width .2s ease",overflow:"hidden"}}>
 
         {/* Header */}
         <div style={{padding:collapsed?"14px 0":"18px 16px 14px",borderBottom:`1px solid ${T.line}`,display:"flex",alignItems:"center",justifyContent:collapsed?"center":"space-between"}}>
@@ -731,7 +731,7 @@ function Topbar({title, search, setSearch, user, onAdd, onExportAll, onExportFil
                 <div style={{padding: "12px 16px", borderBottom: `1px solid ${T.line}`, display: "flex", alignItems: "center", justifyContent: "space-between"}}>
                   <div style={{display: "flex", alignItems: "center", gap: 8}}>
                     <Ic d={P.bell} sz={13} color="#D97706"/>
-                    <span style={{fontSize: 13, fontWeight: 700, color: T.ink, fontFamily: F}}>Today's Follow-ups</span>
+                    <span style={{fontSize: 13, fontWeight: 700, color: T.ink, fontFamily: F}}>Pending Follow-ups</span>
                   </div>
                   {todayCount > 0 && (
                     <span style={{fontSize: 11, fontWeight: 600, background: "#D97706", color: "#fff", padding: "2px 8px", borderRadius: 20, fontFamily: F}}>{todayCount}</span>
@@ -759,7 +759,9 @@ function Topbar({title, search, setSearch, user, onAdd, onExportAll, onExportFil
                         </div>
                       </div>
                       <div style={{flexShrink: 0, textAlign: "right"}}>
-                        <div style={{fontSize: 10, fontWeight: 600, color: T.pending.text, fontFamily: F}}>Today</div>
+                        <div style={{fontSize: 10, fontWeight: 600, color: f.nextFollowUp < new Date().toISOString().split("T")[0] ? T.lost.text : f.nextFollowUp === new Date().toISOString().split("T")[0] ? T.pending.text : T.inkMuted, fontFamily: F}}>
+                          {f.nextFollowUp < new Date().toISOString().split("T")[0] ? "Overdue" : f.nextFollowUp === new Date().toISOString().split("T")[0] ? "Today" : f.nextFollowUp}
+                        </div>
                         {f.quoteAmount && <div style={{fontSize: 11, fontWeight: 700, color: "#5B3BE8", fontFamily: F}}>&#x20B9;{Number(f.quoteAmount).toLocaleString("en-IN")}</div>}
                       </div>
                     </div>
@@ -767,7 +769,7 @@ function Topbar({title, search, setSearch, user, onAdd, onExportAll, onExportFil
                 </div>
                 {todayFunnels.length > 0 && (
                   <div style={{padding: "10px 16px", borderTop: `1px solid ${T.line}`, background: T.surfaceEl, textAlign: "center"}}>
-                    <span style={{fontSize: 11, color: T.inkMuted, fontFamily: F}}>{todayCount} pending follow-up{todayCount > 1 ? "s" : ""} due today</span>
+                    <span style={{fontSize: 11, color: T.inkMuted, fontFamily: F}}>{todayFunnels.length} pending follow-up{todayFunnels.length > 1 ? "s" : ""} total</span>
                   </div>
                 )}
               </div>
@@ -997,7 +999,7 @@ function Table({rows,user,onView,onEdit,onCreEdit,onDelete,onLogFollowup,loading
                 <td style={{padding:"0 12px",fontSize:11,color:T.inkSub,verticalAlign:"middle",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{cats}</td>
                 <td style={{padding:"0 12px",verticalAlign:"middle"}}>{f.funnelType?<StatusPill status={f.funnelType} sm T={T}/>:<span style={{color:T.inkMuted,fontSize:12}}>—</span>}</td>
                 <td style={{padding:"0 12px",verticalAlign:"middle"}}>
-                  {f.status==="Won"?<span style={{fontSize:12,color:T.inkMuted}}>—</span>:<>
+                  {f.status!=="Pending"?<span style={{fontSize:12,color:T.inkMuted}}>—</span>:<>
                     <div style={{display:"flex",alignItems:"center",gap:5}}>
                       {over&&<Dot color={T.lost.dot} size={5}/>}{tod&&<Dot color={T.pending.dot} size={5}/>}
                       <span style={{fontSize:12,color:over?"#B91C1C":tod?T.pending.text:T.inkSub,fontWeight:over||tod?600:400}}>{f.nextFollowUp||"—"}</span>
@@ -2626,8 +2628,10 @@ function Shell({user,users,onLogout,onUsersChange,T,dark,onToggleDark}) {
   const scoped=useMemo(()=>(FULL.includes(user.role)||VIEWER.includes(user.role))?funnels:funnels.filter(f=>f.createdBy===user.name||f.assignedTo===user.name),[funnels,user]);
 
   // ㉒ today's follow-ups list + count for bell
-  const todayFunnels=useMemo(()=>scoped.filter(f=>f.nextFollowUp===TODAY&&f.status==="Pending"),[scoped,TODAY]);
-  const todayCount=todayFunnels.length;
+  const todayFunnels=useMemo(()=>scoped
+    .filter(f=>f.nextFollowUp&&f.status==="Pending")
+    .sort((a,b)=>a.nextFollowUp.localeCompare(b.nextFollowUp)),[scoped,TODAY]);
+  const todayCount=useMemo(()=>scoped.filter(f=>f.nextFollowUp===TODAY&&f.status==="Pending").length,[scoped,TODAY]);
 
   const filtered=useMemo(()=>scoped.filter(f=>{
     if(statFilter&&f.status!==statFilter)return false;
@@ -2675,9 +2679,9 @@ return true;
   const showStats=view==="dashboard";
 
   return (
-    <div style={{display:"flex",minHeight:"100vh",background:T.bg,fontFamily:F}}>
+    <div style={{display:"flex",height:"100vh",overflow:"hidden",background:T.bg,fontFamily:F}}>
       <Sidebar active={view} set={v=>{setView(v);setStatFilter(null);}} user={user} onLogout={onLogout} open={sidebarOpen} onClose={()=>setSidebarOpen(false)} T={T} dark={dark} onToggleDark={onToggleDark} collapsed={sidebarCollapsed} onToggleCollapse={()=>setSidebarCollapsed(x=>!x)}/>
-      <div style={{flex:1,display:"flex",flexDirection:"column",minWidth:0,minHeight:"100vh"}}>
+      <div style={{flex:1,display:"flex",flexDirection:"column",minWidth:0,height:"100vh",overflow:"hidden"}}>
 {selectedIds.size > 0 && (
   <div style={{background: T.brandSubtle, borderBottom: `1px solid rgba(91,59,232,.2)`, padding: "8px 16px", display: "flex", alignItems: "center", gap: 12}}>
     <span style={{fontSize: 13, fontWeight: 600, color: "#5B3BE8", fontFamily: F}}>{selectedIds.size} selected</span>
@@ -2734,7 +2738,7 @@ return true;
 {showStats&&<Stats funnels={monthFilter?scoped.filter(f=>{try{return new Date(f.createdAt).toISOString().slice(0,7)===monthFilter;}catch{return false;}}):scoped} activeStatFilter={statFilter} onStatClick={handleStatClick} T={T}/>}
         {showFilters&&<div style={{marginTop:16}}><FilterBar fil={fil} setF={sf} reset={rf} users={users} user={user} T={T}/></div>}
 
-        <div style={{flex:1,background:showFilters?T.surface:"transparent",borderTop:showFilters?`1px solid ${T.line}`:"none"}}>
+        <div style={{flex:1,background:showFilters?T.surface:"transparent",borderTop:showFilters?`1px solid ${T.line}`:"none",overflowY:"auto"}}>
           {(view==="dashboard"||view==="funnels")&&<Table rows={filtered} user={user} onView={setViewT} onEdit={f=>setEditT(f)} onCreEdit={f=>setCreEditT(f)} onDelete={del} onLogFollowup={f=>setLogModalFunnel(f)} loading={loading} T={T} selectedIds={selectedIds} toggleSelect={toggleSelect} toggleSelectAll={toggleSelectAll}/>}
           {view==="analytics"&&<Analytics funnels={FULL.includes(user.role)?funnels:scoped} T={T}/>}
           {view==="team"&&FULL.includes(user.role)&&<Team users={users} onSave={onUsersChange} T={T}/>}
