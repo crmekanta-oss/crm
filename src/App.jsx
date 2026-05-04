@@ -2644,7 +2644,9 @@ return true;
 
 // ─── ROOT ──────────────────────────────────────────────────────────────────────
 export default function App() {
-  const [user,setUser]=useState(null);
+  const [user,setUser]=useState(()=>{
+    try{const s=localStorage.getItem("ek-user");return s?JSON.parse(s):null;}catch{return null;}
+  });
   const [users,setUsers]=useState([]);
   const [loading,setLoading]=useState(true);
   const {dark,toggle:onToggleDark}=useDark();
@@ -2671,8 +2673,8 @@ export default function App() {
     <>
       <FontLoader dark={dark}/>
       {!user
-        ?<Login users={users} onLogin={setUser} T={T} dark={dark} onToggleDark={onToggleDark}/>
-        :<Shell user={user} users={users} onLogout={()=>setUser(null)} onUsersChange={handleUsersChange} T={T} dark={dark} onToggleDark={onToggleDark}/>
+        ?<Login users={users} onLogin={u=>{localStorage.setItem("ek-user",JSON.stringify(u));setUser(u);}} T={T} dark={dark} onToggleDark={onToggleDark}/>
+        :<Shell user={user} users={users} onLogout={()=>{localStorage.removeItem("ek-user");setUser(null);}} onUsersChange={handleUsersChange} T={T} dark={dark} onToggleDark={onToggleDark}/>
       }
     </>
   );
