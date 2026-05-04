@@ -322,3 +322,4 @@ async updateNextFollowup(funnelId, date) {
       lostDropReason: f.lost_drop_reason || "",
     };
   }
+};
