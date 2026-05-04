@@ -1044,7 +1044,7 @@ function Topbar({title,search,setSearch,user,onAdd,onExportAll,onExportFiltered,
           </div>
 
           {/* Exports */}
-          {FULL.includes(user.role)&&(
+          {can(user,"export")&&(
             <>
               <span className="ek-hide-mobile"><Btn ghost sm icon={P.dl} label={`Filtered (${fLen})`} onClick={onExportFiltered} T={T}/></span>
               <span className="ek-hide-mobile"><Btn ghost sm icon={P.dl} label={`All (${aLen})`} onClick={onExportAll} T={T}/></span>
