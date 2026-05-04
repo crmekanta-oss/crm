@@ -1548,87 +1548,128 @@ const areaPath = (points, maxV) => {
 </div>
             </Card>
 
-            {/* Status Donut + Revenue Breakdown */}
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
-              <Card title="Status Breakdown">
-                <div style={{ display: "flex", alignItems: "center", gap: 20 }}>
-                  {/* Donut */}
-                  <div style={{ flexShrink: 0 }}>
-                    <svg width="130" height="130" viewBox="0 0 130 130">
-                      {(() => {
-                        const total = donutData.reduce((a, d) => a + d.n, 0) || 1;
-                        let cumPct = 0;
-                        return donutData.map((d, i) => {
-                          const startPct = cumPct / total;
-                          cumPct += d.n;
-                          const endPct = cumPct / total;
-                          return (
-                            <g key={i}>
-                              <path d={donutArc(65, 65, 46, startPct, endPct)} fill="none" stroke={d.color} strokeWidth="18" strokeLinecap="butt"/>
-                            </g>
-                          );
-                        });
-                      })()}
-                      <text x="65" y="60" textAnchor="middle" fontSize="20" fontWeight="700" fill={T.ink} fontFamily={F}>{M.wr}%</text>
-                      <text x="65" y="76" textAnchor="middle" fontSize="9" fill={T.inkMuted} fontFamily={F}>win rate</text>
-                    </svg>
-                  </div>
-                  <div style={{ flex: 1 }}>
-{donutData.map(d => {
-  const pct = M.total ? Math.round(d.n / M.total * 100) : 0;
-  return (
-    <div key={d.label} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
-        <div style={{ width: 8, height: 8, borderRadius: 2, background: d.color }} />
-        <span style={{ fontSize: 12, color: T.inkSub, fontFamily: F }}>{d.label}</span>
-      </div>
-      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-        <span style={{ fontSize: 11, color: T.inkMuted, fontFamily: F, background: T.surfaceEl, padding: "1px 7px", borderRadius: 20, border: `1px solid ${T.line}` }}>{pct}%</span>
-        <span style={{ fontSize: 13, fontWeight: 700, color: T.ink, fontFamily: F, minWidth: 16, textAlign: "right" }}>{d.n}</span>
-        {compareOn && CM && (
-          <DeltaBadge cur={d.n} prev={CM[d.label.toLowerCase()]} />
-        )}
-      </div>
-    </div>
-  );
-})}
-</div>
+            {/* Status Donut + Revenue Breakdown — redesigned */}
+            <div className="ek-analytics-2col" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+
+              {/* ── STATUS BREAKDOWN ── */}
+              <div style={{ background: T.surface, border: `1px solid ${T.line}`, borderRadius: T.r.lg, boxShadow: T.shadowSm, overflow: "hidden" }}>
+                {/* Header */}
+                <div style={{ padding: "16px 20px 14px", borderBottom: `1px solid ${T.line}`, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: T.inkMuted, textTransform: "uppercase", letterSpacing: "0.08em", fontFamily: F }}>Status Breakdown</div>
+                  <div style={{ fontSize: 11, color: T.inkMuted, fontFamily: F }}>{M.total} total leads</div>
                 </div>
-                {/* Compare donuts side by side when compare is on */}
-                {compareOn && CM && cmpFrom && cmpTo && (
-                  <div style={{ marginTop: 14, paddingTop: 14, borderTop: `1px solid ${T.line}`, display: "flex", gap: 16, alignItems: "center" }}>
-                    <div style={{ fontSize: 11, color: "#D97706", fontWeight: 600, fontFamily: F, flexShrink: 0 }}>⚡ Prev period</div>
+
+                {/* Body */}
+                <div style={{ padding: "20px" }}>
+                  {/* Donut + win rate centered */}
+                  <div style={{ display: "flex", justifyContent: "center", marginBottom: 20 }}>
+                    <div style={{ position: "relative", width: 150, height: 150 }}>
+                      <svg width="150" height="150" viewBox="0 0 150 150">
+                        <circle cx="75" cy="75" r="52" fill="none" stroke={T.surfaceEl} strokeWidth="20"/>
+                        {(() => {
+                          const total = donutData.reduce((a, d) => a + d.n, 0) || 1;
+                          let cumPct = 0;
+                          return donutData.map((d, i) => {
+                            const startPct = cumPct / total;
+                            cumPct += d.n;
+                            const endPct = cumPct / total;
+                            return (
+                              <path key={i} d={donutArc(75, 75, 52, startPct, endPct)} fill="none" stroke={d.color} strokeWidth="20" strokeLinecap="butt"/>
+                            );
+                          });
+                        })()}
+                        {/* Glow center */}
+                        <circle cx="75" cy="75" r="36" fill={T.surface}/>
+                        <text x="75" y="68" textAnchor="middle" fontSize="22" fontWeight="800" fill={T.ink} fontFamily={F}>{M.wr}%</text>
+                        <text x="75" y="83" textAnchor="middle" fontSize="10" fill={T.inkMuted} fontFamily={F}>win rate</text>
+                        <text x="75" y="97" textAnchor="middle" fontSize="9" fill={T.inkMuted} fontFamily={F}>{M.won} of {M.total} won</text>
+                      </svg>
+                    </div>
+                  </div>
+
+                  {/* Status rows with progress bars */}
+                  <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                    {donutData.map(d => {
+                      const pct = M.total ? Math.round(d.n / M.total * 100) : 0;
+                      const bgMap = { [T.won.dot]: T.won.bg, [T.pending.dot]: T.pending.bg, [T.lost.dot]: T.lost.bg, [T.drop.dot]: T.drop.bg };
+                      const bg = bgMap[d.color] || T.surfaceEl;
+                      return (
+                        <div key={d.label} style={{ background: bg, borderRadius: T.r.md, padding: "10px 12px", border: `1px solid ${d.color}22` }}>
+                          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
+                              <div style={{ width: 8, height: 8, borderRadius: "50%", background: d.color, boxShadow: `0 0 6px ${d.color}66` }} />
+                              <span style={{ fontSize: 12, fontWeight: 600, color: T.ink, fontFamily: F }}>{d.label}</span>
+                            </div>
+                            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                              {compareOn && CM && <DeltaBadge cur={d.n} prev={CM[d.label.toLowerCase()]} />}
+                              <span style={{ fontSize: 15, fontWeight: 800, color: d.color, fontFamily: F }}>{d.n}</span>
+                              <span style={{ fontSize: 11, color: T.inkMuted, fontFamily: F }}>{pct}%</span>
+                            </div>
+                          </div>
+                          {/* Progress bar */}
+                          <div style={{ height: 5, background: `${d.color}22`, borderRadius: 3, overflow: "hidden" }}>
+                            <div style={{ width: `${pct}%`, height: "100%", background: d.color, borderRadius: 3, transition: "width .8s ease" }} />
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* Compare prev period */}
+                  {compareOn && CM && cmpFrom && cmpTo && (
+                    <div style={{ marginTop: 14, paddingTop: 14, borderTop: `1px solid ${T.line}`, display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                      <span style={{ fontSize: 11, color: "#D97706", fontWeight: 600, fontFamily: F }}>⚡ Prev</span>
+                      {[{ label: "Won", n: CM.won, color: T.won.dot }, { label: "Pending", n: CM.pending, color: T.pending.dot }, { label: "Lost", n: CM.lost, color: T.lost.dot }].map(d => (
+                        <div key={d.label} style={{ flex: 1, textAlign: "center", padding: "6px 4px", background: T.surfaceEl, borderRadius: T.r.md, border: `1px solid ${T.line}` }}>
+                          <div style={{ fontSize: 15, fontWeight: 700, color: d.color, fontFamily: F }}>{d.n}</div>
+                          <div style={{ fontSize: 9, color: T.inkMuted, fontFamily: F }}>{d.label}</div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* ── REVENUE BREAKDOWN ── */}
+              <div style={{ background: T.surface, border: `1px solid ${T.line}`, borderRadius: T.r.lg, boxShadow: T.shadowSm, overflow: "hidden" }}>
+                {/* Header */}
+                <div style={{ padding: "16px 20px 14px", borderBottom: `1px solid ${T.line}` }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: T.inkMuted, textTransform: "uppercase", letterSpacing: "0.08em", fontFamily: F }}>Revenue Breakdown</div>
+                </div>
+                {/* Top hero stat */}
+                <div style={{ padding: "20px 20px 0" }}>
+                  <div style={{ background: T.won.bg, border: `1px solid ${T.won.dot}33`, borderRadius: T.r.lg, padding: "16px 18px", marginBottom: 12, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                    <div>
+                      <div style={{ fontSize: 10, fontWeight: 600, color: T.won.text, textTransform: "uppercase", letterSpacing: "0.08em", fontFamily: F, marginBottom: 4 }}>Won Revenue</div>
+                      <div style={{ fontSize: 28, fontWeight: 800, color: T.won.dot, fontFamily: F, letterSpacing: "-1px", lineHeight: 1 }}>{big(M.wonRev)}</div>
+                    </div>
+                    <div style={{ width: 44, height: 44, borderRadius: "50%", background: T.won.dot, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                      <Ic d={P.check} sz={18} color="#fff" sw={2.5}/>
+                    </div>
+                  </div>
+
+                  {/* Other rows */}
+                  <div style={{ display: "flex", flexDirection: "column", gap: 0, paddingBottom: 8 }}>
                     {[
-                      { label: "Won", n: CM.won, color: T.won.dot },
-                      { label: "Pending", n: CM.pending, color: T.pending.dot },
-                      { label: "Lost", n: CM.lost, color: T.lost.dot },
-                    ].map(d => (
-                      <div key={d.label} style={{ flex: 1, textAlign: "center" }}>
-                        <div style={{ fontSize: 16, fontWeight: 700, color: d.color, fontFamily: F }}>{d.n}</div>
-                        <div style={{ fontSize: 10, color: T.inkMuted, fontFamily: F }}>{d.label}</div>
+                      { label: "Pending Pipeline", value: M.pendRev, color: T.pending.dot, bg: T.pending.bg, icon: "⏳", cmp: CM?.pendRev },
+                      { label: "Lost Revenue",     value: M.lostRev, color: T.lost.dot,    bg: T.lost.bg,    icon: "✕",  cmp: CM?.lostRev },
+                      { label: "Avg Deal (Won)",   value: M.avgDeal, color: "#5B3BE8",     bg: T.brandSubtle,icon: "◈",  cmp: CM?.avgDeal },
+                      { label: "Total Quoted",     value: M.totalRev,color: T.inkSub,      bg: T.surfaceEl,  icon: "∑",  cmp: CM?.totalRev },
+                    ].map((row, i, arr) => (
+                      <div key={row.label} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "11px 4px", borderBottom: i < arr.length - 1 ? `1px solid ${T.line}` : "none" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
+                          <div style={{ width: 28, height: 28, borderRadius: 7, background: row.bg, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, color: row.color, fontWeight: 700, border: `1px solid ${row.color}22`, flexShrink: 0 }}>{row.icon}</div>
+                          <span style={{ fontSize: 12, color: T.inkSub, fontFamily: F }}>{row.label}</span>
+                        </div>
+                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                          {compareOn && row.cmp !== undefined && <DeltaBadge cur={row.value} prev={row.cmp} />}
+                          <span style={{ fontSize: 14, fontWeight: 700, color: row.color, fontFamily: F }}>{big(row.value)}</span>
+                        </div>
                       </div>
                     ))}
                   </div>
-                )}
-              </Card>
-
-              <Card title="Revenue Breakdown">
-                {[
-                  { label: "Won Revenue",       value: M.wonRev,  color: T.won.dot,     cmp: CM?.wonRev  },
-                  { label: "Pending Pipeline",  value: M.pendRev, color: T.pending.dot, cmp: CM?.pendRev },
-                  { label: "Lost Revenue",      value: M.lostRev, color: T.lost.dot,    cmp: CM?.lostRev },
-                  { label: "Avg Deal (Won)",    value: M.avgDeal, color: "#5B3BE8",     cmp: CM?.avgDeal },
-                  { label: "Total Quoted",      value: M.totalRev,color: T.inkMuted,    cmp: CM?.totalRev},
-                ].map((row, i, arr) => (
-                  <div key={row.label} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 0", borderBottom: i < arr.length-1 ? `1px solid ${T.line}` : "none" }}>
-                    <span style={{ fontSize: 12, color: T.inkSub, fontFamily: F }}>{row.label}</span>
-                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                      {compareOn && row.cmp !== undefined && <DeltaBadge cur={row.value} prev={row.cmp} />}
-                      <span style={{ fontSize: 14, fontWeight: 700, color: row.color, fontFamily: F }}>{big(row.value)}</span>
-                    </div>
-                  </div>
-                ))}
-              </Card>
+                </div>
+              </div>
             </div>
 
             {/* Funnel Stage Flow */}
