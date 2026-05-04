@@ -291,6 +291,7 @@ async updateNextFollowup(funnelId, date) {
       quote_desc: f.quoteDesc || null,
       status: f.status || 'Pending',
       lost_drop_reason: f.lostDropReason || null,
+      won_proof_url: f.wonProofUrl || null,
     };
   },
 
@@ -325,6 +326,23 @@ async updateNextFollowup(funnelId, date) {
       createdBy: f.created_by,
       assignedTo: f.assigned_to || null,
       lostDropReason: f.lost_drop_reason || "",
+      wonProofUrl: f.won_proof_url || "",
     };
-  }
+  },
+
+  // =========================
+  // UPDATE WON PROOF URL
+  // =========================
+  async updateWonProof(id, url) {
+    try {
+      const { error } = await supabase
+        .from('funnels')
+        .update({ won_proof_url: url || null })
+        .eq('id', id);
+      if (error) throw error;
+    } catch (error) {
+      console.error('Error updating won proof:', error.message);
+      throw error;
+    }
+  },
 };
