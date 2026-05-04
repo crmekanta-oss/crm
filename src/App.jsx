@@ -2296,9 +2296,33 @@ function Team({users,onSave,T}) {
 
 // ─── FUNNEL FORM ──────────────────────────────────────────────────────────────
 function FunnelForm({onClose,onSave,existing,user,users=[],T}) {
+  const DRAFT_KEY = `ek-draft-${user?.username||"user"}`;
   const blank={name:"",phone:"",email:"",enquiryType:"",funnelType:"",leadSource:"",cityRegion:"",nextFollowUp:"",products:[{desc:"",category:"",qty:"",price:""}],remarks:"",deliveryDetails:"",paymentTerms:"",orderNumber:"",quoteQty:"",quoteAmount:"",quoteDesc:"",status:"Pending",assignedTo:"",lostDropReason:""};
+
+  // ── Draft logic ──
+  const loadDraft = () => { try { const d = localStorage.getItem(DRAFT_KEY); return d ? JSON.parse(d) : null; } catch { return null; } };
+  const saveDraft = (data) => { try { localStorage.setItem(DRAFT_KEY, JSON.stringify(data)); } catch {} };
+  const clearDraft = () => { try { localStorage.removeItem(DRAFT_KEY); } catch {} };
+
+  const draft = !existing ? loadDraft() : null;
+  const [showDraftBanner, setShowDraftBanner] = useState(!!draft);
   const [form,setForm]=useState(existing?{...blank,...existing,products:existing.products?.length?existing.products:blank.products}:blank);
   const [errs,setErrs]=useState({});
+
+  // Auto-save draft on every form change (only for new funnels)
+  useEffect(() => {
+    if (existing) return;
+    const hasData = form.name || form.phone || form.email || form.remarks ||
+      (form.products||[]).some(p=>p.desc);
+    if (hasData) saveDraft(form);
+  }, [form, existing]);
+
+  const restoreDraft = () => {
+    if (draft) { setForm({...blank,...draft,products:draft.products?.length?draft.products:blank.products}); }
+    setShowDraftBanner(false);
+  };
+  const discardDraft = () => { clearDraft(); setShowDraftBanner(false); };
+
   const set=(k,v)=>setForm(f=>({...f,[k]:v}));
   const sp=(i,k,v)=>{const p=[...form.products];p[i]={...p[i],[k]:v};set("products",p);};
   const isWon=form.status==="Won";
@@ -2317,7 +2341,8 @@ function FunnelForm({onClose,onSave,existing,user,users=[],T}) {
     if(!user?.name) e.auth="You must be logged in";
     setErrs(e); return !Object.keys(e).length;
   };
-  const submit=()=>{if(val())onSave(form);};
+  const submit=()=>{ if(val()){ clearDraft(); onSave(form); } };
+  const handleClose=()=>{ onClose(); };
   const prodTotal=(form.products||[]).reduce((a,p)=>a+(Number(p.qty)*Number(p.price)||0),0);
   const creUsers=users.filter(u=>u.role==="CRE");
 
@@ -2325,9 +2350,42 @@ function FunnelForm({onClose,onSave,existing,user,users=[],T}) {
     <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.4)",zIndex:2000,display:"flex",alignItems:"center",justifyContent:"center",padding:16,backdropFilter:"blur(2px)"}} onClick={onClose}>
       <div style={{background:T.surface,borderRadius:T.r["2xl"],width:"100%",maxWidth:"min(720px,100vw)",maxHeight:"95vh",overflowY:"auto",boxShadow:T.shadowXl,animation:"fadeUp .2s ease"}} onClick={e=>e.stopPropagation()}>
         <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"20px 24px 16px",borderBottom:`1px solid ${T.line}`,position:"sticky",top:0,background:T.surface,zIndex:1,borderRadius:`${T.r["2xl"]} ${T.r["2xl"]} 0 0`}}>
-          <div><h2 style={{fontSize:16,fontWeight:700,color:T.ink,fontFamily:F,margin:"0 0 2px"}}>{existing?"Edit funnel":"New funnel"}</h2><p style={{margin:0,fontSize:12,color:T.inkSub,fontFamily:F}}>{existing?"Editing funnel":"Add a new sales lead"}</p></div>
-          <button onClick={onClose} style={{width:30,height:30,border:`1px solid ${T.line}`,borderRadius:T.r.md,background:T.surfaceEl,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}><Ic d={P.close} sz={13} color={T.inkSub}/></button>
+          <div>
+            <h2 style={{fontSize:16,fontWeight:700,color:T.ink,fontFamily:F,margin:"0 0 2px"}}>{existing?"Edit funnel":"New funnel"}</h2>
+            <p style={{margin:0,fontSize:12,color:T.inkSub,fontFamily:F}}>{existing?"Editing funnel":"Add a new sales lead"}</p>
+          </div>
+          <div style={{display:"flex",alignItems:"center",gap:8}}>
+            {!existing&&(
+              <div style={{display:"flex",alignItems:"center",gap:5,fontSize:11,color:T.inkMuted,fontFamily:F}}>
+                <div style={{width:6,height:6,borderRadius:"50%",background:"#16A34A",animation:"pulse 2s infinite"}}/>
+                Auto-saving
+              </div>
+            )}
+            <button onClick={handleClose} style={{width:30,height:30,border:`1px solid ${T.line}`,borderRadius:T.r.md,background:T.surfaceEl,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}><Ic d={P.close} sz={13} color={T.inkSub}/></button>
+          </div>
         </div>
+
+        {/* ── Draft restore banner ── */}
+        {showDraftBanner && draft && !existing && (
+          <div style={{margin:"0",padding:"12px 24px",background:"rgba(91,59,232,0.08)",borderBottom:`1px solid rgba(91,59,232,0.15)`,display:"flex",alignItems:"center",gap:12,flexWrap:"wrap"}}>
+            <span style={{fontSize:14}}>📝</span>
+            <div style={{flex:1,minWidth:0}}>
+              <div style={{fontSize:13,fontWeight:600,color:"#5B3BE8",fontFamily:F}}>You have an unsaved draft</div>
+              <div style={{fontSize:11,color:"#5B3BE8",opacity:0.7,fontFamily:F}}>
+                {draft.name ? `"${draft.name}"` : "Unnamed lead"} — saved earlier
+              </div>
+            </div>
+            <button onClick={restoreDraft}
+              style={{padding:"6px 14px",background:"#5B3BE8",color:"#fff",border:"none",borderRadius:T.r.md,fontSize:12,fontWeight:600,cursor:"pointer",fontFamily:F,flexShrink:0}}>
+              Restore
+            </button>
+            <button onClick={discardDraft}
+              style={{padding:"6px 14px",background:"transparent",color:"#5B3BE8",border:`1px solid rgba(91,59,232,0.3)`,borderRadius:T.r.md,fontSize:12,fontWeight:500,cursor:"pointer",fontFamily:F,flexShrink:0}}>
+              Discard
+            </button>
+          </div>
+        )}
+
         <div style={{padding:"22px 24px",display:"flex",flexDirection:"column",gap:20}}>
           <section>
             <SL T={T}>Contact details</SL>
@@ -2409,8 +2467,16 @@ function FunnelForm({onClose,onSave,existing,user,users=[],T}) {
             </div>
           </section>
         </div>
-        <div style={{display:"flex",justifyContent:"flex-end",gap:10,padding:"14px 24px 22px",borderTop:`1px solid ${T.line}`,position:"sticky",bottom:0,background:T.surface,borderRadius:`0 0 ${T.r["2xl"]} ${T.r["2xl"]}`}}>
-          <Btn ghost label="Cancel" onClick={onClose} T={T}/><Btn primary icon={existing?P.check:P.plus} label={existing?"Save changes":"Add funnel"} onClick={submit} T={T}/>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:10,padding:"14px 24px 22px",borderTop:`1px solid ${T.line}`,position:"sticky",bottom:0,background:T.surface,borderRadius:`0 0 ${T.r["2xl"]} ${T.r["2xl"]}`}}>
+          {!existing ? (
+            <div style={{fontSize:11,color:T.inkMuted,fontFamily:F,display:"flex",alignItems:"center",gap:5}}>
+              <span style={{fontSize:13}}>💾</span> Draft auto-saved
+            </div>
+          ) : <div/>}
+          <div style={{display:"flex",gap:10}}>
+            <Btn ghost label="Cancel" onClick={handleClose} T={T}/>
+            <Btn primary icon={existing?P.check:P.plus} label={existing?"Save changes":"Add funnel"} onClick={submit} T={T}/>
+          </div>
         </div>
       </div>
     </div>
