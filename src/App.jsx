@@ -646,14 +646,21 @@ function Sidebar({active,set,user,onLogout,open,onClose,T,dark,onToggleDark,coll
 
 // ─── TOPBAR ───────────────────────────────────────────────────────────────────
 // ㉒ Notification bell for today's follow-ups
-function Topbar({title, search, setSearch, user, onAdd, onExportAll, onExportFiltered, fLen, aLen, onMenuToggle, T, todayCount, dateFilter, setDateFilter, dateType, setDateType}) {
-  const [bellHov, setBellHov] = useState(false);
+function Topbar({title, search, setSearch, user, onAdd, onExportAll, onExportFiltered, fLen, aLen, onMenuToggle, T, todayCount, dateFilter, setDateFilter, dateType, setDateType, todayFunnels=[]}) {
+  const [bellOpen, setBellOpen] = useState(false);
+  const bellRef = useRef(null);
+
+  useEffect(() => {
+    const handler = e => { if (bellRef.current && !bellRef.current.contains(e.target)) setBellOpen(false); };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
 
   return (
     <div style={{background: T.surface, borderBottom: `1px solid ${T.line}`, padding: "0 16px"}}>
       <div style={{display: "flex", alignItems: "center", justifyContent: "space-between", height: 56, gap: 8}}>
 
-        {/* ── Left: menu + title + search ── */}
+        {/* Left */}
         <div style={{display: "flex", alignItems: "center", gap: 10, flex: 1, minWidth: 0}}>
           <button onClick={onMenuToggle} className="ek-mobile-menu"
             style={{background: "none", border: "none", cursor: "pointer", color: T.inkSub, display: "none", padding: 4, borderRadius: 6}}>
@@ -672,35 +679,28 @@ function Topbar({title, search, setSearch, user, onAdd, onExportAll, onExportFil
           </div>
         </div>
 
-        {/* ── Middle: date type toggle + date picker ── */}
+        {/* Middle: date filters */}
         <div className="ek-topbar-date" style={{display: "flex", alignItems: "center", gap: 6, flexShrink: 0}}>
-          {/* Toggle pill */}
           <div style={{display: "flex", background: T.surfaceEl, border: `1px solid ${T.line}`, borderRadius: T.r.md, overflow: "hidden", flexShrink: 0}}>
             {[["followup", "Follow-up"], ["created", "Created"]].map(([val, label]) => (
               <button key={val} onClick={() => setDateType(val)}
                 style={{padding: "5px 10px", fontSize: 11, fontWeight: 500, fontFamily: F, border: "none", cursor: "pointer",
                   background: dateType === val ? "#5B3BE8" : "transparent",
-                  color:      dateType === val ? "#fff"    : T.inkSub,
-                  transition: "all .15s", whiteSpace: "nowrap"}}>
+                  color: dateType === val ? "#fff" : T.inkSub, transition: "all .15s", whiteSpace: "nowrap"}}>
                 {label}
               </button>
             ))}
           </div>
-
-          {/* Date input */}
           <div style={{display: "flex", alignItems: "center", gap: 4, background: dateFilter ? T.brandSubtle : T.surface, border: `1px solid ${dateFilter ? "#5B3BE8" : T.line}`, borderRadius: T.r.md, padding: "4px 8px", transition: "all .15s"}}>
             <Ic d={P.bell} sz={12} color={dateFilter ? "#5B3BE8" : T.inkMuted}/>
             <input type="date" value={dateFilter} onChange={e => setDateFilter(e.target.value)}
               style={{border: "none", background: "transparent", outline: "none", fontSize: 12, fontFamily: F, color: dateFilter ? "#5B3BE8" : T.ink, cursor: "pointer", fontWeight: dateFilter ? 600 : 400, width: 120}}/>
             {dateFilter && (
-              <button onClick={() => setDateFilter("")}
-                style={{background: "none", border: "none", cursor: "pointer", color: "#5B3BE8", display: "flex", padding: 0, marginLeft: 2}}>
+              <button onClick={() => setDateFilter("")} style={{background: "none", border: "none", cursor: "pointer", color: "#5B3BE8", display: "flex", padding: 0, marginLeft: 2}}>
                 <Ic d={P.close} sz={11} color="currentColor"/>
               </button>
             )}
           </div>
-
-          {/* Active label */}
           {dateFilter && (
             <span style={{fontSize: 11, fontWeight: 500, color: "#5B3BE8", background: T.brandSubtle, padding: "3px 8px", borderRadius: 20, fontFamily: F, whiteSpace: "nowrap", border: `1px solid rgba(91,59,232,.2)`}}>
               {dateType === "followup" ? "Follow-up" : "Created"}: {dateFilter}
@@ -708,34 +708,67 @@ function Topbar({title, search, setSearch, user, onAdd, onExportAll, onExportFil
           )}
         </div>
 
-        {/* ── Right: bell + exports + add ── */}
+        {/* Right: bell + exports + add */}
         <div style={{display: "flex", gap: 6, alignItems: "center", flexShrink: 0}}>
-          {/* Bell */}
-          <div style={{position: "relative"}}>
-            <button onMouseEnter={() => setBellHov(true)} onMouseLeave={() => setBellHov(false)}
-              style={{width: 34, height: 34, borderRadius: T.r.md, background: bellHov ? T.surfaceEl : "transparent", border: `1px solid ${bellHov ? T.line : "transparent"}`, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", transition: "all .12s"}}
-              title={todayCount ? `${todayCount} follow-up${todayCount > 1 ? "s" : ""} due today` : undefined}>
+
+          {/* Bell with dropdown */}
+          <div ref={bellRef} style={{position: "relative"}}>
+            <button onClick={() => setBellOpen(x => !x)}
+              style={{width: 34, height: 34, borderRadius: T.r.md, background: bellOpen ? T.surfaceEl : "transparent", border: `1px solid ${bellOpen ? T.line : "transparent"}`, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", transition: "all .12s"}}>
               <Ic d={P.bell} sz={15} color={todayCount > 0 ? "#D97706" : T.inkSub}/>
             </button>
             {todayCount > 0 && (
-              <div style={{position: "absolute", top: 2, right: 2, width: 16, height: 16, borderRadius: "50%", background: "#D97706", color: "#fff", fontSize: 9, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: F, border: `2px solid ${T.surface}`}}>
+              <div style={{position: "absolute", top: 2, right: 2, width: 16, height: 16, borderRadius: "50%", background: "#D97706", color: "#fff", fontSize: 9, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: F, border: `2px solid ${T.surface}`, pointerEvents: "none"}}>
                 {todayCount > 9 ? "9+" : todayCount}
               </div>
             )}
+            {bellOpen && (
+              <div style={{position: "absolute", top: "calc(100% + 8px)", right: 0, width: 320, background: T.surface, border: `1px solid ${T.line}`, borderRadius: T.r.lg, boxShadow: T.shadowXl, zIndex: 999, animation: "fadeUp .15s ease", overflow: "hidden"}}>
+                <div style={{padding: "12px 16px", borderBottom: `1px solid ${T.line}`, display: "flex", alignItems: "center", justifyContent: "space-between"}}>
+                  <div style={{display: "flex", alignItems: "center", gap: 8}}>
+                    <Ic d={P.bell} sz={13} color="#D97706"/>
+                    <span style={{fontSize: 13, fontWeight: 700, color: T.ink, fontFamily: F}}>Today's Follow-ups</span>
+                  </div>
+                  {todayCount > 0 && (
+                    <span style={{fontSize: 11, fontWeight: 600, background: "#D97706", color: "#fff", padding: "2px 8px", borderRadius: 20, fontFamily: F}}>{todayCount}</span>
+                  )}
+                </div>
+                <div style={{maxHeight: 340, overflowY: "auto"}}>
+                  {todayFunnels.length === 0 ? (
+                    <div style={{padding: "32px 16px", textAlign: "center"}}>
+                      <div style={{fontSize: 28, marginBottom: 8}}>&#x1F389;</div>
+                      <div style={{fontSize: 13, fontWeight: 600, color: T.ink, fontFamily: F, marginBottom: 4}}>All clear!</div>
+                      <div style={{fontSize: 12, color: T.inkMuted, fontFamily: F}}>No follow-ups due today.</div>
+                    </div>
+                  ) : todayFunnels.map((f, i) => (
+                    <div key={f.id} style={{padding: "11px 16px", borderBottom: i < todayFunnels.length - 1 ? `1px solid ${T.line}` : "none", display: "flex", alignItems: "center", gap: 10, transition: "background .1s", cursor: "default"}}
+                      onMouseEnter={e => e.currentTarget.style.background = T.surfaceEl}
+                      onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
+                      <div style={{width: 34, height: 34, borderRadius: "50%", background: T.pending.bg, border: `2px solid ${T.pending.dot}`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0}}>
+                        <span style={{fontSize: 14}}>&#x1F4DE;</span>
+                      </div>
+                      <div style={{flex: 1, minWidth: 0}}>
+                        <div style={{fontSize: 13, fontWeight: 600, color: T.ink, fontFamily: F, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap"}}>{f.name}</div>
+                        <div style={{display: "flex", alignItems: "center", gap: 6, marginTop: 2}}>
+                          {f.phone && <span style={{fontSize: 11, color: T.inkMuted, fontFamily: F}}>{f.phone}</span>}
+                          {f.enquiryType && <span style={{fontSize: 10, background: T.brandSubtle, color: "#5B3BE8", padding: "1px 6px", borderRadius: 8, fontFamily: F, fontWeight: 500}}>{f.enquiryType}</span>}
+                        </div>
+                      </div>
+                      <div style={{flexShrink: 0, textAlign: "right"}}>
+                        <div style={{fontSize: 10, fontWeight: 600, color: T.pending.text, fontFamily: F}}>Today</div>
+                        {f.quoteAmount && <div style={{fontSize: 11, fontWeight: 700, color: "#5B3BE8", fontFamily: F}}>₹{Number(f.quoteAmount).toLocaleString("en-IN")}</div>}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                {todayFunnels.length > 0 && (
+                  <div style={{padding: "10px 16px", borderTop: `1px solid ${T.line}`, background: T.surfaceEl, textAlign: "center"}}>
+                    <span style={{fontSize: 11, color: T.inkMuted, fontFamily: F}}>{todayCount} pending follow-up{todayCount > 1 ? "s" : ""} due today</span>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
-
-          {FULL.includes(user.role) && (
-            <>
-              <Btn ghost sm icon={P.dl} label={`Filtered (${fLen})`} onClick={onExportFiltered} T={T}/>
-              <Btn ghost sm icon={P.dl} label={`All (${aLen})`}      onClick={onExportAll}      T={T}/>
-            </>
-          )}
-          {!FULL.includes(user.role) && can(user, "export") && (
-            <Btn ghost sm icon={P.dl} label="Export" onClick={onExportFiltered} T={T}/>
-          )}
-          {can(user, "create") && (
-            <Btn primary sm icon={P.plus} label="Add funnel" onClick={onAdd} T={T}/>
-          )}
         </div>
       </div>
     </div>
@@ -2518,8 +2551,9 @@ function Shell({user,users,onLogout,onUsersChange,T,dark,onToggleDark}) {
 
   const scoped=useMemo(()=>FULL.includes(user.role)?funnels:funnels.filter(f=>f.createdBy===user.name||f.assignedTo===user.name),[funnels,user]);
 
-  // ㉒ today's follow-ups count for bell
-  const todayCount=useMemo(()=>scoped.filter(f=>f.nextFollowUp===TODAY&&f.status==="Pending").length,[scoped,TODAY]);
+  // ㉒ today's follow-ups list + count for bell
+  const todayFunnels=useMemo(()=>scoped.filter(f=>f.nextFollowUp===TODAY&&f.status==="Pending"),[scoped,TODAY]);
+  const todayCount=todayFunnels.length;
 
   const filtered=useMemo(()=>scoped.filter(f=>{
     if(statFilter&&f.status!==statFilter)return false;
@@ -2581,7 +2615,7 @@ return true;
   onExportAll={()=>{xls(scoped,`Ekanta_All_${TODAY}.xls`);push(`Exported ${scoped.length} funnels`,"info");}}
   onExportFiltered={()=>{xls(filtered,`Ekanta_Filtered_${TODAY}.xls`);push(`Exported ${filtered.length} funnels`,"info");}}
   fLen={filtered.length} aLen={scoped.length} onMenuToggle={()=>setSidebarOpen(x=>!x)} T={T} todayCount={todayCount}
-  dateFilter={dateFilter} setDateFilter={setDateFilter} dateType={dateType} setDateType={setDateType}/>
+  dateFilter={dateFilter} setDateFilter={setDateFilter} dateType={dateType} setDateType={setDateType} todayFunnels={todayFunnels}/>
 
         {/* ⑲ Greeting on dashboard */}
         {showStats&&(
