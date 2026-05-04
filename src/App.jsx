@@ -2731,7 +2731,7 @@ return true;
     </div>
   </div>
 )}
-{showStats&&<Stats funnels={scoped} activeStatFilter={statFilter} onStatClick={handleStatClick} T={T}/>}
+{showStats&&<Stats funnels={monthFilter?scoped.filter(f=>{try{return new Date(f.createdAt).toISOString().slice(0,7)===monthFilter;}catch{return false;}}):scoped} activeStatFilter={statFilter} onStatClick={handleStatClick} T={T}/>}
         {showFilters&&<div style={{marginTop:16}}><FilterBar fil={fil} setF={sf} reset={rf} users={users} user={user} T={T}/></div>}
 
         <div style={{flex:1,background:showFilters?T.surface:"transparent",borderTop:showFilters?`1px solid ${T.line}`:"none"}}>
