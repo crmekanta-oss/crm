@@ -106,23 +106,16 @@ function FontLoader({ dark }) {
 
       /* ── MOBILE ≤767px ── */
       @media(max-width:767px){
-        /* Layout */
         .ek-shell{height:auto!important;overflow:visible!important}
-        .ek-main-col{height:auto!important;overflow:visible!important}
+        .ek-main-col{height:auto!important;overflow:visible!important;padding-bottom:64px!important}
         .ek-table-scroll{overflow-y:visible!important}
-
-        /* Sidebar */
         .ek-sidebar{display:none!important}
         .ek-sidebar.open{display:flex!important;position:fixed!important;inset:0!important;width:240px!important;z-index:300!important}
-
-        /* Topbar */
         .ek-topbar-search{display:none!important}
         .ek-topbar-date{display:none!important}
         .ek-mobile-menu{display:flex!important}
         .ek-hide-mobile{display:none!important}
         .ek-show-mobile{display:flex!important}
-
-        /* Grids */
         .ek-stats-grid{grid-template-columns:repeat(2,1fr)!important;gap:8px!important}
         .ek-form-3col{grid-template-columns:1fr!important}
         .ek-form-2col{grid-template-columns:1fr!important}
@@ -131,16 +124,24 @@ function FontLoader({ dark }) {
         .ek-team-grid{grid-template-columns:1fr!important}
         .ek-analytics-pipeline{grid-template-columns:1fr!important}
         .ek-analytics-followup{grid-template-columns:1fr!important}
-
-        /* Login */
         .ek-login-left{display:none!important}
-
-        /* Filter bar scroll on mobile */
         .ek-filter-scroll{overflow-x:auto;flex-wrap:nowrap!important;padding-bottom:4px}
-
-        /* Table horizontal scroll */
         .ek-table-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
+        .ek-bottom-nav{display:flex!important}
+        .ek-page-content{animation:fadeUp .25s ease both}
       }
+
+      /* ── TRANSITIONS & POLISH ── */
+      .ek-stat-card{transition:transform .18s ease,box-shadow .18s ease}
+      .ek-stat-card:hover{transform:translateY(-3px)}
+      .ek-table-row{transition:background .1s ease}
+      .ek-nav-btn{transition:all .15s ease}
+      .ek-page-content{animation:fadeUp .2s ease both}
+      .ek-bottom-nav{display:none;position:fixed;bottom:0;left:0;right:0;background:var(--ek-surface,#fff);border-top:1px solid rgba(0,0,0,0.08);z-index:150;height:60px;align-items:center;justify-content:space-around;padding:0 8px;box-shadow:0 -4px 20px rgba(0,0,0,0.08)}
+      .ek-bottom-nav-item{display:flex;flex-direction:column;align-items:center;gap:3px;padding:6px 12px;border-radius:12px;border:none;background:none;cursor:pointer;transition:all .15s ease;min-width:56px}
+      .ek-bottom-nav-item.active{background:rgba(91,59,232,0.1)}
+      .ek-bottom-nav-item svg{transition:transform .15s ease}
+      .ek-bottom-nav-item.active svg{transform:scale(1.1)}
     `;
   }, [dark]);
   return null;
@@ -557,7 +558,7 @@ function Sidebar({active,set,user,onLogout,open,onClose,T,dark,onToggleDark,coll
     <>
       {open&&<div onClick={onClose} style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.4)",zIndex:199}}/>}
       <div className={`ek-sidebar${open?" open":""}`}
-        style={{width:w,height:"100vh",background:T.sidebar,borderRight:`1px solid ${T.line}`,display:"flex",flexDirection:"column",flexShrink:0,position:"relative",zIndex:200,transition:"width .2s ease",overflow:"hidden"}}>
+        style={{width:w,height:"100vh",background:T.sidebar,borderRight:`1px solid ${T.line}`,display:"flex",flexDirection:"column",flexShrink:0,position:"relative",zIndex:200,transition:"width .25s cubic-bezier(0.4,0,0.2,1)",overflow:"hidden",boxShadow:T.shadowSm}}>
 
         {/* Header */}
         <div style={{padding:collapsed?"14px 0":"18px 16px 14px",borderBottom:`1px solid ${T.line}`,display:"flex",alignItems:"center",justifyContent:collapsed?"center":"space-between"}}>
@@ -696,7 +697,7 @@ function Topbar({title, search, setSearch, user, onAdd, onExportAll, onExportFil
             style={{background: "none", border: "none", cursor: "pointer", color: T.inkSub, display: "none", padding: 4, borderRadius: 6}}>
             <Ic d={P.menu} sz={18} color="currentColor"/>
           </button>
-          <h1 style={{fontSize: 15, fontWeight: 600, color: T.ink, letterSpacing: "-0.2px", margin: 0, fontFamily: F, whiteSpace: "nowrap"}}>{title}</h1>
+          <h1 style={{fontSize: 16, fontWeight: 700, color: T.ink, letterSpacing: "-0.3px", margin: 0, fontFamily: F, whiteSpace: "nowrap"}}>{title}</h1>
           <div className="ek-topbar-search" style={{display: "flex", alignItems: "center", gap: 8, background: T.surfaceEl, border: `1px solid ${T.line}`, borderRadius: T.r.md, padding: "6px 11px", minWidth: 180, maxWidth: 260, flex: 1}}>
             <Ic d={P.search} sz={13} color={T.inkMuted}/>
             <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search funnels…"
@@ -853,7 +854,7 @@ function Stats({funnels, activeStatFilter, onStatClick, T}) {
         {cards.map((c,i)=>{
           const isActive=activeStatFilter===c.filterKey&&c.filterKey!==null;
           return (
-            <div key={i} onClick={()=>onStatClick(c.filterKey)}
+            <div key={i} onClick={()=>onStatClick(c.filterKey)} className="ek-stat-card"
               style={{background:c.bg,border:`1.5px solid ${isActive?c.accent:T.line}`,borderRadius:T.r.lg,padding:"12px 10px",boxShadow:isActive?`0 0 0 3px ${c.accent}22`:T.shadowSm,animation:`fadeUp .25s ease ${i*.04}s both`,cursor:c.filterKey?"pointer":"default",transition:"all .15s",transform:isActive?"translateY(-1px)":"none",position:"relative"}}
               onMouseEnter={e=>{if(c.filterKey){e.currentTarget.style.transform="translateY(-1px)";e.currentTarget.style.boxShadow=`0 0 0 3px ${c.accent}33`;}}}
               onMouseLeave={e=>{if(c.filterKey&&!isActive){e.currentTarget.style.transform="none";e.currentTarget.style.boxShadow=T.shadowSm;}}}>
@@ -1092,7 +1093,7 @@ function Table({rows,user,onView,onEdit,onCreEdit,onDelete,onLogFollowup,onAddPr
         const cats=[...new Set((f.products||[]).map(p=>p.category).filter(Boolean))].join(", ")||"—";
         const canCreEdit=!FULL.includes(user.role)&&!isViewer&&(f.createdBy===user.name||f.assignedTo===user.name);
         return (
-          <div key={f.id} style={{padding:"12px 14px",borderBottom:`1px solid ${T.line}`,background:selectedIds.has(f.id)?T.brandSubtle:i%2===0?T.surface:T.surfaceEl,cursor:"pointer",position:"relative"}}
+          <div key={f.id} style={{padding:"12px 14px",borderBottom:`1px solid ${T.line}`,background:selectedIds.has(f.id)?T.brandSubtle:i%2===0?T.surface:T.surfaceEl,cursor:"pointer",position:"relative",transition:"background .15s ease,transform .1s ease"}}
             onClick={()=>onView(f)}
             onMouseEnter={e=>e.currentTarget.style.background=T.brandSubtle}
             onMouseLeave={e=>e.currentTarget.style.background=i%2===0?T.surface:T.surfaceEl}>
@@ -1512,7 +1513,7 @@ const areaPath = (points, maxV) => {
         </div>
         {compareOn && cmpValue !== undefined && <DeltaBadge cur={rawValue !== undefined ? rawValue : (typeof value === "number" ? value : 0)} prev={rawCmpValue !== undefined ? rawCmpValue : (typeof cmpValue === "number" ? cmpValue : 0)} />}
       </div>
-      <div style={{ fontSize: 26, fontWeight: 700, color: T.ink, fontFamily: F, letterSpacing: "-0.8px", lineHeight: 1.1, marginBottom: 3 }}>
+      <div style={{ fontSize: 28, fontWeight: 800, color: T.ink, fontFamily: F, letterSpacing: "-1px", lineHeight: 1.1, marginBottom: 3 }}>
         {typeof value === "number" && value > 1000 ? big(value) : value}
       </div>
       {compareOn && cmpValue !== undefined && (
@@ -1627,7 +1628,7 @@ const areaPath = (points, maxV) => {
         </div>
       </div>
 
-      <div style={{ padding: "16px", display: "flex", flexDirection: "column", gap: 16 }}>
+      <div style={{ padding: "16px", display: "flex", flexDirection: "column", gap: 16, animation: "fadeUp .2s ease both" }}>
 
         {/* ════════════════════════════════════════════════════════
             OVERVIEW TAB
@@ -1915,6 +1916,7 @@ const areaPath = (points, maxV) => {
         {/* ════════════════════════════════════════════════════════
             PIPELINE TAB
         ════════════════════════════════════════════════════════ */}
+
         {activeTab === "pipeline" && (
           <>
             {/* Revenue Area Chart */}
@@ -2088,6 +2090,7 @@ const areaPath = (points, maxV) => {
         {/* ════════════════════════════════════════════════════════
             TEAM TAB
         ════════════════════════════════════════════════════════ */}
+
         {activeTab === "team" && (
           <>
             {/* Team Leaderboard */}
@@ -2171,6 +2174,7 @@ const areaPath = (points, maxV) => {
         {/* ════════════════════════════════════════════════════════
             PRODUCTS TAB
         ════════════════════════════════════════════════════════ */}
+
         {activeTab === "products" && (
           <>
             <div className="ek-analytics-2col" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
@@ -2797,7 +2801,7 @@ const confirmStatus=()=>{
   const fo=mkFocus(T); const bl=mkBlur(T);
   const submitComment=()=>{if(!commentText.trim())return;onAddComment(funnel.id,{text:commentText.trim(),author:user.name,role:user.role,time:stamp()});setCommentText("");};
   const Row=({l,v,mono})=>(<div style={{display:"grid",gridTemplateColumns:"140px 1fr",gap:8,padding:"8px 0",borderBottom:`1px solid ${T.line}`}}><dt style={{fontSize:11,fontWeight:500,color:T.inkMuted,fontFamily:F}}>{l}</dt><dd style={{fontSize:13,color:T.ink,fontFamily:mono?"'SF Mono',monospace":F,wordBreak:"break-all"}}>{v||"—"}</dd></div>);
-  const Sec=({t})=><div style={{fontSize:10,fontWeight:600,color:T.inkMuted,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:10,marginTop:4,fontFamily:F}}>{t}</div>;
+  const Sec=({t})=><div style={{fontSize:10,fontWeight:700,color:T.inkMuted,textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:12,marginTop:8,fontFamily:F,display:"flex",alignItems:"center",gap:8}}><span>{t}</span><div style={{flex:1,height:1,background:`linear-gradient(to right, ${T.line}, transparent)`}}/></div>;
   const roleColor={"CEO":T.high,"Manager":T.won,"CRE":T.pending};
   const outcomeColors={"Interested":T.won,"Order Confirmed":T.won,"Needs Time":T.pending,"Callback Requested":T.pending,"Rescheduled":T.pending,"Not Interested":T.lost,"Other":T.drop};
   const canCreEdit=!FULL.includes(user.role)&&!isViewer&&(funnel.createdBy===user.name||funnel.assignedTo===user.name);
@@ -3106,7 +3110,7 @@ return true;
         {showStats&&(
           <div style={{padding:"16px 16px 0"}}>
             <div style={{marginBottom:4}}>
-              <h2 style={{fontSize:20,fontWeight:700,color:T.ink,fontFamily:F,margin:"0 0 4px",letterSpacing:"-0.4px"}}>{greeting(user.name)}</h2>
+              <h2 style={{fontSize:24,fontWeight:800,color:T.ink,fontFamily:F,margin:"0 0 6px",letterSpacing:"-0.6px",lineHeight:1.2}}>{greeting(user.name)}</h2>
               <p style={{fontSize:13,color:T.inkSub,margin:0,fontFamily:F}}>
                 {todayCount>0
                   ? `You have ${todayCount} follow-up${todayCount>1?"s":""} due today.`
@@ -3145,12 +3149,42 @@ return true;
 {showStats&&<Stats funnels={monthFilter?scoped.filter(f=>{try{return new Date(f.createdAt).toISOString().slice(0,7)===monthFilter;}catch{return false;}}):scoped} activeStatFilter={statFilter} onStatClick={handleStatClick} T={T}/>}
         {showFilters&&<div style={{marginTop:16}}><FilterBar fil={fil} setF={sf} reset={rf} users={users} user={user} T={T} funnels={scoped}/></div>}
 
-        <div style={{flex:1,background:showFilters?T.surface:"transparent",borderTop:showFilters?`1px solid ${T.line}`:"none"}} className="ek-table-scroll">
+        <div style={{flex:1,background:showFilters?T.surface:"transparent",borderTop:showFilters?`1px solid ${T.line}`:"none"}} className="ek-table-scroll ek-page-content">
           {(view==="dashboard"||view==="funnels")&&<Table rows={filtered} user={user} onView={setViewT} onEdit={f=>setEditT(f)} onCreEdit={f=>setCreEditT(f)} onDelete={del} onLogFollowup={f=>setLogModalFunnel(f)} onAddProof={f=>setProofModalFunnel(f)} loading={loading} T={T} selectedIds={selectedIds} toggleSelect={toggleSelect} toggleSelectAll={toggleSelectAll}/>}
           {view==="analytics"&&<Analytics funnels={FULL.includes(user.role)?funnels:scoped} T={T}/>}
           {view==="team"&&FULL.includes(user.role)&&<Team users={users} onSave={onUsersChange} T={T}/>}
         </div>
       </div>
+
+      {/* ── MOBILE BOTTOM NAV ── */}
+      <nav className="ek-bottom-nav" style={{background:T.surface,borderTop:`1px solid ${T.line}`}}>
+        {[
+          {id:"dashboard",label:"Home",icon:P.dash},
+          {id:"funnels",label:"Funnels",icon:P.list},
+          {id:"analytics",label:"Analytics",icon:P.chart},
+          ...(FULL.includes(user.role)?[{id:"team",label:"Team",icon:P.users}]:[]),
+        ].map(item=>{
+          const a=view===item.id;
+          return (
+            <button key={item.id} onClick={()=>{setView(item.id);setStatFilter(null);}}
+              className={`ek-bottom-nav-item${a?" active":""}`}>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                <path d={item.icon} stroke={a?"#5B3BE8":T.inkMuted} strokeWidth={a?"2":"1.5"} strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+              <span style={{fontSize:10,fontWeight:a?700:400,color:a?"#5B3BE8":T.inkMuted,fontFamily:F,letterSpacing:"0.01em"}}>{item.label}</span>
+            </button>
+          );
+        })}
+        {can(user,"create")&&(
+          <button onClick={()=>setAddOpen(true)}
+            className="ek-bottom-nav-item"
+            style={{background:"#5B3BE8",borderRadius:14,width:44,height:44,minWidth:"unset",padding:0,boxShadow:"0 4px 14px rgba(91,59,232,0.4)"}}>
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+              <path d={P.plus} stroke="#fff" strokeWidth="2.5" strokeLinecap="round"/>
+            </svg>
+          </button>
+        )}
+      </nav>
 
       {(addOpen||editT)&&<FunnelForm onClose={()=>{setAddOpen(false);setEditT(null);}} onSave={save} existing={editT} user={user} users={users} T={T}/>}
       {viewT&&<ViewDrawer funnel={viewT} onClose={()=>setViewT(null)} onEdit={f=>setEditT(f)} onCreEdit={f=>setCreEditT(f)} onStatusChange={upStatus} user={user} comments={funnelComments[viewT.id]||[]} onAddComment={addComment} followupLogs={followupLogs[viewT.id]||[]} onLogFollowup={()=>setLogModalFunnel(viewT)} onAddProof={f=>{setProofModalFunnel(f);}} T={T}/>}
@@ -3187,7 +3221,21 @@ export default function App() {
     }catch(err){console.error(err);}
   };
 
-  if(loading) return <div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:T.bg,fontFamily:F,color:T.ink}}>Loading CRM...</div>;
+  if(loading) return (
+    <div style={{minHeight:"100vh",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",background:T.bg,fontFamily:F,gap:24}}>
+      <div style={{position:"relative",width:72,height:72}}>
+        <div style={{position:"absolute",inset:0,borderRadius:"50%",border:"3px solid rgba(91,59,232,0.15)"}}/>
+        <div style={{position:"absolute",inset:0,borderRadius:"50%",border:"3px solid transparent",borderTopColor:"#5B3BE8",animation:"spin .8s linear infinite"}}/>
+        <div style={{position:"absolute",inset:8,borderRadius:"50%",background:"#5B3BE8",display:"flex",alignItems:"center",justifyContent:"center"}}>
+          <img src="/logo.png" alt="Ekanta" style={{width:32,height:32,borderRadius:6,objectFit:"cover"}} onError={e=>e.target.style.display="none"}/>
+        </div>
+      </div>
+      <div style={{textAlign:"center"}}>
+        <div style={{fontSize:18,fontWeight:700,color:T.ink,letterSpacing:"-0.3px",marginBottom:6}}>Ekanta CRM</div>
+        <div style={{fontSize:13,color:T.inkMuted,animation:"pulse 1.5s ease infinite"}}>Loading your workspace…</div>
+      </div>
+    </div>
+  );
 
   return (
     <>
