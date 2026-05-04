@@ -108,6 +108,14 @@ function FontLoader({ dark }) {
       }
       .ek-hide-mobile{display:inline-flex}
       .ek-show-mobile{display:none}
+      .ek-shell{height:100vh;overflow:hidden}
+      .ek-main-col{height:100vh;overflow:hidden}
+      .ek-table-scroll{overflow-y:auto}
+      @media(max-width:767px){
+        .ek-shell{height:auto!important;overflow:visible!important}
+        .ek-main-col{height:auto!important;overflow:visible!important}
+        .ek-table-scroll{overflow-y:visible!important}
+      }
       @media(max-width:1100px){
   .ek-topbar-date span{display:none}
 }
@@ -401,9 +409,7 @@ function Login({users,onLogin,T,dark,onToggleDark}) {
 
         <div style={{position:"relative",zIndex:1}}>
           <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:48}}>
-            <div style={{width:36,height:36,background:"rgba(255,255,255,0.2)",borderRadius:10,display:"flex",alignItems:"center",justifyContent:"center",backdropFilter:"blur(4px)"}}>
-              <Ic d={P.layers} sz={16} color="#fff" sw={2}/>
-            </div>
+            <img src="/logo.png" alt="Ekanta" style={{width:36,height:36,borderRadius:10,objectFit:"cover"}}/>
             <div>
               <div style={{fontSize:16,fontWeight:700,color:"#fff",letterSpacing:"-0.3px"}}>Ekanta Design Studio</div>
               <div style={{fontSize:11,color:"rgba(255,255,255,0.6)"}}>Customer Relations Management</div>
@@ -535,16 +541,14 @@ function Sidebar({active,set,user,onLogout,open,onClose,T,dark,onToggleDark,coll
         <div style={{padding:collapsed?"14px 0":"18px 16px 14px",borderBottom:`1px solid ${T.line}`,display:"flex",alignItems:"center",justifyContent:collapsed?"center":"space-between"}}>
           {!collapsed&&(
             <div style={{display:"flex",alignItems:"center",gap:9}}>
-              <div style={{width:28,height:28,background:"#5B3BE8",borderRadius:7,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
-                <Ic d={P.layers} sz={13} color="#fff" sw={2.2}/>
-              </div>
+              <img src="/logo.png" alt="Ekanta" style={{width:28,height:28,borderRadius:7,objectFit:"cover",flexShrink:0}}/>
               <div>
                 <div style={{fontSize:13,fontWeight:700,color:T.ink,letterSpacing:"-0.2px",lineHeight:1.2}}>Ekanta</div>
                 <div style={{fontSize:10,color:T.inkMuted,lineHeight:1}}>Design Studio</div>
               </div>
             </div>
           )}
-          {collapsed&&<div style={{width:28,height:28,background:"#5B3BE8",borderRadius:7,display:"flex",alignItems:"center",justifyContent:"center"}}><Ic d={P.layers} sz={13} color="#fff" sw={2.2}/></div>}
+          {collapsed&&<img src="/logo.png" alt="Ekanta" style={{width:28,height:28,borderRadius:7,objectFit:"cover"}}/>}
           {!collapsed&&(
             <button onClick={onToggleCollapse} style={{background:"none",border:`1px solid ${T.line}`,cursor:"pointer",color:T.inkSub,display:"flex",padding:4,borderRadius:6,marginLeft:"auto"}} title="Collapse sidebar">
               <Ic d={P.chevL} sz={12} color="currentColor"/>
@@ -2679,9 +2683,9 @@ return true;
   const showStats=view==="dashboard";
 
   return (
-    <div style={{display:"flex",height:"100vh",overflow:"hidden",background:T.bg,fontFamily:F}}>
+    <div style={{display:"flex",height:"100vh",overflow:"hidden",background:T.bg,fontFamily:F}} className="ek-shell">
       <Sidebar active={view} set={v=>{setView(v);setStatFilter(null);}} user={user} onLogout={onLogout} open={sidebarOpen} onClose={()=>setSidebarOpen(false)} T={T} dark={dark} onToggleDark={onToggleDark} collapsed={sidebarCollapsed} onToggleCollapse={()=>setSidebarCollapsed(x=>!x)}/>
-      <div style={{flex:1,display:"flex",flexDirection:"column",minWidth:0,height:"100vh",overflow:"hidden"}}>
+      <div style={{flex:1,display:"flex",flexDirection:"column",minWidth:0,height:"100vh",overflow:"hidden"}} className="ek-main-col">
 {selectedIds.size > 0 && (
   <div style={{background: T.brandSubtle, borderBottom: `1px solid rgba(91,59,232,.2)`, padding: "8px 16px", display: "flex", alignItems: "center", gap: 12}}>
     <span style={{fontSize: 13, fontWeight: 600, color: "#5B3BE8", fontFamily: F}}>{selectedIds.size} selected</span>
@@ -2738,7 +2742,7 @@ return true;
 {showStats&&<Stats funnels={monthFilter?scoped.filter(f=>{try{return new Date(f.createdAt).toISOString().slice(0,7)===monthFilter;}catch{return false;}}):scoped} activeStatFilter={statFilter} onStatClick={handleStatClick} T={T}/>}
         {showFilters&&<div style={{marginTop:16}}><FilterBar fil={fil} setF={sf} reset={rf} users={users} user={user} T={T}/></div>}
 
-        <div style={{flex:1,background:showFilters?T.surface:"transparent",borderTop:showFilters?`1px solid ${T.line}`:"none",overflowY:"auto"}}>
+        <div style={{flex:1,background:showFilters?T.surface:"transparent",borderTop:showFilters?`1px solid ${T.line}`:"none"}} className="ek-table-scroll">
           {(view==="dashboard"||view==="funnels")&&<Table rows={filtered} user={user} onView={setViewT} onEdit={f=>setEditT(f)} onCreEdit={f=>setCreEditT(f)} onDelete={del} onLogFollowup={f=>setLogModalFunnel(f)} loading={loading} T={T} selectedIds={selectedIds} toggleSelect={toggleSelect} toggleSelectAll={toggleSelectAll}/>}
           {view==="analytics"&&<Analytics funnels={FULL.includes(user.role)?funnels:scoped} T={T}/>}
           {view==="team"&&FULL.includes(user.role)&&<Team users={users} onSave={onUsersChange} T={T}/>}
